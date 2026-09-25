@@ -154,12 +154,15 @@ export function ensureBooted(): Promise<void> {
 /** Mensagem segura (sem segredos) para falhas de inicialização. */
 function bootErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  if (/Variável\(is\) de ambiente/.test(msg) || /DATABASE_URL/.test(msg) || /URL do banco/.test(msg)) return msg;
+  // Senhas nunca chegam na mensagem — são só na URL que nunca logamos.
+  // Mostramos a mensagem real para facilitar o diagnóstico.
   if (/password authentication failed|SASL|28P01/i.test(msg)) return "Banco recusou a senha: confira a senha dentro da DATABASE_URL.";
-  if (/ENOTFOUND|getaddrinfo|ECONNREFUSED|ETIMEDOUT|timeout/i.test(msg)) return "Não foi possível conectar ao banco: confira o host e a porta (6543) da DATABASE_URL.";
+  if (/ENOTFOUND|getaddrinfo|ECONNREFUSED|ETIMEDOUT/i.test(msg)) return "Não foi possível conectar ao banco: confira o host e a porta da DATABASE_URL.";
+  if (/timeout/i.test(msg)) return "Timeout ao conectar ao banco: confira host e porta (use 6543 para pooler do Supabase).";
   if (/Tenant or user not found/i.test(msg)) return "Supabase não reconheceu o usuário: na DATABASE_URL o usuário deve ser postgres.<id-do-projeto>.";
   if (/relation .* does not exist/i.test(msg)) return "Tabelas não encontradas: rode supabase/setup.sql no SQL Editor do Supabase.";
-  return "Falha ao iniciar o servidor. Veja os logs do deploy.";
+  // Para qualquer outro erro, mostra a mensagem real (não contém segredos).
+  return msg.length > 300 ? msg.slice(0, 300) + "…" : msg;
 }
 
 export async function handleApi(req: Request): Promise<Response> {
