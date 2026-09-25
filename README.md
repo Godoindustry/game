@@ -208,3 +208,19 @@ O código já está pronto; faltam só as credenciais.
    - O rate limit fica na tabela `rate_limits` e vale entre todas as instâncias serverless.
 
 As chaves `service_role` / `sb_secret` do Supabase **não são usadas** e nunca devem ir para variáveis públicas (`NEXT_PUBLIC_*`).
+
+## Tags de expressão (voz)
+
+Frases de eventos, resultados, finais e narrações da IA podem trazer **tags de expressão escondidas**, entre colchetes e em inglês, logo antes do trecho que afetam:
+
+```
+[whispers] “sete… quatro… zero…” [pause] [ominous] Ninguém sabe que você está aqui.
+```
+
+- **Onde ficam:** a lista permitida está em [`src/shared/voiceTags.ts`](src/shared/voiceTags.ts). Exemplos: `[whispers]`, `[sighs]`, `[gasps]`, `[trembling]`, `[ominous]`, `[relieved]`, `[pause]`, `[long pause]`.
+- **Tela:** a API entrega `text`, **sem** tags, para exibir.
+- **Voz:** a API entrega `voice`, **com** as tags permitidas, para o modelo de voz. Vale para eventos, diário e finais.
+- **IA:** ela só pode usar tags da lista; qualquer tag inventada é removida.
+- **ElevenLabs:** gere os áudios com `npm run audio:generate` (precisa de `ELEVENLABS_API_KEY` no `.env.local`).
+  - O modelo padrão `eleven_v3` interpreta as tags como entonação.
+  - Com modelos sem suporte (ex.: `eleven_multilingual_v2`), o script remove as tags antes de enviar, para não serem lidas em voz alta.

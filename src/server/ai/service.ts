@@ -13,6 +13,7 @@ import { MockProvider } from "./providers/mock";
 import { OpenAICompatibleProvider } from "./providers/openaiCompatible";
 import { AnthropicProvider } from "./providers/anthropic";
 import { ChainProvider } from "./providers/chain";
+import { stripVoiceTags, toVoiceText } from "@/shared/voiceTags";
 
 export type AISource = "ai" | "cache" | "fallback";
 export interface AIContext {
@@ -226,36 +227,37 @@ const maxTokens = () => getConfig().AI_MAX_OUTPUT_TOKENS;
 
 // ---------- API pública ----------
 export async function aiNarrative(ctx: AIContext, input: NarrativeInput, fallback: string): Promise<{ text: string; source: AISource }> {
-  const trimmed = { ...input, facts: input.facts.slice(0, 8).map((f) => f.slice(0, 200)), ...(input.condition ? { condition: input.condition.slice(0, 4) } : {}) };
+  const trimmed = { ...input, facts: input.facts.slice(0, 8).map((f) => stripVoiceTags(f).slice(0, 200)), ...(input.condition ? { condition: input.condition.slice(0, 4) } : {}) };
   const r = await run(ctx, {
     purpose: "narrative",
     input: trimmed,
     schema: textSchema,
     call: (p, i, signal) => p.generateNarrative(i, { maxTokens: maxTokens(), signal }),
     validate: (o) => {
-      const t = sanitizeText(o.text, 400);
+      const t = stripVoiceTags(sanitizeText(o.text, 400));
       if (!passesFilter(t) || MECHANIC_CLAIM.test(t)) return false;
       if (input.characterAlive && DEATH_CLAIM.test(t)) return false; // a IA não decide mortes
       return true;
     },
     cacheable: true,
   });
-  return r.value ? { text: sanitizeText(r.value.text, 400), source: r.source } : { text: fallback, source: "fallback" };
+  // Mantém só tags de expressão permitidas (a tela as remove; a voz as usa).
+  return r.value ? { text: toVoiceText(sanitizeText(r.value.text, 400)), source: r.source } : { text: fallback, source: "fallback" };
 }
 
 export async function aiNpcReply(ctx: AIContext, input: NpcInput, fallback: string): Promise<{ text: string; source: AISource }> {
   const r = await run(ctx, {
     purpose: "npc",
-    input: { ...input, playerMessage: input.playerMessage.slice(0, 300), outcomeFacts: input.outcomeFacts.slice(0, 5) },
+    input: { ...input, playerMessage: input.playerMessage.slice(0, 300), outcomeFacts: input.outcomeFacts.slice(0, 5).map(stripVoiceTags) },
     schema: replySchema,
     call: (p, i, signal) => p.generateNpcResponse(i, { maxTokens: maxTokens(), signal }),
     validate: (o) => {
-      const t = sanitizeText(o.reply, 320);
+      const t = stripVoiceTags(sanitizeText(o.reply, 320));
       return passesFilter(t) && !MECHANIC_CLAIM.test(t) && !DEATH_CLAIM.test(t);
     },
     cacheable: false,
   });
-  return r.value ? { text: sanitizeText(r.value.reply, 320), source: r.source } : { text: fallback, source: "fallback" };
+  return r.value ? { text: toVoiceText(sanitizeText(r.value.reply, 320)), source: r.source } : { text: fallback, source: "fallback" };
 }
 
 export async function aiClueDescription(ctx: AIContext, input: ClueInput): Promise<{ text: string; source: AISource }> {

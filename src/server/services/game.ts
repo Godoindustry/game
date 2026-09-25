@@ -29,6 +29,7 @@ import { aiClassifyIntent, aiNarrative, aiNpcReply } from "../ai/service";
 import type { Activity } from "../engine/physiology";
 import { bodyCondition, conditionLine, conditionWords } from "../engine/condition";
 import { currentObjective, urgentNeed } from "../engine/objective";
+import { stripVoiceTags, toVoiceText } from "@/shared/voiceTags";
 
 /** Ações que recebem uma linha de ambientação (IA ou texto de reserva sobre o corpo). */
 const NARRATED: ActionInput["type"][] = ["mover", "examinar", "procurar", "escolha_evento", "dormir", "descansar", "coletar_lenha", "montar_abrigo"];
@@ -512,7 +513,9 @@ export async function getState(user: SessionUser, campaignId: string) {
         ? {
             instanceId: activeEvent.instanceId,
             title: ev.title,
-            body: ev.body,
+            // Tela sem tags; `voice` mantém as tags de expressão para o modelo de voz.
+            body: stripVoiceTags(ev.body),
+            voice: toVoiceText(ev.body),
             participating: inEvent,
             participants: activeEvent.participants.map((id) => chars.find((c) => c.id === id)?.name ?? "?"),
             myChoiceId: myVote ? String(json<Record<string, unknown>>(myVote.params, {}).choiceId) : null,
@@ -527,14 +530,15 @@ export async function getState(user: SessionUser, campaignId: string) {
     clues: world.clues.map((k) => content.clues[k]).filter(Boolean),
     log: logRows
       .reverse()
-      .map((l) => ({ id: Number(l.id), kind: l.kind, clock: clockLabel(content, l.game_minute), day: dayNumber(content, l.game_minute), text: l.text })),
+      .map((l) => ({ id: Number(l.id), kind: l.kind, clock: clockLabel(content, l.game_minute), day: dayNumber(content, l.game_minute), text: stripVoiceTags(l.text), voice: toVoiceText(l.text) })),
     ending:
       camp.status === "finished"
         ? {
             key: camp.ending,
             type: camp.ending_type,
             title: content.endings[camp.ending ?? ""]?.title ?? (camp.ending === "abandonada" ? "Campanha encerrada" : camp.ending),
-            text: content.endings[camp.ending ?? ""]?.text ?? "",
+            text: stripVoiceTags(content.endings[camp.ending ?? ""]?.text ?? ""),
+            voice: toVoiceText(content.endings[camp.ending ?? ""]?.text ?? ""),
             score: me ? computeScore(me, world) : 0,
             survivedMinutes: me ? (me.alive ? world.minute : (me.diedAtMinute ?? world.minute)) : 0,
             cluesFound: world.clues.length,

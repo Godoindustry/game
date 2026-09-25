@@ -124,14 +124,14 @@ const EVENTS: EventDef[] = [
     id: "vs_despertar", title: "Silêncio depois do impacto", locationId: "destrocos", priority: 100, repeatable: false,
     trigger: { start: true },
     body:
-      "O zumbido nos ouvidos é a primeira coisa que volta. Depois, o cheiro de combustível. Você está preso ao assento de um bimotor tombado entre as árvores. A cabine está aberta e vazia. O cinto do piloto não se rompeu: foi cortado. No painel, entre chiados, uma voz de mulher repete números, devagar: “sete… quatro… zero…”",
+      "[exhales] O zumbido nos ouvidos é a primeira coisa que volta. Depois, o cheiro de combustível. Você está preso ao assento de um bimotor tombado entre as árvores. A cabine está aberta e vazia. [tense] O cinto do piloto não se rompeu: [pause] foi cortado. No painel, entre chiados, uma voz de mulher repete números, devagar: [whispers] “sete… quatro… zero…”",
     choices: [
       c("vs_despertar", "examinar", {
         label: "Soltar o cinto com calma e examinar a cabine", durationMinutes: 10,
         outcome: {
           text: "Você solta o cinto e tateia o chão da cabine.",
           check: { attr: "percepcao", base: 55 },
-          success: { text: "Uma lanterna rolou para baixo do banco. E no painel, o transmissor de emergência (ELT) está na posição OFF. Não quebrou — alguém desligou.", effects: [{ op: "addItem", item: "lanterna" }, { op: "clue", key: "elt_desligado" }] },
+          success: { text: "Uma lanterna rolou para baixo do banco. E no painel, o transmissor de emergência (ELT) está na posição OFF. [pause] [ominous] Não quebrou — alguém desligou.", effects: [{ op: "addItem", item: "lanterna" }, { op: "clue", key: "elt_desligado" }] },
           failure: { text: "Você acha uma lanterna rolando sob o banco, mas ao se soltar abre o antebraço numa borda de metal.", effects: [{ op: "addItem", item: "lanterna" }, { op: "wound", part: "braco_esq", type: "laceracao", severity: 1 }] },
         },
       }),
@@ -147,7 +147,7 @@ const EVENTS: EventDef[] = [
       c("vs_despertar", "gritar", {
         label: "Gritar pelo piloto", durationMinutes: 3, safe: true,
         outcome: {
-          text: "Sua voz some entre as árvores. Por alguns segundos, a mata inteira se cala — insetos, sapos, tudo. Depois, bem longe, alguém grita de volta. Não dá para saber se é resposta ou eco.",
+          text: "Sua voz some entre as árvores. Por alguns segundos, a mata inteira se cala — insetos, sapos, tudo. [long pause] [whispers] Depois, bem longe, alguém grita de volta. Não dá para saber se é resposta ou eco.",
           effects: [{ op: "status", field: "stress", delta: 15 }, { op: "flag", key: "ouviu_resposta" }, { op: "clue", key: "voz_na_mata" }],
         },
       }),
@@ -156,7 +156,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_bagageiro", title: "O compartimento de carga", locationId: "destrocos", priority: 50, repeatable: true,
     trigger: { afterEvent: "vs_despertar", flagsNone: ["bagageiro_aberto"], cooldownMinutes: 90 },
-    body: "A porta do bagageiro está amassada e emperrada. Pela fresta dá para ver uma mala, uma jaqueta e uma caixa com o símbolo de bateria: a fonte de emergência do avião.",
+    body: "[breathing heavily] A porta do bagageiro está amassada e emperrada. Pela fresta dá para ver uma mala, uma jaqueta e uma caixa com o símbolo de bateria: a fonte de emergência do avião.",
     choices: [
       c("vs_bagageiro", "forcar", {
         label: "Forçar a porta com as mãos", durationMinutes: 10,
@@ -182,7 +182,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_vozes", title: "Alguém chama seu nome", locationId: "mata", priority: 40, repeatable: false,
     trigger: { night: true },
-    body: "Entre os troncos, uma voz chama o seu nome. O nome completo, pronunciado devagar, como quem lê de um documento.",
+    body: "[whispers] Entre os troncos, uma voz chama o seu nome. [pause] [ominous] O nome completo, pronunciado devagar, como quem lê de um documento.",
     choices: [
       c("vs_vozes", "seguir", {
         label: "Seguir a voz", durationMinutes: 30,
@@ -208,7 +208,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_acampamento", title: "O acampamento abandonado", locationId: "abrigo", priority: 40, repeatable: false,
     trigger: {},
-    body: "Sob a lona, caixas de madeira e uma fogueira fria. Na estaca principal, marcas de contagem: trinta e sete riscos, agrupados de cinco em cinco. Abaixo, gravado a canivete: IARA.",
+    body: "Sob a lona, caixas de madeira e uma fogueira fria. [slowly] Na estaca principal, marcas de contagem: trinta e sete riscos, agrupados de cinco em cinco. Abaixo, gravado a canivete: IARA.",
     choices: [
       c("vs_acampamento", "caixas", {
         label: "Revistar as caixas", durationMinutes: 10,
@@ -226,7 +226,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_chuva", title: "Chuva fria", locationId: null, priority: 30, repeatable: false,
     trigger: { night: true, minMinute: 120, notSheltered: true },
-    body: "O vento muda e a chuva chega de uma vez, fria, atravessando as copas. Em minutos, tudo pinga.",
+    body: "[urgent] O vento muda e a chuva chega de uma vez, fria, atravessando as copas. Em minutos, tudo pinga.",
     choices: [
       c("vs_chuva", "abrigar", {
         label: "Procurar abrigo sob pedras e raízes", durationMinutes: 20,
@@ -243,7 +243,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_ponte", title: "Peixes mortos", locationId: "ponte", priority: 40, repeatable: false,
     trigger: {},
-    body: "Na margem, sob a ponte, peixes mortos boiam de barriga para cima, presos entre as pedras. A água corre limpa e gelada — aparentemente.",
+    body: "Na margem, sob a ponte, peixes mortos boiam de barriga para cima, presos entre as pedras. A água corre limpa e gelada — [pause] [ominous] aparentemente.",
     choices: [
       c("vs_ponte", "examinar", {
         label: "Examinar os peixes e a água", durationMinutes: 10,
@@ -264,7 +264,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_estacao_portao", title: "A estação de rádio", locationId: "estacao", priority: 45, repeatable: true,
     trigger: { flagsNone: ["estacao_aberta"], cooldownMinutes: 45 },
-    body: "Pela janela da casa, luz amarela: um lampião a querosene — aceso. O portão está preso por corrente e cadeado novo.",
+    body: "[nervous] Pela janela da casa, luz amarela: um lampião a querosene — [whispers] aceso. O portão está preso por corrente e cadeado novo.",
     choices: [
       c("vs_estacao_portao", "pular", {
         label: "Pular a cerca", durationMinutes: 10,
@@ -290,7 +290,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_estacao_interior", title: "Dentro da estação", locationId: "estacao", priority: 44, repeatable: false,
     trigger: { flagsAll: ["estacao_aberta"] },
-    body: "Cheiro de querosene e remédio. Uma cama de campanha desfeita, tiras de camisa sujas de sangue, um rádio de bancada antigo sem energia. Na parede, um mapa topográfico com alfinetes. Alguém esteve aqui há poucas horas.",
+    body: "[tense] Cheiro de querosene e remédio. Uma cama de campanha desfeita, tiras de camisa sujas de sangue, um rádio de bancada antigo sem energia. Na parede, um mapa topográfico com alfinetes. Alguém esteve aqui há poucas horas.",
     choices: [
       c("vs_estacao_interior", "diario", {
         label: "Ler o diário de campo sobre a bancada", durationMinutes: 15,
@@ -314,7 +314,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_piloto", title: "O piloto", locationId: "estacao", priority: 43, repeatable: false,
     trigger: { flagsAll: ["piloto_presente"] },
-    body: "O homem tem a perna enfaixada com tiras de camisa e segura uma chave de roda como arma. “Você não devia ter saído do avião”, ele diz. “Eles vêm buscar a carga. Não a gente.”",
+    body: "O homem tem a perna enfaixada com tiras de camisa e segura uma chave de roda como arma. [desperate] “Você não devia ter saído do avião”, ele diz. “Eles vêm buscar a carga. Não a gente.”",
     choices: [
       c("vs_piloto", "conversar", {
         label: "Levantar as mãos e conversar", durationMinutes: 5,
@@ -343,14 +343,14 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_radio", title: "O rádio de bancada", locationId: "estacao", priority: 42, repeatable: true,
     trigger: { afterEvent: "vs_estacao_interior", hasItem: "bateria_emergencia", cooldownMinutes: 60 },
-    body: "O rádio é antigo, mas os fios parecem inteiros. A bateria de emergência do avião tem terminais compatíveis — talvez.",
+    body: "[hopeful] O rádio é antigo, mas os fios parecem inteiros. A bateria de emergência do avião tem terminais compatíveis — talvez.",
     choices: [
       c("vs_radio", "ligar", {
         label: "Ligar a bateria ao rádio", durationMinutes: 20,
         outcome: {
           text: "Você descasca os fios e conecta os terminais.",
           check: { attr: "conhecimento_tecnico", base: 45, itemBonus: { canivete: 10 }, experience: ["tecnologia", "mecanica"] },
-          success: { text: "O painel acende. Estática — e então uma voz real, cansada, de uma torre de controle regional. Você repete as coordenadas do mapa. “Recebido. Aguentem firme.”", effects: [{ op: "end", ending: "resgate_radio" }] },
+          success: { text: "O painel acende. [relieved] Estática — e então uma voz real, cansada, de uma torre de controle regional. Você repete as coordenadas do mapa. [calm] “Recebido. Aguentem firme.”", effects: [{ op: "end", ending: "resgate_radio" }] },
           failure: { text: "Faísca. Cheiro de plástico queimado. O rádio chia e morre de novo. A bateria esquentou.", effects: [{ op: "wound", part: "braco_dir", type: "queimadura", severity: 1 }, { op: "itemDurability", item: "bateria_emergencia", delta: -50 }] },
         },
       }),
@@ -364,7 +364,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_penhasco", title: "A luz na ravina", locationId: "penhasco", priority: 40, repeatable: false,
     trigger: {},
-    body: "No último poste do guarda-corpo, amarrada com arame, uma lanterna acesa aponta para a névoa. Ela pisca: longa, curta, longa. Lá embaixo, algo laranja brilha entre as rochas.",
+    body: "No último poste do guarda-corpo, amarrada com arame, uma lanterna acesa aponta para a névoa. [mysterious] Ela pisca: [slowly] longa, curta, longa. Lá embaixo, algo laranja brilha entre as rochas.",
     choices: [
       c("vs_penhasco", "corda", {
         label: "Descer usando a corda", durationMinutes: 40, requirements: { hasItem: ["corda"] },
@@ -381,7 +381,7 @@ const EVENTS: EventDef[] = [
           text: "Você procura apoios na rocha molhada.",
           check: { attr: "agilidade", base: 25 },
           success: { text: "Contra qualquer lógica, você chega ao fundo. Caixas lacradas com adesivo laranja. Pegadas indo para sudeste.", effects: [{ op: "clue", key: "carga_ravina" }, { op: "revealLink", from: "penhasco", to: "rochedo" }] },
-          failure: { text: "A rocha escorrega sob seus dedos. A névoa engole o som da queda.", effects: [{ op: "kill", cause: "Queda na ravina" }] },
+          failure: { text: "[gasps] A rocha escorrega sob seus dedos. [whispers] A névoa engole o som da queda.", effects: [{ op: "kill", cause: "Queda na ravina" }] },
         },
       }),
       c("vs_penhasco", "lanterna", { label: "Desamarrar a lanterna e se afastar", durationMinutes: 5, safe: true, outcome: { text: "A lanterna é igual à sua. O padrão de piscadas não é aleatório — alguém sinalizava para baixo.", effects: [{ op: "addItem", item: "lanterna", state: { battery: 35 } }, { op: "clue", key: "sinal_luz" }] } }),
@@ -390,19 +390,19 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_nevoa", title: "A voz na névoa", locationId: "penhasco", priority: 60, repeatable: false,
     trigger: { night: true, flagsAll: ["ouviu_resposta"], afterEvent: "vs_penhasco" },
-    body: "Da névoa da ravina, a mesma voz que respondeu ao seu grito chama baixo, paciente, pelo seu nome.",
+    body: "[whispers] Da névoa da ravina, a mesma voz que respondeu ao seu grito chama baixo, paciente, pelo seu nome.",
     choices: [
       c("vs_nevoa", "ir", {
         label: "Caminhar em direção à voz", durationMinutes: 10,
         outcome: {
           text: "Você dá um passo. Depois outro.",
           check: { attr: "controle_emocional", base: 40 },
-          success: { text: "Você para. Seu pé esquerdo está no ar, além da borda. Não há ninguém ali. Nunca houve.", effects: [{ op: "status", field: "stress", delta: 25 }, { op: "clue", key: "voz_na_nevoa" }] },
-          failure: { text: "A voz fica cada vez mais perto e mais gentil. Depois, não há mais chão.", effects: [{ op: "kill", cause: "Desaparecido na névoa da ravina" }] },
+          success: { text: "Você para. [gasps] Seu pé esquerdo está no ar, além da borda. [whispers] Não há ninguém ali. [pause] Nunca houve.", effects: [{ op: "status", field: "stress", delta: 25 }, { op: "clue", key: "voz_na_nevoa" }] },
+          failure: { text: "[whispers] A voz fica cada vez mais perto e mais gentil. [long pause] Depois, não há mais chão.", effects: [{ op: "kill", cause: "Desaparecido na névoa da ravina" }] },
         },
       }),
       c("vs_nevoa", "afastar", { label: "Tapar os ouvidos e se afastar da borda", durationMinutes: 10, safe: true, outcome: { text: "Você recua até sentir o guarda-corpo nas costas. A voz continua, mais baixa.", effects: [{ op: "status", field: "stress", delta: 15 }] } }),
-      c("vs_nevoa", "responder", { label: "Responder", durationMinutes: 2, outcome: { text: "A voz para. Então repete exatamente o que você disse — com a sua entonação.", effects: [{ op: "status", field: "stress", delta: 12 }, { op: "clue", key: "voz_na_nevoa" }] } }),
+      c("vs_nevoa", "responder", { label: "Responder", durationMinutes: 2, outcome: { text: "A voz para. [long pause] [ominous] Então repete exatamente o que você disse — com a sua entonação.", effects: [{ op: "status", field: "stress", delta: 12 }, { op: "clue", key: "voz_na_nevoa" }] } }),
     ],
   },
   {
@@ -429,7 +429,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_helicoptero", title: "Rotor ao longe", locationId: null, priority: 70, repeatable: false,
     trigger: { day: true, minMinute: 420 },
-    body: "Um som grave e ritmado cresce do sul. Um helicóptero cruza o vale baixo, seguindo o rio, e some atrás da crista. Estão procurando. Vão voltar — e precisam ver você de um lugar aberto.",
+    body: "Um som grave e ritmado cresce do sul. Um helicóptero cruza o vale baixo, seguindo o rio, e some atrás da crista. [hopeful] Estão procurando. [urgent] Vão voltar — e precisam ver você de um lugar aberto.",
     choices: [
       c("vs_helicoptero", "acenar", { label: "Acenar e gritar", durationMinutes: 2, safe: true, outcome: { text: "Ele já foi. Mas vai voltar.", effects: [{ op: "flag", key: "busca_ativa" }, { op: "status", field: "stress", delta: -10 }] } }),
       c("vs_helicoptero", "memorizar", { label: "Memorizar a rota do helicóptero", durationMinutes: 5, outcome: { text: "Ele circula sobre o rochedo a sudeste antes de voltar. É ali que ele vai passar de novo.", effects: [{ op: "flag", key: "busca_ativa" }, { op: "reveal", location: "rochedo" }, { op: "revealLink", from: "lago", to: "rochedo" }] } }),
@@ -438,7 +438,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_resgate", title: "Céu aberto", locationId: null, priority: 80, repeatable: true,
     trigger: { day: true, openSky: true, flagsAll: ["busca_ativa"], cooldownMinutes: 60 },
-    body: "Daqui você tem visão limpa do céu. Se o helicóptero voltar, é agora ou nunca.",
+    body: "Daqui você tem visão limpa do céu. [urgent] Se o helicóptero voltar, é agora ou nunca.",
     choices: [
       c("vs_resgate", "sinalizador", {
         label: "Disparar o sinalizador", durationMinutes: 2, requirements: { hasItem: ["sinalizador"] },
@@ -446,7 +446,7 @@ const EVENTS: EventDef[] = [
           text: "Você espera o som do rotor e puxa o cordão. Fumaça vermelha sobe, densa.",
           effects: [{ op: "removeItem", item: "sinalizador" }],
           check: { attr: "percepcao", base: 70 },
-          success: { text: "O helicóptero faz uma curva fechada e vem na sua direção.", effects: [{ op: "end", ending: "resgate_sinalizador" }] },
+          success: { text: "[relieved] O helicóptero faz uma curva fechada e vem na sua direção.", effects: [{ op: "end", ending: "resgate_sinalizador" }] },
           failure: { text: "Cedo demais. O helicóptero estava longe e não vê a fumaça.", effects: [] },
         },
       }),
@@ -466,7 +466,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_febre", title: "Febre", locationId: null, priority: 65, repeatable: false,
     trigger: { anyLocation: true, statusGte: { infection: 55 } },
-    body: "Seu corpo queima e treme ao mesmo tempo. Na borda da luz, uma mulher de capa de chuva observa você. Ela segura uma prancheta.",
+    body: "[trembling] Seu corpo queima e treme ao mesmo tempo. [whispers] Na borda da luz, uma mulher de capa de chuva observa você. Ela segura uma prancheta.",
     choices: [
       c("vs_febre", "remedio", { label: "Tomar um analgésico", durationMinutes: 2, requirements: { hasItem: ["analgesico"] }, outcome: { text: "Você engole o comprimido a seco. Quando olha de novo, não há ninguém.", effects: [{ op: "useCharge", item: "analgesico" }, { op: "painkiller", minutes: 360 }, { op: "status", field: "stress", delta: -10 }] } }),
       c("vs_febre", "perguntar", {
@@ -474,7 +474,7 @@ const EVENTS: EventDef[] = [
         outcome: {
           text: "“Quem é você?”",
           check: { attr: "controle_emocional", base: 50 },
-          success: { text: "“Trinta e sete dias”, ela diz. E some quando você pisca.", effects: [{ op: "clue", key: "iara_visao" }, { op: "status", field: "stress", delta: 5 }] },
+          success: { text: "[whispers] “Trinta e sete dias”, ela diz. [pause] E some quando você pisca.", effects: [{ op: "clue", key: "iara_visao" }, { op: "status", field: "stress", delta: 5 }] },
           failure: { text: "Ela não responde. Fica. Você passa horas sem conseguir fechar os olhos.", effects: [{ op: "status", field: "stress", delta: 25 }] },
         },
       }),
@@ -484,7 +484,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_sede", title: "A poça", locationId: null, priority: 55, repeatable: false,
     trigger: { anyLocation: true, statusGte: { thirst: 75 } },
-    body: "Sua língua gruda no céu da boca. Numa depressão entre as raízes, uma poça de água escura, com folhas no fundo.",
+    body: "[exhausted] Sua língua gruda no céu da boca. Numa depressão entre as raízes, uma poça de água escura, com folhas no fundo.",
     choices: [
       c("vs_sede", "beber", { label: "Beber da poça", durationMinutes: 3, outcome: { text: "Tem gosto de terra e ferro.", effects: [{ op: "status", field: "thirst", delta: -25 }, { op: "disease", key: "gastroenterite", chanceAttr: "resistencia", base: 30 }] } }),
       c("vs_sede", "resistir", { label: "Resistir", durationMinutes: 1, safe: true, outcome: { text: "Você passa por ela sem olhar.", effects: [{ op: "status", field: "stress", delta: 10 }] } }),
@@ -493,7 +493,7 @@ const EVENTS: EventDef[] = [
   {
     id: "vs_frio", title: "Tremores", locationId: null, priority: 66, repeatable: false,
     trigger: { anyLocation: true, statusLte: { bodyTemp: 35.2 } },
-    body: "Os tremores vêm em ondas. Seus dedos não fecham direito. Se isso continuar, você vai parar de tremer — e isso será pior.",
+    body: "[trembling] Os tremores vêm em ondas. Seus dedos não fecham direito. Se isso continuar, você vai parar de tremer — e isso será pior.",
     choices: [
       c("vs_frio", "encolher", { label: "Proteger-se do vento e se encolher", durationMinutes: 20, safe: true, outcome: { text: "Joelhos no peito, costas contra uma pedra.", effects: [{ op: "status", field: "bodyTemp", delta: 0.4 }] } }),
       c("vs_frio", "mover", { label: "Mexer-se sem parar para gerar calor", durationMinutes: 15, outcome: { text: "Você pula, esfrega os braços, anda em círculos.", effects: [{ op: "status", field: "bodyTemp", delta: 0.6 }, { op: "status", field: "energy", delta: -10 }] } }),
@@ -533,10 +533,10 @@ export const VALE_SILENTE: GameContent = {
     ].map((cl) => [cl.key, cl]),
   ),
   endings: {
-    resgate_radio: { key: "resgate_radio", type: "victory", title: "Frequência aberta", text: "Horas depois do chamado, faróis sobem a estrada de serviço até a estação. Você sobreviveu ao Vale Silente." },
-    resgate_sinalizador: { key: "resgate_sinalizador", type: "victory", title: "Fumaça vermelha", text: "O helicóptero pousa no rochedo. Enquanto sobe, você olha para o vale — e por um instante vê uma capa de chuva entre as árvores." },
-    resgate_fogueira: { key: "resgate_fogueira", type: "victory", title: "Coluna de fumaça", text: "A fumaça branca guiou o resgate até você. O vale fica para trás, em silêncio." },
-    morte: { key: "morte", type: "defeat", title: "O vale fica com você", text: "Semanas depois, uma equipe encontra os destroços. O relatório final fala em “causas naturais”." },
+    resgate_radio: { key: "resgate_radio", type: "victory", title: "Frequência aberta", text: "[relieved] Horas depois do chamado, faróis sobem a estrada de serviço até a estação. [sighs] Você sobreviveu ao Vale Silente." },
+    resgate_sinalizador: { key: "resgate_sinalizador", type: "victory", title: "Fumaça vermelha", text: "O helicóptero pousa no rochedo. Enquanto sobe, você olha para o vale — e por um instante [whispers] vê uma capa de chuva entre as árvores." },
+    resgate_fogueira: { key: "resgate_fogueira", type: "victory", title: "Coluna de fumaça", text: "[relieved] A fumaça branca guiou o resgate até você. [slowly] O vale fica para trás, em silêncio." },
+    morte: { key: "morte", type: "defeat", title: "O vale fica com você", text: "[cold] Semanas depois, uma equipe encontra os destroços. [pause] O relatório final fala em [whispers] “causas naturais”." },
   },
   npcs: {
     piloto: {

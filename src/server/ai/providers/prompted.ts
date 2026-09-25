@@ -3,6 +3,12 @@
  * Subclasses só implementam `complete()`.
  */
 import type { AIProvider, ClueInput, IntentInput, NarrativeInput, NpcInput, ProviderCall, ProviderResult } from "../types";
+import { VOICE_TAGS } from "@/shared/voiceTags";
+
+/** Tags de expressão para o narrador de voz (lista fechada; tags fora dela são removidas depois). */
+const VOICE_RULE =
+  "Você PODE incluir no máximo 2 tags de expressão para o narrador de voz, entre colchetes e em inglês, logo antes do trecho que afetam, " +
+  `escolhidas SOMENTE desta lista: ${Object.keys(VOICE_TAGS).map((t) => `[${t}]`).join(", ")}. Não invente outras tags.`;
 
 export interface Completion {
   text: string;
@@ -36,7 +42,7 @@ export abstract class PromptedProvider implements AIProvider {
   generateNarrative(input: NarrativeInput, call: ProviderCall) {
     return this.json(
       `${RULES} Escreva 1 a 3 frases curtas (máx. 320 caracteres) de ambientação na segunda pessoa, complementando os fatos sem repeti-los. ` +
-        `Se "condition" vier preenchido, faça o corpo do personagem pesar na cena (mãos, visão, fôlego, tremores) de forma sensorial, sem citar números nem piorar o estado. Formato: {"text": "..."}`,
+        `Se "condition" vier preenchido, faça o corpo do personagem pesar na cena (mãos, visão, fôlego, tremores) de forma sensorial, sem citar números nem piorar o estado. ${VOICE_RULE} Formato: {"text": "..."}`,
       JSON.stringify(input),
       call,
     );
@@ -44,7 +50,7 @@ export abstract class PromptedProvider implements AIProvider {
 
   generateNpcResponse(input: NpcInput, call: ProviderCall) {
     return this.json(
-      `${RULES} Você interpreta o personagem descrito em "persona". Responda à fala do jogador em até 2 frases (máx. 260 caracteres), coerente com "intent" e "outcomeFacts". Formato: {"reply": "..."}`,
+      `${RULES} Você interpreta o personagem descrito em "persona". Responda à fala do jogador em até 2 frases (máx. 260 caracteres), coerente com "intent" e "outcomeFacts". ${VOICE_RULE} Formato: {"reply": "..."}`,
       JSON.stringify(input),
       call,
     );
