@@ -5,6 +5,19 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      // useEffect(() => expr) devolve o valor de expr ao React. Ex.: scrollIntoView() hoje retorna Promise
+      // e isso quebrou a tela do jogo. Sempre use corpo em bloco.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.name=/^use(Layout)?Effect$/] > ArrowFunctionExpression[expression=true]",
+          message: "useEffect deve ter corpo em bloco { } — não retorne o valor de uma expressão.",
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -12,6 +25,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "_conflito/**",
   ]),
 ]);
 
