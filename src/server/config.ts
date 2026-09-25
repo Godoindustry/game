@@ -10,7 +10,11 @@ const bool = z
 
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  APP_URL: z.string().default("http://localhost:3000"),
+  // Sem barra final: links e o redirect do OAuth são montados como `${APP_URL}/api/...`.
+  APP_URL: z
+    .string()
+    .default("http://localhost:3000")
+    .transform((u) => u.trim().replace(/\/+$/, "")),
   DATABASE_PATH: z.string().default("./data/linha.sqlite"),
   // Se definido, usa PostgreSQL (ex.: Supabase, pooler em modo transaction, porta 6543) em vez do SQLite.
   DATABASE_URL: z.string().optional(),

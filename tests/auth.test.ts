@@ -130,3 +130,17 @@ describe("Google OAuth", () => {
     expect(loc.searchParams.get("state")).toBe(c.cookies.ls_oauth_state);
   });
 });
+
+describe("Google OAuth — redirect_uri", () => {
+  it("APP_URL com barra final gera o redirect exato do callback", async () => {
+    process.env.APP_URL = "https://game-gamma-amber-33.vercel.app/";
+    const { setConfig } = await import("@/server/config");
+    const cfg = setConfig({});
+    delete process.env.APP_URL;
+    expect(cfg.APP_URL).toBe("https://game-gamma-amber-33.vercel.app");
+    await freshApp({ APP_URL: cfg.APP_URL, GOOGLE_CLIENT_ID: "id", GOOGLE_CLIENT_SECRET: "s" });
+    const r = await new Client().get("/api/auth/google/start");
+    const loc = new URL(r.headers.get("location")!);
+    expect(loc.searchParams.get("redirect_uri")).toBe("https://game-gamma-amber-33.vercel.app/api/auth/google/callback");
+  });
+});
