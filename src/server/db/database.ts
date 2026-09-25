@@ -132,11 +132,14 @@ async function postgresDriver(url: string, schema?: string): Promise<Driver> {
   const { Pool, types } = pg.default ?? pg;
   types.setTypeParser(20, (v: string) => parseInt(v, 10)); // int8 (COUNT, SUM) → number
   types.setTypeParser(1700, (v: string) => parseFloat(v)); // numeric → number
+  const isLocal = /localhost|127\.0\.0\.1/.test(url);
+  // Remove sslmode da URL para evitar conflito com a config abaixo.
+  const cleanUrl = url.replace(/[?&]sslmode=[^&]*/g, (m) => (m.startsWith("?") ? "?" : ""));
   const pool = new Pool({
-    connectionString: url,
+    connectionString: cleanUrl.replace(/\?$/, ""),
     max: Number(process.env.PG_POOL_MAX ?? 5),
     idleTimeoutMillis: 10_000,
-    ssl: /localhost|127\.0\.0\.1/.test(url) ? undefined : { rejectUnauthorized: false },
+    ssl: isLocal ? undefined : { rejectUnauthorized: false },
   });
   if (schema) {
     // Schema dedicado (ex.: testes isolados). Exige conexão de sessão (porta 5432), não o pooler transacional.
