@@ -18,6 +18,7 @@ const schema = z.object({
   DATABASE_PATH: z.string().default("./data/linha.sqlite"),
   // Se definido, usa PostgreSQL (ex.: Supabase, pooler em modo transaction, porta 6543) em vez do SQLite.
   DATABASE_URL: z.string().optional(),
+  POSTGRES_URL: z.string().optional(),
 
   // ADM MASTER inicial (criado/atualizado no boot; nunca pela API)
   ADMIN_EMAIL: z.string().optional(),
