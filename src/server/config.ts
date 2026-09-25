@@ -75,7 +75,10 @@ let cached: AppConfig | null = null;
 
 export function getConfig(): AppConfig {
   if (!cached) {
-    const r = schema.safeParse(process.env);
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter(([_, v]) => v !== undefined && v !== "")
+    );
+    const r = schema.safeParse(env);
     if (!r.success) {
       // Só os NOMES das variáveis — nunca os valores (podem ser segredos).
       const names = [...new Set(r.error.issues.map((i) => String(i.path[0])))].join(", ");
@@ -88,7 +91,10 @@ export function getConfig(): AppConfig {
 
 /** Usado pelos testes para aplicar overrides. */
 export function setConfig(overrides: Partial<AppConfig>): AppConfig {
-  cached = { ...schema.parse(process.env), ...overrides };
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([_, v]) => v !== undefined && v !== "")
+  );
+  cached = { ...schema.parse(env), ...overrides };
   return cached;
 }
 
