@@ -18,6 +18,13 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // scripts/ são utilitários Node executados direto (node --env-file ...), em CommonJS.
+  {
+    files: ["scripts/**/*.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

@@ -9,16 +9,6 @@ const H = (941 / 1672) * 100; // altura proporcional do viewBox (100×H)
 // Cores de identificação dos jogadores (evita vermelho — reservado para perigo)
 const PARTY_COLORS = ["#e8a020", "#5aaad4", "#7ecb85", "#a08ec8"];
 
-// Ícones de tipo de local (ideogramas militares simplificados)
-const LOCATION_SYMBOLS: Record<string, string> = {
-  acidente:   "△",
-  abrigo:     "□",
-  observacao: "◎",
-  construcao: "▣",
-  recurso:    "◈",
-  perigo:     "⚠",
-};
-
 export function MapView({
   state,
   selected,

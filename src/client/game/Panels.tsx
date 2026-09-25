@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { formatMinutes, Spinner } from "../ui";
 import { ACTION_LABEL, useNow, type GameState } from "./useGame";
+import { useAudio, deathAudioId, SFX } from "./useAudio";
 
 type Act = (type: string, params?: Record<string, unknown>) => void;
 
@@ -407,15 +408,17 @@ export function EndScreen({
   const victory = e?.type === "victory" && !died;
   const title   = e ? (died ? "Você morreu" : e.title) : "Você morreu";
 
+  const { play } = useAudio(0.6);
+
   useEffect(() => {
-    // Tocar o áudio apropriado quando a tela abrir
-    const audioSrc = victory ? '/audio/victory-1.mp3' : '/audio/death-1.mp3';
-    const audio = new Audio(audioSrc);
-    audio.volume = 0.6;
-    audio.play().catch(() => {
-      // O navegador pode bloquear autoplay, podemos engolir o erro
-    });
-  }, [victory]);
+    // Voz expresiva ElevenLabs — escolhe baseado na causa da morte
+    if (victory) {
+      play(SFX.VICTORY, { vol: 0.6 });
+    } else {
+      play(deathAudioId(me?.deathCause ?? undefined), { vol: 0.6 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div

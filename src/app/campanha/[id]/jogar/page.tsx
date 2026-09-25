@@ -11,7 +11,7 @@ import { EndScreen, EventCard, Feed, HereCard, PartyList, PendingCard } from "@/
 import { ObjectiveCompass } from "@/client/game/Compass";
 import { ScreenFx } from "@/client/game/ScreenFx";
 import { Tutorial, restartTutorial } from "@/client/game/Tutorial";
-import { useAudio } from "@/client/game/useAudio";
+import { useAudio, useHealthAudio, SFX } from "@/client/game/useAudio";
 
 type Tab = "acoes" | "diario" | "grupo";
 
@@ -34,11 +34,21 @@ export default function PlayPage() {
   const [tab, setTab] = useState<Tab>("acoes");
   const [panel, setPanel] = useState<"char" | "bag" | null>(null);
   const [endClosed, setEndClosed] = useState(false);
-  const audio = useAudio(state);
+  const { play, toggle, enabled } = useAudio();
+
+  // Alertas automáticos de saúde (sangue, hipotermia, etc.)
+  useHealthAudio(state?.me);
 
   useEffect(() => {
     if (state?.campaign.status === "lobby") router.replace(`/campanha/${id}/lobby`);
   }, [state?.campaign.status, id, router]);
+
+  // Toca áudio ambiental quando cai a noite
+  const isNight = state?.campaign.night;
+  useEffect(() => {
+    if (isNight) play(SFX.EVENT_NOITE, { vol: 0.4 });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNight]);
 
   // A seleção no mapa vale só até a próxima mensagem do diário (derivado, sem efeito).
   const lastLog = state?.log[state.log.length - 1]?.id;
@@ -154,12 +164,12 @@ export default function PlayPage() {
         <div className="hud-tools">
           <button
             className="hud-icon"
-            onClick={audio.toggle}
-            aria-pressed={audio.enabled}
-            aria-label={audio.enabled ? "Desligar som" : "Ligar som"}
-            title={audio.enabled ? "Som ligado" : "Som desligado"}
+            onClick={toggle}
+            aria-pressed={enabled}
+            aria-label={enabled ? "Desligar som" : "Ligar som"}
+            title={enabled ? "Som ligado" : "Som desligado"}
           >
-            {audio.enabled ? "🔊" : "🔇"}
+            {enabled ? "🔊" : "🔇"}
           </button>
           <button className="hud-icon hide-mobile" onClick={restartTutorial} aria-label="Rever tutorial" title="Rever tutorial">
             ?

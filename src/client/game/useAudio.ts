@@ -1,85 +1,141 @@
 "use client";
 /**
- * Liga o motor de som ao estado da campanha: clima → chuva/vento,
- * saúde < 20 → batimento, cliques em botões → bipe, novo evento → alerta.
+ * useAudio — gerenciador de áudio S-OS v1.4
+ *
+ * Catálogo de IDs:
+ *   intro-quote-1..4    → tela de entrada (aleatório)
+ *   hud-alert-*         → alertas críticos do HUD
+ *   event-*             → narração de eventos
+ *   npc-desconhecido-*  → falas de NPC
+ *   death-1, death-fome, death-hipotermia, death-ferimento
+ *   victory-1, victory-radio
+ *   action-*            → feedback de ações
  */
-import { useCallback, useEffect, useState } from "react";
-import { sound } from "./audio";
-import type { GameState } from "./useGame";
 
-const KEY = "ls.audio";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-function readPref(): boolean {
-  try {
-    return localStorage.getItem(KEY) !== "off";
-  } catch {
-    return true;
-  }
-}
+const AUDIO_BASE = "/audio";
 
-export function useAudio(state: GameState | null) {
+// Catálogo completo de IDs de arquivo
+export const SFX = {
+  // Tela inicial — pick aleatório
+  INTRO: ["intro-quote-1", "intro-quote-2", "intro-quote-3", "intro-quote-4"] as const,
+
+  // Alertas HUD
+  ALERT_FOME:       "hud-alert-fome",
+  ALERT_SEDE:       "hud-alert-sede",
+  ALERT_SANGUE:     "hud-alert-sangue",
+  ALERT_HIPOTERMIA: "hud-alert-hipotermia",
+
+  // Eventos narrativos
+  EVENT_RASTROS:  "event-rastros",
+  EVENT_RADIO:    "event-radio",
+  EVENT_FOGUEIRA: "event-fogueira",
+  EVENT_ABRIGO:   "event-abrigo",
+  EVENT_NOITE:    "event-noite",
+
+  // NPC
+  NPC_DESCONHECIDO_1: "npc-desconhecido-1",
+  NPC_DESCONHECIDO_2: "npc-desconhecido-2",
+
+  // Morte — mapeado por causa
+  DEATH_DEFAULT:    "death-1",
+  DEATH_FOME:       "death-fome",
+  DEATH_HIPOTERMIA: "death-hipotermia",
+  DEATH_FERIMENTO:  "death-ferimento",
+
+  // Vitória
+  VICTORY:       "victory-1",
+  VICTORY_RADIO: "victory-radio",
+
+  // Ações
+  ACTION_COLETANDO:   "action-coletando",
+  ACTION_TRATANDO:    "action-tratando",
+  ACTION_DESCANSANDO: "action-descansando",
+} as const;
+
+// ──────────────────────────────────────────────────────────────────────────
+export function useAudio(volume = 0.55) {
+  const currentRef = useRef<HTMLAudioElement | null>(null);
   const [enabled, setEnabled] = useState(true);
 
-  // Preferência salva + desbloqueio no primeiro gesto + bipe nos botões do jogo.
-  useEffect(() => {
-    const on = readPref();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage só existe no cliente
-    setEnabled(on);
-    sound.setMuted(!on);
-    const unlock = () => sound.unlock();
-    const click = (e: MouseEvent) => {
-      const btn = (e.target as HTMLElement | null)?.closest("button, a.btn, [role=button]");
-      if (btn && !(btn as HTMLButtonElement).disabled && btn.closest(".game")) sound.beep("click");
-    };
-    window.addEventListener("pointerdown", unlock);
-    window.addEventListener("keydown", unlock);
-    document.addEventListener("click", click);
-    return () => {
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("keydown", unlock);
-      document.removeEventListener("click", click);
-      sound.dispose();
-    };
+  const play = useCallback((id: string, opts?: { vol?: number; loop?: boolean }) => {
+    try {
+      if (currentRef.current) {
+        currentRef.current.pause();
+        currentRef.current.currentTime = 0;
+      }
+      const audio = new Audio(`${AUDIO_BASE}/${id}.mp3`);
+      audio.volume = opts?.vol ?? volume;
+      audio.loop   = opts?.loop ?? false;
+      currentRef.current = audio;
+      audio.play().catch(() => { /* autoplay bloqueado — silencioso */ });
+    } catch {
+      // silencioso — áudio é enhancement, não feature crítica
+    }
+  }, [volume]);
+
+  const stop = useCallback(() => {
+    if (currentRef.current) {
+      currentRef.current.pause();
+      currentRef.current.currentTime = 0;
+    }
   }, []);
 
-  const me = state?.me;
-  const ended = !state || state.campaign.status === "finished" || !me?.alive;
-  const raining = state?.campaign.weather === "chuva";
-  const covered = !!state && (state.here.indoor || state.here.sheltered);
-  const night = !!state?.campaign.night;
-  const cold = (state?.campaign.temperature ?? 20) < 8;
-
-  useEffect(() => {
-    if (!state) return;
-    const rain = raining ? (covered ? 0.35 : 1) : 0;
-    const wind = (state.here.indoor ? 0.1 : covered ? 0.3 : 0.55) * (night ? 1 : 0.6) * (cold ? 1.25 : 1) * (ended ? 0.5 : 1);
-    sound.setAmbient(rain, Math.min(1, wind));
-  }, [state, raining, covered, night, cold, ended]);
-
-  // Batimento: começa em 20 de saúde e cresce até 0 (mais alto e mais rápido).
-  const health = me?.health.health ?? 100;
-  useEffect(() => {
-    sound.setHeartbeat(!ended && health < 20 ? 0.25 + 0.75 * ((20 - health) / 20) : 0);
-  }, [health, ended]);
-
-  const eventId = state?.event?.participating ? state.event.instanceId : null;
-  useEffect(() => {
-    if (eventId) sound.beep("alert");
-  }, [eventId]);
+  const playRandom = useCallback((ids: readonly string[], opts?: { vol?: number }) => {
+    const id = ids[Math.floor(Math.random() * ids.length)];
+    play(id, opts);
+  }, [play]);
 
   const toggle = useCallback(() => {
     setEnabled((v) => {
       const next = !v;
-      sound.unlock();
-      sound.setMuted(!next);
-      try {
-        localStorage.setItem(KEY, next ? "on" : "off");
-      } catch {
-        /* sem armazenamento: vale só nesta sessão */
-      }
+      if (!next) stop();
       return next;
     });
-  }, []);
+  }, [stop]);
 
-  return { enabled, toggle };
+  useEffect(() => {
+    return () => { stop(); };
+  }, [stop]);
+
+  return { play, stop, playRandom, toggle, enabled };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Toca alertas de saúde automaticamente ao mudar estado do personagem
+export function useHealthAudio(
+  me: {
+    alive: boolean;
+    health: { health: number };
+    status: { thirst: number; bodyTemp: number };
+    wounds: { bleedingRate: number }[];
+  } | null | undefined
+) {
+  const { play } = useAudio(0.5);
+  const prevAlert = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!me?.alive) return;
+
+    let alert: string | null = null;
+    if (me.wounds.some((w) => w.bleedingRate > 0)) alert = SFX.ALERT_SANGUE;
+    else if (me.status.bodyTemp < 35)               alert = SFX.ALERT_HIPOTERMIA;
+    else if (me.status.thirst > 85)                 alert = SFX.ALERT_SEDE;
+    else if (me.health.health < 20)                 alert = SFX.ALERT_FOME;
+
+    if (alert && alert !== prevAlert.current) play(alert, { vol: 0.5 });
+    prevAlert.current = alert;
+  }, [me, play]);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Escolhe o áudio de morte baseado na causa
+export function deathAudioId(cause?: string): string {
+  if (!cause) return SFX.DEATH_DEFAULT;
+  const lc = cause.toLowerCase();
+  if (lc.includes("fome") || lc.includes("inanição"))    return SFX.DEATH_FOME;
+  if (lc.includes("frio") || lc.includes("hipotermia"))  return SFX.DEATH_HIPOTERMIA;
+  if (lc.includes("sangue") || lc.includes("ferimento")) return SFX.DEATH_FERIMENTO;
+  return SFX.DEATH_DEFAULT;
 }
