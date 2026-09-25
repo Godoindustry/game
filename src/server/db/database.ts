@@ -255,6 +255,18 @@ export class Db {
 export async function openDb(opts: { url?: string; file?: string; schema?: string } = {}): Promise<Db> {
   const c = getConfig();
   const url = opts.url ?? (opts.file ? undefined : c.DATABASE_URL);
+  if (!url && !opts.file && process.env.VERCEL) {
+    // Na Vercel o disco é somente-leitura/efêmero: SQLite não funciona.
+    throw new Error("DATABASE_URL não definida: na Vercel o banco precisa ser o Postgres do Supabase (Settings → Environment Variables → DATABASE_URL, depois Redeploy).");
+  }
+  if (url) {
+    if (/\[YOUR-PASSWORD\]/i.test(url)) throw new Error("DATABASE_URL ainda tem [YOUR-PASSWORD]: troque pela senha real do banco.");
+    try {
+      new URL(url);
+    } catch {
+      throw new Error("DATABASE_URL mal formada: se a senha tiver @ : / # ?, redefina uma senha sem esses caracteres no Supabase.");
+    }
+  }
   return new Db(url ? await postgresDriver(url, opts.schema ?? process.env.PG_SCHEMA) : await sqliteDriver(opts.file ?? c.DATABASE_PATH));
 }
 

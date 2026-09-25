@@ -74,7 +74,15 @@ export type AppConfig = z.infer<typeof schema>;
 let cached: AppConfig | null = null;
 
 export function getConfig(): AppConfig {
-  if (!cached) cached = schema.parse(process.env);
+  if (!cached) {
+    const r = schema.safeParse(process.env);
+    if (!r.success) {
+      // Só os NOMES das variáveis — nunca os valores (podem ser segredos).
+      const names = [...new Set(r.error.issues.map((i) => String(i.path[0])))].join(", ");
+      throw new Error(`Variável(is) de ambiente inválida(s): ${names}. Confira o formato em .env.example.`);
+    }
+    cached = r.data;
+  }
   return cached;
 }
 

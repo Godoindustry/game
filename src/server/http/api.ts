@@ -151,9 +151,25 @@ export function ensureBooted(): Promise<void> {
   return g.__lsBoot;
 }
 
+/** Mensagem segura (sem segredos) para falhas de inicialização. */
+function bootErrorMessage(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/Variável\(is\) de ambiente/.test(msg) || /DATABASE_URL/.test(msg)) return msg;
+  if (/password authentication failed|SASL|28P01/i.test(msg)) return "Banco recusou a senha: confira a senha dentro da DATABASE_URL.";
+  if (/ENOTFOUND|getaddrinfo|ECONNREFUSED|ETIMEDOUT|timeout/i.test(msg)) return "Não foi possível conectar ao banco: confira o host e a porta (6543) da DATABASE_URL.";
+  if (/Tenant or user not found/i.test(msg)) return "Supabase não reconheceu o usuário: na DATABASE_URL o usuário deve ser postgres.<id-do-projeto>.";
+  if (/relation .* does not exist/i.test(msg)) return "Tabelas não encontradas: rode supabase/setup.sql no SQL Editor do Supabase.";
+  return "Falha ao iniciar o servidor. Veja os logs do deploy.";
+}
+
 export async function handleApi(req: Request): Promise<Response> {
   const g = globalThis as G;
-  await ensureBooted();
+  try {
+    await ensureBooted();
+  } catch (err) {
+    console.error("[boot] falha ao iniciar:", err);
+    return Response.json({ error: bootErrorMessage(err), code: "boot" }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
   g.__lsRouter ??= buildRouter();
   return g.__lsRouter.handle(req);
 }

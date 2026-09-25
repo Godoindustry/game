@@ -93,3 +93,26 @@ describe("Corridas reais pela API", () => {
     expect(Number(resolutions!.n)).toBe(1);
   });
 });
+
+describe("Falhas de inicialização viram mensagem clara (sem segredos)", () => {
+  it("Vercel sem DATABASE_URL responde 503 JSON explicando o que falta", async () => {
+    const { resetApiForTests, handleApi } = await import("@/server/http/api");
+    const { setDb } = await import("@/server/db/database");
+    process.env.VERCEL = "1";
+    try {
+      setDb(undefined);
+      resetApiForTests();
+      const res = await handleApi(new Request("http://localhost:3000/api/meta"));
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.error).toMatch(/DATABASE_URL não definida/);
+    } finally {
+      delete process.env.VERCEL;
+    }
+  });
+  it("DATABASE_URL com senha de exemplo ou mal formada é explicada", async () => {
+    const { openDb } = await import("@/server/db/database");
+    await expect(openDb({ url: "postgresql://postgres.x:[YOUR-PASSWORD]@h:6543/postgres" })).rejects.toThrow(/YOUR-PASSWORD/);
+    await expect(openDb({ url: "não é url" })).rejects.toThrow(/mal formada/);
+  });
+});

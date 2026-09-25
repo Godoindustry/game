@@ -26,7 +26,14 @@ async function ensureCsrf(): Promise<string> {
   csrf = readCookie("ls_csrf") ?? csrf;
   if (csrf) return csrf;
   const r = await fetch("/api/auth/csrf", { credentials: "same-origin" });
-  const data = (await r.json()) as { csrfToken: string };
+  const text = await r.text();
+  let data: { csrfToken?: string; error?: string } = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    /* resposta não-JSON */
+  }
+  if (!r.ok || !data.csrfToken) throw new ApiError(r.status, data.error ?? "Servidor indisponível no momento. Tente novamente em instantes.", "csrf");
   csrf = data.csrfToken;
   return csrf;
 }
@@ -49,7 +56,12 @@ export async function api<T = unknown>(method: "GET" | "POST" | "PATCH" | "DELET
     throw new ApiError(0, "Sem conexão com o servidor. Tentando de novo em instantes…", "rede");
   }
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    if (res.ok) throw new ApiError(res.status, "Resposta inválida do servidor.", "resposta");
+  }
   if (!res.ok) {
     if (res.status === 403 && data?.code === "csrf") csrf = null;
     throw new ApiError(res.status, data?.error ?? "Erro inesperado.", data?.code);
