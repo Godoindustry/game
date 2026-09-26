@@ -105,7 +105,7 @@ describe("Falhas de inicialização viram mensagem clara (sem segredos)", () => 
       const res = await handleApi(new Request("http://localhost:3000/api/meta"));
       expect(res.status).toBe(503);
       const body = await res.json();
-      expect(body.error).toMatch(/DATABASE_URL não definida/);
+      expect(body.error).toMatch(/DATABASE_URL \(ou POSTGRES_URL\) não definida/);
     } finally {
       delete process.env.VERCEL;
     }

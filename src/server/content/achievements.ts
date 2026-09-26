@@ -18,5 +18,6 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "abrigo", name: "Teto improvisado", description: "Monte um abrigo.", icon: "tenda", points: 15 },
   { id: "confianca", name: "Voz amiga", description: "Converse com o piloto sem que ele fuja.", icon: "balao", points: 20 },
   { id: "equipe", name: "Ninguém fica para trás", description: "Vença uma campanha cooperativa.", icon: "grupo", points: 60 },
+  { id: "justica", name: "Rumo 074", description: "Saia do vale contando a verdade pelo rádio.", icon: "radio", points: 120, hidden: true },
   { id: "queda", name: "A névoa chama", description: "Morra na ravina.", icon: "caveira", points: 5, hidden: true },
 ];

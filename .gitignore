@@ -46,3 +46,14 @@ next-env.d.ts
 
 # backup local de arquivos em conflito (não versionar)
 /_conflito/
+
+# arquivos soltos de teste manual (podem conter sessão/senha)
+/cookies.txt
+/login.json
+/login-username.json
+/register.json
+/output.txt
+
+# ferramentas locais / scripts de debug
+/.kilo/
+/test-db.ts

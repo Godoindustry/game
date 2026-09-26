@@ -11,18 +11,26 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "db:migrate": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.json src/server/db/cli.ts",
-    "audio:generate": "node --env-file-if-exists=.env.local scripts/generate-audio.js"
+    "audio:generate": "node --env-file-if-exists=.env.local scripts/generate-audio.js",
+    "cap:sync": "cap sync",
+    "cap:android": "cap open android"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
+    "canvas": "^3.2.3",
     "next": "16.3.6",
     "pg": "^8.23.0",
+    "phaser": "^3.90.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "zod": "^4.6.5",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@types/node": "^24.13.6",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",

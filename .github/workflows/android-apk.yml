@@ -1,0 +1,53 @@
+# Gera o APK Android de graça no GitHub Actions (sem Android Studio local).
+#
+# Antes de rodar: GitHub → Settings → Secrets and variables → Actions → aba
+# "Variables" → crie CAP_SERVER_URL com a URL do jogo na Vercel
+# (ex.: https://seu-jogo.vercel.app).
+#
+# Rodar: aba Actions → "APK Android" → Run workflow. O APK sai em "Artifacts".
+name: APK Android
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # Só o CLI do Capacitor é necessário aqui; pula builds nativos (canvas etc.).
+      - run: npm ci --ignore-scripts
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Sincronizar Capacitor
+        env:
+          CAP_SERVER_URL: ${{ vars.CAP_SERVER_URL }}
+        run: |
+          if [ -z "$CAP_SERVER_URL" ]; then
+            echo "::error::Defina a variável CAP_SERVER_URL (Settings → Variables → Actions)."
+            exit 1
+          fi
+          npx cap sync android
+
+      - name: Compilar APK
+        working-directory: android
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linha-sobrevivencia-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

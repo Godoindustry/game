@@ -4,7 +4,7 @@
  */
 import type { CharacterState } from "./types";
 
-type CondKey = "sangrando" | "hipotermia" | "frio" | "sede" | "fome" | "sono" | "dor" | "panico" | "febre" | "encharcado" | "fraco";
+type CondKey = "sangrando" | "hipotermia" | "frio" | "sede" | "fome" | "sono" | "dor" | "panico" | "febre" | "encharcado" | "fraco" | "mordido";
 
 const WORD: Record<CondKey, string> = {
   sangrando: "sangrando",
@@ -18,9 +18,11 @@ const WORD: Record<CondKey, string> = {
   febre: "febril",
   encharcado: "encharcado",
   fraco: "muito fraco",
+  mordido: "com marcas de dentes no pescoço e uma sede estranha",
 };
 
 const LINES: Record<CondKey, string[]> = {
+  mordido: ["As duas marcas no pescoço pulsam quando escurece.", "Você sente o cheiro do próprio sangue — e isso dá fome."],
   sangrando: ["O sangue esquenta a manga e esfria logo em seguida.", "Cada movimento abre um pouco mais o ferimento."],
   hipotermia: ["Seus dedos não obedecem mais. Os dentes batem sem parar.", "O frio já não dói — e isso assusta mais do que a dor."],
   frio: ["Você esfrega as mãos, mas o frio volta antes do calor.", "O ar gelado arde no nariz a cada respiração."],
@@ -42,6 +44,7 @@ export function bodyCondition(char: CharacterState): CondKey[] {
   if (char.wounds.some((w) => !w.healed && w.bleedingRate > 0)) out.push("sangrando");
   if (s.bodyTemp < 35) out.push("hipotermia");
   else if (s.bodyTemp < 36) out.push("frio");
+  if (h.diseases.some((d) => d.key === "mordida")) out.push("mordido");
   if (h.health < 25) out.push("fraco");
   if (s.thirst >= 65) out.push("sede");
   if (s.hunger >= 65) out.push("fome");

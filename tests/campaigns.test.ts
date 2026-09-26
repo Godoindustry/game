@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { freshApp, registered, VALID_SHEET, act } from "./helpers";
 import { getDb } from "@/server/db/database";
-import { setConfig, getConfig } from "@/server/config";
 
 beforeEach(async () => {
   await freshApp();
@@ -101,43 +100,33 @@ describe("Rodadas cooperativas", () => {
     return { owner, guest: g, id };
   }
 
-  it("a rodada só avança quando todos confirmam", async () => {
+  it("cada jogador resolve a própria ação na hora, sem esperar o parceiro", async () => {
     const { owner, guest, id } = await startedCoop();
     const s0 = await owner.client.get(`/api/campaigns/${id}/state`);
     expect(s0.body.event.participants).toHaveLength(2);
     const r1 = await act(owner.client, id, "escolha_evento", { choiceId: "vs_despertar.gritar" });
     expect(r1.status).toBe(200);
-    expect(r1.body.state.campaign.round).toBe(1);
-    expect(r1.body.state.pending.waitingFor).toEqual(["Beto Lima"]);
-    const r2 = await act(guest.client, id, "escolha_evento", { choiceId: "vs_despertar.gritar" });
-    expect(r2.body.state.campaign.round).toBe(2);
-    expect(r2.body.state.event?.title).not.toBe("Silêncio depois do impacto");
+    expect(r1.body.state.campaign.round).toBe(2); // resolveu sem esperar o Beto
+    expect(r1.body.state.pending).toBeNull();
+    expect(r1.body.state.event?.title).not.toBe("Silêncio depois do impacto"); // no grupo, decide quem responde primeiro
+    const g = await guest.client.get(`/api/campaigns/${id}/state`);
+    expect(g.body.campaign.round).toBe(2);
+    expect(g.body.me.alive).toBe(true);
   });
 
-  it("quem não responde no prazo recebe ação segura automática", async () => {
+  it("quem não agiu não recebe ação automática: só vê o tempo passar", async () => {
     const { owner, id } = await startedCoop();
     await act(owner.client, id, "escolha_evento", { choiceId: "vs_despertar.examinar" });
-    (await getDb().run("UPDATE campaigns SET round_deadline_at = '2000-01-01T00:00:00.000Z', last_heartbeat_at = ? WHERE id = ?", new Date().toISOString(), id));
-    const s = await owner.client.post(`/api/campaigns/${id}/sync`);
-    expect(s.body.campaign.round).toBe(2);
-    const auto = (await getDb().get<{ type: string; params: string }>("SELECT type, params FROM player_actions WHERE campaign_id = ? AND auto = 1", id))!;
-    expect(auto.type).toBe("escolha_evento");
-    expect(JSON.parse(auto.params).choiceId).toBe("vs_despertar.gritar"); // a escolha marcada como segura
+    const auto = await getDb().get<{ type: string }>("SELECT type FROM player_actions WHERE campaign_id = ? AND auto = 1", id);
+    expect(auto).toBeFalsy();
   });
 
-  it("com todos offline a campanha pausa: o prazo é estendido, não consumido", async () => {
+  it("sem ninguém agir, sincronizar não passa tempo de jogo", async () => {
     const { owner, id } = await startedCoop();
-    setConfig({ ...getConfig(), PAUSE_AFTER_SECONDS: 60, ROUND_TIMEOUT_SECONDS: 300 });
-    await act(owner.client, id, "escolha_evento", { choiceId: "vs_despertar.examinar" });
-    // Simula: último heartbeat há 1 hora e prazo que teria vencido há 30 min.
-    const hourAgo = new Date(Date.now() - 3600_000).toISOString();
-    const deadline = new Date(Date.now() - 1800_000).toISOString();
-    (await getDb().run("UPDATE campaigns SET last_heartbeat_at = ?, round_deadline_at = ? WHERE id = ?", hourAgo, deadline, id));
     const before = (await getDb().get<{ game_minutes: number }>("SELECT game_minutes FROM campaigns WHERE id = ?", id))!.game_minutes;
     const s = await owner.client.post(`/api/campaigns/${id}/sync`);
-    expect(s.body.campaign.round).toBe(1); // não resolveu à revelia
-    const row = (await getDb().get<{ round_deadline_at: string; game_minutes: number }>("SELECT round_deadline_at, game_minutes FROM campaigns WHERE id = ?", id))!;
-    expect(new Date(row.round_deadline_at).getTime()).toBeGreaterThan(Date.now());
-    expect(row.game_minutes).toBe(before); // nenhum tempo de jogo passou offline
+    expect(s.body.campaign.round).toBe(1);
+    const after = (await getDb().get<{ game_minutes: number }>("SELECT game_minutes FROM campaigns WHERE id = ?", id))!.game_minutes;
+    expect(after).toBe(before);
   });
 });

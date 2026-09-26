@@ -3,7 +3,8 @@
  *
  * Premissa: um bimotor de táxi aéreo cai à noite num vale de mata fechada.
  * O cinto do piloto foi cortado e a cabine está vazia. No rádio, uma voz feminina
- * repete números. A explicação é realista (desvio de rota pago, carga ilegal,
+ * repete números. À noite, coisas aladas caçam no vale (engine/vampire.ts): a luz e o
+ * fogo as afastam; três mordidas transformam quem foi mordido. A explicação é realista (desvio de rota pago, carga ilegal,
  * uma estação hidrológica abandonada desde 1998), mas nem tudo se explica.
  *
  * Coordenadas x/y em % do arquivo public/assets/mapa-vale-silente.png.
@@ -65,7 +66,11 @@ const LOCATIONS: LocationDef[] = [
   {
     id: "ponte", name: "Ponte do córrego", x: 56, y: 39, terrain: "córrego", hiddenInitially: false, dangerLevel: 1,
     description: "Uma ponte de tábuas sobre o córrego. Rio acima, a cachoeira ruge no escuro.",
-    properties: { tempModifier: -2, water: "stream" },
+    properties: {
+      tempModifier: -2, water: "stream",
+      examineText: "Nas tábuas da ponte, lama fresca com marcas de pneus largos, de cravos grossos — um quadriciclo. Ninguém chega aqui a pé carregando peso.",
+      examineClue: "pneus_ponte",
+    },
   },
   {
     id: "lago", name: "Poço escuro", x: 21, y: 77, terrain: "lago", hiddenInitially: false, dangerLevel: 1,
@@ -82,6 +87,7 @@ const LOCATIONS: LocationDef[] = [
     description: "Uma antena treliçada, uma parábola torta e uma casa de alvenaria cercada por alambrado.",
     properties: {
       indoor: true,
+      examineText: "Nos fundos, um gerador a diesel enferrujado. O tanque tem um furo de bala, e o óleo escorre morro abaixo, direto para o córrego. Na porta, alguém pintou 074 com tinta laranja.",
       loot: [
         { itemId: "mochila_cargueira", qty: 1, base: 60 },
         { itemId: "atadura", qty: 2, base: 60 },
@@ -93,12 +99,18 @@ const LOCATIONS: LocationDef[] = [
   {
     id: "penhasco", name: "Mirante do penhasco", x: 82, y: 38, terrain: "penhasco", hiddenInitially: false, dangerLevel: 3,
     description: "Um guarda-corpo de madeira podre à beira de um paredão. Lá embaixo, a névoa cobre a ravina.",
-    properties: { tempModifier: -3, openSky: true },
+    properties: {
+      tempModifier: -3, openSky: true,
+      examineText: "Grampos de escalada novos, cravados na rocha, descem para dentro da névoa. Alguém desce e sobe por aqui com frequência — e com carga.",
+    },
   },
   {
     id: "rochedo", name: "Rochedo do marco", x: 70, y: 74, terrain: "rochedo", hiddenInitially: true, dangerLevel: 1,
     description: "Um topo de rocha nua acima das copas, com um marco geodésico. Céu aberto em todas as direções.",
-    properties: { tempModifier: -2, openSky: true },
+    properties: {
+      tempModifier: -2, openSky: true,
+      examineText: "No marco geodésico, riscado a ponta de faca: 074°. Uma seta aponta para o norte do vale — para a crista onde fica a antena.",
+    },
   },
 ];
 
@@ -354,6 +366,15 @@ const EVENTS: EventDef[] = [
           failure: { text: "Faísca. Cheiro de plástico queimado. O rádio chia e morre de novo. A bateria esquentou.", effects: [{ op: "wound", part: "braco_dir", type: "queimadura", severity: 1 }, { op: "itemDurability", item: "bateria_emergencia", delta: -50 }] },
         },
       }),
+      c("vs_radio", "denunciar", {
+        label: "Ligar o rádio com Brandão e denunciar a rota", durationMinutes: 30, requirements: { flagsAll: ["brandao_salvo"], cluesAny: ["rumo_074"] },
+        outcome: {
+          text: "Brandão segura a lanterna enquanto você emenda os fios. Ele sabe qual fio é qual.",
+          check: { attr: "conhecimento_tecnico", base: 65, itemBonus: { canivete: 10 }, experience: ["tecnologia", "mecanica"] },
+          success: { text: "O painel acende. Brandão pega o microfone, respira fundo e fala tudo: o rumo 074, a pista de terra, os nomes, os voos de 1998. [pause] Do outro lado, depois de um longo silêncio: [calm] “Gravando. Continue, comandante.”", effects: [{ op: "end", ending: "a_verdade" }] },
+          failure: { text: "Faísca. O rádio morre de novo. Brandão xinga baixinho e começa a desencapar outro fio.", effects: [{ op: "itemDurability", item: "bateria_emergencia", delta: -35 }] },
+        },
+      }),
       c("vs_radio", "sintonizar", {
         label: "Procurar a frequência dos números", durationMinutes: 10,
         outcome: { text: "Com a bateria, o receptor capta a voz: “sete… quatro… zero”. O sinal é fortíssimo — não vem de longe. Vem de um ponto do próprio vale, a sudeste.", effects: [{ op: "clue", key: "frequencia" }, { op: "reveal", location: "rochedo" }, { op: "revealLink", from: "penhasco", to: "rochedo" }, { op: "status", field: "stress", delta: 8 }] },
@@ -411,7 +432,7 @@ const EVENTS: EventDef[] = [
     body: "No topo, junto ao marco geodésico, uma caixa metálica com cadeado de combinação de três dígitos. Daqui se vê o vale inteiro — e qualquer coisa no céu veria você.",
     choices: [
       c("vs_rochedo", "740", {
-        label: "Tentar a combinação 7-4-0", durationMinutes: 5, requirements: { cluesAny: ["frequencia", "diario_iara", "mapa_alfinetes"] },
+        label: "Tentar a combinação 7-4-0", durationMinutes: 5, requirements: { cluesAny: ["frequencia", "diario_iara", "mapa_alfinetes", "pedido_caixa", "rumo_074", "bolsa_iara"] },
         outcome: { text: "Clique. Dentro: dois sinalizadores, embalados em plástico, e uma foto antiga de uma mulher de capa de chuva segurando uma prancheta.", effects: [{ op: "addItem", item: "sinalizador", qty: 2 }, { op: "clue", key: "caixa_aberta" }] },
       }),
       c("vs_rochedo", "forcar", {
@@ -461,6 +482,241 @@ const EVENTS: EventDef[] = [
         },
       }),
       c("vs_resgate", "esperar", { label: "Esperar e observar", durationMinutes: 30, safe: true, outcome: { text: "Nada no céu além de urubus." } }),
+    ],
+  },
+  {
+    id: "vs_poco", title: "O olho d'água", locationId: "lago", priority: 40, repeatable: false,
+    trigger: {},
+    body: "A água do poço é tão parada que parece vidro. [pause] Então você vê: lá no fundo, presa entre duas pedras, uma luz fraca e verde pisca devagar. [slowly] Como se alguém, lá embaixo, ainda estivesse esperando.",
+    choices: [
+      c("vs_poco", "mergulhar", {
+        label: "Mergulhar até a luz", durationMinutes: 15,
+        outcome: {
+          text: "Você enche o peito de ar e afunda na água gelada.",
+          check: { attr: "resistencia", base: 45 },
+          success: { text: "Seus dedos encontram uma bolsa estanque, de lona laranja. A luz é de um chaveiro fosforescente. Dentro, embrulhado em plástico, um crachá: IARA MENEZES — HIDROLOGIA — 1998.", effects: [{ op: "wet", amount: 90 }, { op: "addItem", item: "cracha_iara" }, { op: "clue", key: "bolsa_iara" }, { op: "status", field: "bodyTemp", delta: -0.6 }] },
+          failure: { text: "[gasps] O frio fecha seu peito como um punho. Você sobe engasgado, sem nada nas mãos. Quando olha de novo, a luz apagou.", effects: [{ op: "wet", amount: 90 }, { op: "status", field: "bodyTemp", delta: -0.9 }, { op: "status", field: "stress", delta: 15 }] },
+        },
+      }),
+      c("vs_poco", "galho", {
+        label: "Puxar com um galho comprido", durationMinutes: 20,
+        outcome: {
+          text: "Você acha um galho longo e firme e sonda o fundo, deitado na pedra.",
+          check: { attr: "improviso", base: 40 },
+          success: { text: "A ponta prende numa alça. Sobe uma bolsa estanque laranja, pingando. Dentro: um crachá plastificado. IARA MENEZES — HIDROLOGIA — 1998.", effects: [{ op: "wet", amount: 15 }, { op: "addItem", item: "cracha_iara" }, { op: "clue", key: "bolsa_iara" }] },
+          failure: { text: "O galho quebra. A luz lá embaixo continua piscando — paciente.", effects: [{ op: "status", field: "stress", delta: 5 }] },
+        },
+      }),
+      c("vs_poco", "deixar", { label: "Não mexer no que está no fundo", durationMinutes: 1, safe: true, outcome: { text: "Você se afasta da borda. Por um bom tempo, sente a luz verde nas costas.", effects: [{ op: "status", field: "stress", delta: 5 }] } }),
+    ],
+  },
+  {
+    id: "vs_trilha", title: "Gotas no caminho", locationId: "trilha", priority: 40, repeatable: false,
+    trigger: {},
+    body: "Nas folhas largas da trilha, manchas escuras, ainda pegajosas: sangue, em gotas regulares, de quem anda mancando. [pause] Meio metro adiante, rente ao chão, um laço de arame armado entre duas raízes.",
+    choices: [
+      c("vs_trilha", "seguir", {
+        label: "Seguir o rastro de sangue", durationMinutes: 25,
+        outcome: {
+          text: "Você segue as gotas, passo a passo, contornando o laço.",
+          check: { attr: "orientacao", base: 50 },
+          success: { text: "O rastro sobe a crista e segue para leste, pela linha das marcas laranjas. Quem sangra aqui sabe exatamente para onde vai: a antena.", effects: [{ op: "clue", key: "sangue_trilha" }, { op: "revealLink", from: "trilha", to: "estacao" }] },
+          failure: { text: "As gotas somem num trecho de pedra. Você volta ao ponto de partida com as pernas pesadas.", effects: [{ op: "status", field: "energy", delta: -8 }] },
+        },
+      }),
+      c("vs_trilha", "laco", {
+        label: "Examinar o laço de arame", durationMinutes: 10,
+        outcome: {
+          text: "Você se agacha junto à armadilha.",
+          check: { attr: "percepcao", base: 55 },
+          success: { text: "Arame galvanizado novo, nó de quem faz isso há anos. Não é para bicho pequeno. [ominous] Alguém mora neste vale — e não quer visitas.", effects: [{ op: "clue", key: "laco_cacador" }] },
+          failure: { text: "[gasps] O arame salta e morde seu tornozelo antes que você tire a mão.", effects: [{ op: "wound", part: "perna_dir", type: "corte", severity: 1 }] },
+        },
+      }),
+      c("vs_trilha", "passar", { label: "Passar longe e seguir as marcas", durationMinutes: 2, safe: true, outcome: { text: "Você pula o laço e não olha para as manchas. Elas continuam no canto do seu olho." } }),
+    ],
+  },
+  {
+    id: "vs_queixadas", title: "Estalo de dentes", locationId: "mata", priority: 38, repeatable: false,
+    trigger: { day: true },
+    body: "[tense] Os pássaros param todos ao mesmo tempo. Um cheiro forte, azedo, sobe do chão. Depois, o som: dezenas de dentes batendo, cascos, galhos quebrando. [urgent] Um bando de queixadas vem pela mata — na sua direção.",
+    choices: [
+      c("vs_queixadas", "arvore", {
+        label: "Subir na árvore mais próxima", durationMinutes: 10,
+        outcome: {
+          text: "Você agarra o primeiro galho baixo e se puxa para cima.",
+          check: { attr: "agilidade", base: 50 },
+          success: { text: "Lá de cima, você vê o bando passar como um rio escuro. Quarenta, cinquenta bichos. Depois, silêncio de novo.", effects: [{ op: "status", field: "stress", delta: 8 }] },
+          failure: { text: "O galho racha. Você cai no meio do bando e um dente abre sua perna antes de eles seguirem.", effects: [{ op: "wound", part: "perna_esq", type: "laceracao", severity: 2 }, { op: "status", field: "stress", delta: 15 }] },
+        },
+      }),
+      c("vs_queixadas", "imovel", {
+        label: "Ficar completamente imóvel", durationMinutes: 10,
+        outcome: {
+          text: "Você cola as costas num tronco e prende a respiração.",
+          check: { attr: "controle_emocional", base: 55 },
+          success: { text: "Eles passam a um metro de você. Um para, fareja o ar, bate os dentes — e segue.", effects: [{ op: "status", field: "stress", delta: 10 }] },
+          failure: { text: "Seu corpo se mexe antes de você decidir. O bando se vira. Você corre, tropeça e rola por uma encosta.", effects: [{ op: "wound", part: "braco_esq", type: "contusao", severity: 1 }, { op: "status", field: "stress", delta: 18 }] },
+        },
+      }),
+      c("vs_queixadas", "recuar", { label: "Recuar devagar pelo caminho de onde veio", durationMinutes: 15, safe: true, outcome: { text: "Você volta de costas, passo a passo, até o som ficar para trás.", effects: [{ op: "status", field: "stress", delta: 8 }] } }),
+    ],
+  },
+  {
+    id: "vs_celular", title: "23h40", locationId: null, priority: 58, repeatable: false,
+    trigger: { anyLocation: true, night: true, minMinute: 1440, hasItem: "celular" },
+    body: "No seu bolso, o celular acende sozinho. Sem sinal, sem rede, sem chamada. [pause] Do alto-falante, abafada, vem a voz de mulher: [whispers] “sete… quatro… zero…” [long pause] E depois, pela primeira vez, uma palavra a mais. O seu nome.",
+    choices: [
+      c("vs_celular", "ouvir", {
+        label: "Encostar o celular no ouvido e escutar", durationMinutes: 5,
+        outcome: {
+          text: "Você segura o aparelho com as duas mãos.",
+          check: { attr: "controle_emocional", base: 45 },
+          success: { text: "Na terceira repetição, você percebe: o mesmo chiado, na mesma sílaba, a mesma respiração antes do zero. [pause] Não é alguém falando. É uma gravação. Mas o seu nome não estava nela da primeira vez.", effects: [{ op: "clue", key: "voz_gravada" }, { op: "status", field: "stress", delta: 10 }] },
+          failure: { text: "A voz fica mais perto do microfone. Você larga o celular no chão e ele se apaga. Suas mãos não param de tremer.", effects: [{ op: "status", field: "stress", delta: 25 }] },
+        },
+      }),
+      c("vs_celular", "responder", {
+        label: "Perguntar quem está falando", durationMinutes: 3,
+        outcome: {
+          text: "“Quem é?” Sua voz sai rouca.",
+          effects: [{ op: "status", field: "stress", delta: 15 }],
+          check: { attr: "percepcao", base: 50 },
+          success: { text: "[whispers] “A caixa”, diz a voz. [pause] “Não deixa eles levarem a caixa.” A tela mostra, por um segundo, um ponto a sudeste do vale.", effects: [{ op: "clue", key: "pedido_caixa" }, { op: "reveal", location: "rochedo" }, { op: "revealLink", from: "lago", to: "rochedo" }] },
+          failure: { text: "Silêncio. Depois, muito baixo, alguém respira do outro lado.", effects: [] },
+        },
+      }),
+      c("vs_celular", "desligar", { label: "Desligar o aparelho", durationMinutes: 1, safe: true, outcome: { text: "Você segura o botão até a tela apagar. Por um instante, jura ter ouvido a voz terminar a frase.", effects: [{ op: "status", field: "stress", delta: 8 }] } }),
+    ],
+  },
+  {
+    id: "vs_brandao_ferida", title: "A perna do comandante", locationId: "estacao", priority: 41, repeatable: true,
+    trigger: { afterEvent: "vs_piloto", flagsAll: ["confianca_piloto"], flagsNone: ["piloto_fugiu", "brandao_salvo"], cooldownMinutes: 180 },
+    body: "[exhausted] Brandão está sentado no chão, suando frio. A atadura improvisada na perna escureceu e cheira mal. [pause] “Não vou sair daqui andando”, ele diz, sem olhar para você. “Mas você ainda pode.”",
+    choices: [
+      c("vs_brandao_ferida", "tratar", {
+        label: "Limpar e enfaixar a perna dele", durationMinutes: 20, requirements: { hasItem: ["atadura"] },
+        outcome: {
+          text: "Você corta as tiras velhas e lava o ferimento como dá.",
+          effects: [{ op: "removeItem", item: "atadura" }],
+          check: { attr: "medicina", base: 45, itemBonus: { antisseptico: 15 }, experience: ["medicina"] },
+          success: { text: "Quando você termina, ele fica um tempo calado. [sighs] “Zero-sete-quatro não é código. É o rumo de pouso. Você voa em cima do rio, liga o rádio, e a voz te guia até a pista de terra. Quem pousa aqui segue a voz da mulher.” [pause] “Se esse rádio ligar, eu conto tudo. Para quem quiser ouvir.”", effects: [{ op: "flag", key: "brandao_salvo" }, { op: "clue", key: "rumo_074" }, { op: "flagAdd", key: "confianca_piloto", delta: 2 }] },
+          failure: { text: "O ferimento é mais fundo do que parecia. Ele morde a manga da camisa para não gritar. Pelo menos agora está limpo.", effects: [{ op: "flagAdd", key: "confianca_piloto", delta: 1 }, { op: "status", field: "stress", delta: 5 }] },
+        },
+      }),
+      c("vs_brandao_ferida", "iara", {
+        label: "Perguntar sobre a mulher do diário", durationMinutes: 10,
+        outcome: {
+          text: "“Quem era Iara Menezes?”",
+          check: { attr: "comunicacao", base: 45 },
+          success: { text: "Ele demora. “Todo piloto dessa rota conhece a história. Ela media o rio. Viu os aviões pousando à noite e anotou os números. Um dia, sumiu.” [pause] “O inquérito disse que se perdeu na mata. Ninguém se perde com um rádio na mão.”", effects: [{ op: "clue", key: "iara_desaparecida" }, { op: "status", field: "stress", delta: 6 }] },
+          failure: { text: "“Não fala dela aqui dentro”, ele diz, olhando para o rádio. E não fala mais nada.", effects: [{ op: "status", field: "stress", delta: 4 }] },
+        },
+      }),
+      c("vs_brandao_ferida", "descansar", { label: "Deixar que ele descanse", durationMinutes: 2, safe: true, outcome: { text: "Ele fecha os olhos. Pela respiração, não está dormindo." } }),
+    ],
+  },
+  {
+    id: "vs_donos_carga", title: "Motor na ponte", locationId: "ponte", priority: 45, repeatable: false,
+    trigger: { day: true, minMinute: 660 },
+    body: "[urgent] Um motor de dois tempos sobe o vale, abafado pela mata. Um quadriciclo para do outro lado da ponte. Dois homens de botas de borracha descem. Um deles carrega uma espingarda com naturalidade, [pause] como quem carrega um guarda-chuva.",
+    choices: [
+      c("vs_donos_carga", "esconder", {
+        label: "Esconder-se sob a ponte e escutar", durationMinutes: 15,
+        outcome: {
+          text: "Você desce pela margem e se encolhe entre as pedras, com água até a cintura.",
+          check: { attr: "furtividade", base: 50 },
+          success: { text: "Passos nas tábuas, bem em cima de você. “O Brandão não pousou onde devia.” “Então a gente pega a carga na ravina e acha ele depois. E quem mais tiver no avião.” [pause] O motor se afasta rumo ao penhasco.", effects: [{ op: "wet", amount: 45 }, { op: "clue", key: "donos_carga" }, { op: "status", field: "stress", delta: 10 }] },
+          failure: { text: "Uma pedra rola sob seu pé. Os passos param. Um facho de lanterna varre a margem por um minuto inteiro — e então, sem pressa, eles vão embora.", effects: [{ op: "wet", amount: 45 }, { op: "flag", key: "donos_alerta" }, { op: "status", field: "stress", delta: 22 }] },
+        },
+      }),
+      c("vs_donos_carga", "pedir", {
+        label: "Sair da mata e pedir ajuda", durationMinutes: 10,
+        outcome: {
+          text: "Você levanta os braços e atravessa a clareira.",
+          check: { attr: "comunicacao", base: 40 },
+          success: { text: "Um deles sorri demais. “Claro, vem com a gente.” O outro olha para o seu rosto como quem decora. [pause] Você diz que vai buscar alguém ferido — e some na mata antes que respondam.", effects: [{ op: "clue", key: "donos_carga" }, { op: "flag", key: "donos_alerta" }, { op: "status", field: "stress", delta: 15 }] },
+          failure: { text: "“Cadê a carga?” A coronha da espingarda acerta suas costelas antes de você entender a pergunta. Você foge pela mata, sem ar.", effects: [{ op: "wound", part: "torso", type: "contusao", severity: 2 }, { op: "flag", key: "donos_alerta" }, { op: "status", field: "stress", delta: 20 }] },
+        },
+      }),
+      c("vs_donos_carga", "imovel", { label: "Ficar imóvel entre as árvores até passarem", durationMinutes: 20, safe: true, outcome: { text: "Você não respira direito até o som do motor sumir para os lados do penhasco. Eles não estavam procurando ajuda. Estavam procurando alguém.", effects: [{ op: "status", field: "stress", delta: 12 }] } }),
+    ],
+  },
+  {
+    id: "vs_cacada", title: "Faróis entre as árvores", locationId: null, priority: 62, repeatable: false,
+    trigger: { anyLocation: true, night: true, flagsAll: ["donos_alerta"] },
+    body: "[tense] Um farol varre os troncos, devagar, de um lado para o outro. O motor está desligado; alguém empurra o quadriciclo para não fazer barulho. [whispers] Eles estão procurando você.",
+    choices: [
+      c("vs_cacada", "esconder", {
+        label: "Apagar a luz e se enfiar no mato", durationMinutes: 20,
+        outcome: {
+          text: "Você se deita entre as raízes e cobre o rosto com folhas.",
+          check: { attr: "furtividade", base: 50 },
+          success: { text: "O facho passa por cima de você duas vezes. Na terceira, eles desistem. [pause] Uma voz, perto demais: “Amanhã a gente acha.”", effects: [{ op: "status", field: "stress", delta: 12 }, { op: "wet", amount: 20 }] },
+          failure: { text: "[gasps] Um estampido. Chumbo arranca a casca da árvore ao seu lado e rasga seu ombro. Você corre no escuro até não ouvir mais nada.", effects: [{ op: "wound", part: "braco_esq", type: "laceracao", severity: 2 }, { op: "status", field: "stress", delta: 25 }] },
+        },
+      }),
+      c("vs_cacada", "correr", {
+        label: "Correr para longe da luz", durationMinutes: 15,
+        outcome: {
+          text: "Você dispara mata adentro.",
+          check: { attr: "agilidade", base: 45 },
+          success: { text: "Galhos cortam seu rosto, mas o farol fica para trás.", effects: [{ op: "status", field: "energy", delta: -12 }, { op: "status", field: "stress", delta: 10 }] },
+          failure: { text: "Uma raiz prende seu pé. O tornozelo vira com um estalo.", effects: [{ op: "wound", part: "perna_dir", type: "entorse", severity: 2 }, { op: "status", field: "stress", delta: 15 }] },
+        },
+      }),
+      c("vs_cacada", "deitar", { label: "Deitar no chão e não se mexer", durationMinutes: 30, safe: true, outcome: { text: "Você fica colado à terra fria por meia hora. O farol acaba indo embora.", effects: [{ op: "status", field: "stress", delta: 15 }, { op: "status", field: "bodyTemp", delta: -0.3 }] } }),
+    ],
+  },
+  {
+    id: "vs_asas", title: "Asas na escuridão", locationId: null, priority: 50, repeatable: true,
+    trigger: { anyLocation: true, night: true, notSheltered: true, chance: 0.3, cooldownMinutes: 240 },
+    body: "[whispers] Um bater de asas de couro, pesado demais para um morcego comum. Entre os galhos, dois pontos vermelhos se acendem — depois quatro. [pause] Elas não têm pressa. Estão esperando você ficar sozinho no escuro.",
+    choices: [
+      c("vs_asas", "lanterna", {
+        label: "Apontar a lanterna direto para elas", durationMinutes: 5, requirements: { hasItem: ["lanterna"] },
+        outcome: { text: "[gasps] O facho acerta os olhos vermelhos. Um guincho agudo, e as asas se dispersam na mata. A luz as fere.", effects: [{ op: "status", field: "stress", delta: 5 }, { op: "clue", key: "luz_fere" }] },
+      }),
+      c("vs_asas", "chama", {
+        label: "Acender uma chama e erguer acima da cabeça", durationMinutes: 5, requirements: { hasAnyItem: ["isqueiro", "fosforos"] },
+        outcome: { text: "A chama treme no vento. As criaturas recuam, sibilando, e desaparecem além do alcance do fogo.", effects: [{ op: "status", field: "stress", delta: 3 }, { op: "clue", key: "luz_fere" }] },
+      }),
+      c("vs_asas", "imovel", {
+        label: "Ficar imóvel e prender a respiração", durationMinutes: 15,
+        outcome: {
+          text: "Você não mexe um músculo.",
+          check: { attr: "furtividade", base: 45 },
+          success: { text: "Uma delas pousa a um palmo do seu rosto, fareja — e vai embora. [pause] Você só volta a respirar minutos depois.", effects: [{ op: "status", field: "stress", delta: 12 }] },
+          failure: { text: "O cheiro do seu sangue entrega você.", effects: [{ op: "bite" }] },
+        },
+      }),
+      c("vs_asas", "correr", {
+        label: "Correr", durationMinutes: 10, safe: true,
+        outcome: {
+          text: "Você dispara pela mata.",
+          check: { attr: "agilidade", base: 40 },
+          success: { text: "As asas batem atrás de você por um tempo — e param de repente, como se tivessem perdido o interesse.", effects: [{ op: "status", field: "energy", delta: -10 }, { op: "status", field: "stress", delta: 10 }] },
+          failure: { text: "Algo cai nas suas costas. Dentes. Você rola no chão até se soltar.", effects: [{ op: "bite" }, { op: "status", field: "energy", delta: -10 }] },
+        },
+      }),
+    ],
+  },
+  {
+    id: "vs_tumulo", title: "A cova aberta", locationId: "mata", priority: 42, repeatable: false,
+    trigger: { afterEvent: "vs_vozes" },
+    body: "[tense] No meio da mata, um cemitério esquecido: cruzes tortas, uma lamparina apagada. Uma das covas está aberta. [pause] A terra não foi cavada de cima para baixo. Foi empurrada de dentro para fora.",
+    choices: [
+      c("vs_tumulo", "ler", {
+        label: "Limpar a lápide e ler o nome", durationMinutes: 10,
+        outcome: {
+          text: "Você esfrega o musgo com a manga.",
+          check: { attr: "percepcao", base: 45 },
+          success: { text: "[whispers] “IARA MENEZES — 1971–1998”. A hidróloga do rádio. [pause] Dentro da cova, só a prancheta, e marcas de unha na madeira do caixão.", effects: [{ op: "clue", key: "cova_iara" }, { op: "status", field: "stress", delta: 10 }] },
+          failure: { text: "As letras estão gastas demais. Mas você tem certeza de que ouviu alguém respirar atrás de você.", effects: [{ op: "status", field: "stress", delta: 15 }] },
+        },
+      }),
+      c("vs_tumulo", "cobrir", { label: "Cobrir a cova com pedras", durationMinutes: 25, outcome: { text: "Você empilha pedras até as mãos sangrarem. Não sabe bem por quê — só sabe que se sente melhor.", effects: [{ op: "status", field: "stress", delta: -10 }, { op: "status", field: "energy", delta: -8 }, { op: "flag", key: "cova_coberta" }] } }),
+      c("vs_tumulo", "sair", { label: "Sair dali sem olhar para trás", durationMinutes: 2, safe: true, outcome: { text: "Você se afasta rápido. A lamparina, que estava apagada, agora está acesa.", effects: [{ op: "status", field: "stress", delta: 8 }] } }),
     ],
   },
   {
@@ -523,6 +779,8 @@ export const VALE_SILENTE: GameContent = {
       { key: "diario_iara", title: "O diário de Iara", text: "Em 1998, a hidróloga Iara Menezes registrou um sinal toda noite às 23h40: 7-4-0." },
       { key: "mapa_alfinetes", title: "Três alfinetes", text: "Estação, ravina e um rochedo a sudeste: “740 — caixa”." },
       { key: "piloto_vivo", title: "O piloto está vivo", text: "O comandante sobreviveu à queda — e se esconde na estação." },
+      { key: "luz_fere", title: "A luz fere", text: "As criaturas aladas fogem da luz e do fogo. Nunca fique no escuro." },
+      { key: "cova_iara", title: "A cova de Iara", text: "Iara Menezes foi enterrada na mata em 1998. A cova foi aberta de dentro para fora." },
       { key: "frequencia", title: "A frequência", text: "A transmissão dos números não vem de longe: vem de dentro do vale." },
       { key: "carga_ravina", title: "Carga na ravina", text: "Caixas lacradas com o adesivo do bagageiro, jogadas na ravina." },
       { key: "sinal_luz", title: "Sinal para baixo", text: "Uma lanterna no mirante piscava um padrão para dentro da ravina." },
@@ -530,18 +788,28 @@ export const VALE_SILENTE: GameContent = {
       { key: "caixa_aberta", title: "A foto", text: "Na caixa do rochedo, a foto de uma mulher de capa de chuva com uma prancheta." },
       { key: "iara_visao", title: "Trinta e sete dias", text: "Na febre, a mulher da foto falou com você." },
       { key: "desvio_rota", title: "A confissão", text: "Brandão admitiu: foi pago para pousar no vale e entregar a carga. O ELT, desligou ele mesmo." },
+      { key: "pneus_ponte", title: "Marcas de pneu", text: "Um quadriciclo cruza a ponte com frequência. Alguém tem uma estrada até aqui." },
+      { key: "bolsa_iara", title: "O crachá", text: "No fundo do poço, a bolsa de Iara Menezes, hidróloga, 1998. Ela nunca saiu do vale." },
+      { key: "sangue_trilha", title: "Rastro de sangue", text: "Alguém ferido subiu a crista rumo à antena, seguindo as marcas laranjas." },
+      { key: "laco_cacador", title: "O laço", text: "Armadilhas novas, feitas por mãos experientes. Alguém vive no vale." },
+      { key: "voz_gravada", title: "Uma gravação", text: "A voz dos números é uma fita, sempre igual. Menos pelo seu nome." },
+      { key: "pedido_caixa", title: "“Não deixa eles levarem”", text: "A voz no celular pediu para você proteger a caixa do rochedo." },
+      { key: "rumo_074", title: "Rumo 074", text: "Os números são o rumo de pouso de uma pista clandestina. A voz de Iara guia os aviões do contrabando." },
+      { key: "iara_desaparecida", title: "Perdida na mata", text: "Iara viu os pousos noturnos em 1998 e desapareceu. O inquérito foi arquivado." },
+      { key: "donos_carga", title: "Os donos da carga", text: "Dois homens armados vieram buscar a carga — e procuram os sobreviventes do avião." },
     ].map((cl) => [cl.key, cl]),
   ),
   endings: {
     resgate_radio: { key: "resgate_radio", type: "victory", title: "Frequência aberta", text: "[relieved] Horas depois do chamado, faróis sobem a estrada de serviço até a estação. [sighs] Você sobreviveu ao Vale Silente." },
     resgate_sinalizador: { key: "resgate_sinalizador", type: "victory", title: "Fumaça vermelha", text: "O helicóptero pousa no rochedo. Enquanto sobe, você olha para o vale — e por um instante [whispers] vê uma capa de chuva entre as árvores." },
     resgate_fogueira: { key: "resgate_fogueira", type: "victory", title: "Coluna de fumaça", text: "[relieved] A fumaça branca guiou o resgate até você. [slowly] O vale fica para trás, em silêncio." },
+    a_verdade: { key: "a_verdade", type: "victory", title: "A verdade na frequência", text: "[relieved] O resgate chega com a polícia federal junto. Brandão desce a estrada algemado e em paz. [pause] Semanas depois, mergulhadores tiram do poço escuro o que restava de Iara Menezes. [slowly] Às 23h40 daquela noite, pela primeira vez em vinte e oito anos, o rádio da estação fica em silêncio." },
     morte: { key: "morte", type: "defeat", title: "O vale fica com você", text: "[cold] Semanas depois, uma equipe encontra os destroços. [pause] O relatório final fala em [whispers] “causas naturais”." },
   },
   npcs: {
     piloto: {
       id: "piloto", name: "Comandante Brandão", locationId: "estacao", presentFlag: "piloto_presente", goneFlag: "piloto_fugiu",
-      persona: "Piloto de táxi aéreo, 50 anos, ferido na perna, febril, paranoico e culpado. Fala pouco, em frases curtas. Aceitou dinheiro para desviar o voo e entregar uma carga no vale. Tem medo de quem vem buscar a carga. Nunca fala de forma sobrenatural sobre si mesmo.",
+      persona: "Piloto de táxi aéreo, 50 anos, ferido na perna, febril, paranoico e culpado. Fala pouco, em frases curtas. Aceitou dinheiro para desviar o voo e entregar uma carga no vale, numa pista clandestina usada desde os anos 90. Sabe que 074 é o rumo de pouso e que a voz no rádio é uma gravação antiga de Iara Menezes, a hidróloga que desapareceu em 1998 por ter visto os pousos. Tem medo de quem vem buscar a carga — e mais ainda do que voa à noite: tem duas marcas de dentes no pescoço, sente uma sede que água não mata e só dorme perto do fogo. Sabe que as criaturas fogem da luz. Esconde as marcas com a gola e só admite a mordida se confiar em quem pergunta. Nunca usa a palavra “vampiro”.",
       intents: ["perguntar_acidente", "perguntar_caminho", "pedir_ajuda", "oferecer_item", "acalmar", "ameacar", "perguntar_numeros", "outro"],
     },
   },

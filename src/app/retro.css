@@ -1,0 +1,267 @@
+/* ==========================================================================
+   Camada retrô — "jogo de celular de 2002"
+   Carregada depois do globals.css: só sobrescreve tokens e acabamento.
+   Paleta gótica curta, fontes bitmap, cantos retos, animação em degraus,
+   scanlines e grade de LCD. Para desligar, remova o import em layout.tsx.
+   ========================================================================== */
+
+:root {
+  --bg:        #07050a;
+  --bg-2:      #0e0911;
+  --panel:     #140c14;
+  --panel-2:   #1b1019;
+  --panel-3:   #241520;
+
+  --line:      #3a1e2c;
+  --line-2:    #58283a;
+  --line-3:    #7a2e44;
+
+  --text:      #ecd6aa;
+  --muted:     #a8967f;
+  --faint:     #6e5f58;
+
+  /* O "âmbar" de ação vira sangue */
+  --amber:     #c8203a;
+  --amber-2:   #ff4a5a;
+  --amber-3:   #ff8a8a;
+  --amber-bg:  rgba(200,32,58,0.14);
+  --amber-glow:rgba(200,32,58,0.30);
+
+  --green:     #8aa86e;
+  --green-2:   #b6d08e;
+  --red:       #ff2d2d;
+  --red-2:     #ff6a5a;
+  --violet:    #9a7ad0;
+
+  --radius:    0px;
+  --radius-lg: 0px;
+  --shadow:    6px 6px 0 rgba(0,0,0,0.85);
+  --shadow-sm: 3px 3px 0 rgba(0,0,0,0.8);
+
+  --font-head: var(--font-pixel), "Courier New", monospace;
+  --font-body: var(--font-lcd), "Courier New", monospace;
+  --font-mono: var(--font-lcd), "Courier New", monospace;
+
+  /* Borda em "degraus" de pixel (sem border-radius) */
+  --pix-border: 0 -3px 0 0 var(--line-2), 0 3px 0 0 var(--line-2), -3px 0 0 0 var(--line-2), 3px 0 0 0 var(--line-2);
+}
+
+html { color-scheme: dark; }
+body {
+  background: var(--bg);
+  /* VT323 é baixa e estreita: compensa no tamanho */
+  font-size: 21px;
+  line-height: 1.25;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  text-rendering: optimizeSpeed;
+}
+::selection { background: var(--amber); color: #fff; }
+
+/* Tela de LCD: scanlines + grade de subpixel por cima de tudo (não intercepta cliques) */
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: 90; pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(255,0,40,0.025) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
+}
+/* Leve curvatura/vinheta de tela antiga */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 89; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 62%, rgba(0,0,0,0.55) 100%);
+}
+
+/* ── Tipografia ── */
+.h1 { font-size: clamp(18px, 3.4vw, 30px); line-height: 1.3; letter-spacing: 0.02em; text-shadow: 3px 3px 0 #000, 0 0 12px var(--amber-glow); }
+.h2 { font-size: 14px; line-height: 1.4; }
+.h3 { font-size: 11px; }
+.label { font-size: 9px; letter-spacing: 0.08em; line-height: 1.6; }
+.small { font-size: 19px; }
+.tiny  { font-size: 17px; }
+
+/* ── Painéis: moldura de pixel, sem gradiente suave ── */
+.panel, .event-card, .modal, .msg, .action-btn, .drawer {
+  border-radius: 0 !important;
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+.panel { border: 2px solid var(--line-2); }
+.corner::before, .corner::after { border-radius: 0; border-color: var(--amber); opacity: 0.9; border-width: 3px; }
+.divider { border-top: 2px dotted var(--line-2); }
+
+/* ── Botões: blocos de tecla de celular ── */
+.btn {
+  border-radius: 0; border: 2px solid var(--line-3);
+  background: var(--panel-2);
+  font-size: 11px; letter-spacing: 0.04em; line-height: 1.4;
+  box-shadow: inset -3px -3px 0 rgba(0,0,0,0.5), inset 3px 3px 0 rgba(255,255,255,0.07);
+  transition: none;
+}
+.btn::after { display: none; }
+.btn:hover:not(:disabled) {
+  border-color: var(--amber-2); background: var(--panel-3);
+  box-shadow: inset -3px -3px 0 rgba(0,0,0,0.5), inset 3px 3px 0 rgba(255,255,255,0.1);
+}
+.btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: inset 3px 3px 0 rgba(0,0,0,0.6); }
+.btn-primary { background: var(--amber); color: #fff; border-color: #ff6070; text-shadow: 2px 2px 0 #4a0010; }
+.btn-primary:hover:not(:disabled) { background: #e02a46; border-color: #ff8a90; }
+.btn-sm { font-size: 10px; }
+.btn-xs { font-size: 9px; }
+.btn-google { font-family: var(--font-body); font-size: 19px; }
+@keyframes critical-pulse { 0%, 49% { border-color: var(--red); } 50%, 100% { border-color: var(--amber-3); } }
+.btn-critical { animation: critical-pulse 0.8s steps(1) infinite; }
+
+/* Formulários */
+input, select, textarea { border-radius: 0 !important; }
+
+/* Chips */
+.chip { border-radius: 0 !important; font-family: var(--font-head); font-size: 8px; letter-spacing: 0.04em; }
+
+/* ── Navegação / HUD ── */
+.topnav, .hud { background: #0a060c; backdrop-filter: none; border-bottom: 3px solid var(--line-2); }
+.topnav::after, .hud::after { display: none; }
+.brand-name { font-size: 13px; letter-spacing: 0.04em; text-shadow: 2px 2px 0 #000; }
+.navlinks a { font-size: 10px; border-radius: 0; }
+.hud-clock { font-size: 30px; letter-spacing: 0.08em; color: var(--amber-2); text-shadow: 0 0 8px var(--amber-glow); }
+.hud-save { font-size: 15px; }
+.side-tabs { border-bottom: 3px solid var(--line-2); background: #0a060c; }
+.side-tabs button { font-size: 9px; letter-spacing: 0.04em; border-bottom-width: 3px; transition: none; }
+@media (max-width: 720px) {
+  .navlinks { background: #0a060c; border-top: 3px solid var(--line-2); }
+  .navlinks a { font-size: 8px; }
+}
+
+/* ── Feed: SMS de celular antigo ── */
+.msg { border: 2px solid var(--line-2); font-size: 20px; line-height: 1.2; }
+.msg::before { width: 4px; }
+.msg-meta { font-size: 15px; letter-spacing: 0.02em; }
+.msg-narrative { color: #d8c4a0; }
+.msg-new { animation: msg-blip 0.24s steps(3) forwards; }
+@keyframes msg-blip { from { opacity: 0; clip-path: inset(0 0 100% 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+
+/* ── Ações ── */
+.action-btn { border: 2px solid var(--line-2); transition: none; }
+.action-btn::after { display: none; }
+.action-btn .t { font-family: var(--font-head); font-size: 10px; line-height: 1.5; }
+.action-btn .d { font-size: 16px; }
+.action-btn:hover:not(:disabled) { border-color: var(--amber-2); box-shadow: 3px 3px 0 var(--amber); }
+.action-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none; }
+
+/* ── Evento ── */
+.event-card { border: 3px solid var(--amber); }
+.event-card::before { background: repeating-linear-gradient(90deg, var(--amber) 0 6px, transparent 6px 12px); opacity: 1; height: 3px; }
+
+/* ── Modais e gavetas: sem desfoque, entram "em quadros" ── */
+.backdrop { backdrop-filter: none; background: rgba(0,0,0,0.78); animation: none; }
+.modal { border: 3px solid var(--line-3); animation: pix-pop 0.2s steps(4); }
+.drawer { border-left: 3px solid var(--line-3); animation: pix-slide 0.2s steps(4); }
+@keyframes pix-pop { from { transform: translate(-50%, -50%) scale(0.6); opacity: 0; } }
+@keyframes pix-slide { from { transform: translateX(40px); opacity: 0; } }
+
+/* ── Pixel art (PixelCanvas) ── */
+.pixel-canvas {
+  display: block; width: 100%; height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+/* A paleta já traz a luz do horário: tira os filtros suaves antigos */
+.map-img, .scene-img { filter: none !important; }
+.map-img { object-fit: fill; }
+.map-grade, .scene-grade { display: none; }
+.map-scan { background: repeating-linear-gradient(0deg, rgba(0,0,0,0.25) 0 1px, transparent 1px 3px); mix-blend-mode: normal; }
+.map-grid {
+  background-image:
+    linear-gradient(rgba(200,32,58,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(200,32,58,0.07) 1px, transparent 1px);
+}
+.map-compass, .map-status { color: rgba(236,214,170,0.75); text-shadow: 1px 1px 0 #000; }
+.map-compass { font-size: 9px; }
+.map-status { font-size: 15px; }
+.map-wrap { background: #07050a; }
+
+/* Cena: pan em "quadros" como sprite de celular */
+.scene { border-radius: 0; border-bottom: 3px solid var(--line-2); background: #07050a; }
+.scene-compact { border: 2px solid var(--line-2); }
+.scene-img { background: none; animation: scene-pan 26s steps(26) infinite alternate; }
+.scene-vignette { background: linear-gradient(180deg, transparent 60%, var(--panel) 100%); }
+.scene-compact .scene-vignette { background: none; }
+.scene-caption { font-family: var(--font-head); font-size: 8px; color: var(--text); text-shadow: 2px 2px 0 #000; letter-spacing: 0.04em; }
+
+/* Chuva em pixels (degraus, sem suavização) */
+.map-rain, .scene-rain {
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 13px, rgba(236,214,170,0.35) 13px 15px, transparent 15px 29px);
+  background-size: 29px 18px;
+  -webkit-mask-image: repeating-linear-gradient(180deg, #000 0 6px, transparent 6px 18px);
+  mask-image: repeating-linear-gradient(180deg, #000 0 6px, transparent 6px 18px);
+  animation: pix-rain 0.3s steps(3) infinite;
+}
+@keyframes pix-rain { to { -webkit-mask-position: 0 18px; mask-position: 0 18px; } }
+
+/* Névoa e fogo cintilam em degraus */
+.map-fog, .scene-fog { animation-timing-function: steps(40); }
+.scene-fire, .map-fire { animation-timing-function: steps(2); }
+
+/* Máquina de escrever: cursor em bloco */
+.tw-caret { color: var(--amber-2); }
+
+/* Scrollbars quadradas */
+.side-scroll::-webkit-scrollbar, .drawer-body::-webkit-scrollbar { width: 8px; }
+.side-scroll::-webkit-scrollbar-thumb, .drawer-body::-webkit-scrollbar-thumb { background: var(--line-3); border-radius: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-img, .map-rain, .scene-rain, .btn-critical { animation: none; }
+}
+
+/* ── Fontes pixel são largas: deixa quebrar linha em vez de estourar a tela ── */
+.auth-wrap { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+@media (max-width: 860px) { .auth-wrap { grid-template-columns: minmax(0, 1fr); } }
+.auth-art { background-image: none; }
+.btn { white-space: normal; text-align: center; }
+.chip { white-space: normal; line-height: 1.5; }
+.brand-name, .h1, .h2, .label { overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .brand-name { font-size: 11px; }
+  .h1 { font-size: 17px; }
+}
+.auth-art-pixels { position: absolute; inset: 0; }
+
+/* A paleta noturna já escurece o mapa: a "lanterna" só marca o raio de luz */
+.map-night {
+  background: radial-gradient(circle at var(--lx, 50%) var(--ly, 50%),
+    rgba(255,200,150,0.14) 0, rgba(255,200,150,0.05) 6%, rgba(4,2,12,0.12) 16%, rgba(4,2,12,0.3) 45%);
+}
+.brand-name { line-height: 1.4; }
+input, select, textarea { font-size: 20px !important; }
+
+/* HUD com fonte pixel não pode empurrar a largura da tela no celular */
+.game { grid-template-columns: minmax(0, 1fr); }
+.game-body > * { min-width: 0; }
+.hud { min-width: 0; }
+.hud > * { min-width: 0; }
+@media (max-width: 720px) {
+  .hud { gap: 6px; padding: 6px 8px; }
+  .hud-clock { font-size: 24px; }
+  .compass-label { font-size: 15px; }
+}
+
+/* Tutorial: caixa de diálogo sólida, estilo menu de celular */
+.tut { background: var(--panel-2); border: 3px solid var(--amber); border-radius: 0; box-shadow: var(--shadow); }
+.tut-title { font-size: 13px; line-height: 1.5; }
+.tut-kicker { font-size: 8px; }
+.tut-text { font-size: 19px; color: var(--text); line-height: 1.2; }
+
+/* Aviso de instalação do PWA */
+.pwa-banner {
+  position: fixed; z-index: 60; left: 12px; right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  max-width: 420px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 14px; background: var(--panel-2);
+  border: 3px solid var(--amber); box-shadow: var(--shadow);
+  animation: pix-slide 0.2s steps(4);
+}
+.pwa-text { font-size: 19px; line-height: 1.2; }
+@media (max-width: 720px) { .pwa-banner { bottom: calc(70px + env(safe-area-inset-bottom)); } }

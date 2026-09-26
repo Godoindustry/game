@@ -3,7 +3,9 @@
  * MapView — mapa top-down do Vale Silente.
  * Visão radar: grade topográfica, névoa de guerra, marcadores táticos, personagens.
  */
-import type { GameState } from "./useGame";
+import { useNow, type GameState } from "./useGame";
+import { dayPhase } from "./Scene";
+import { PixelCanvas } from "./PixelCanvas";
 
 const H = (941 / 1672) * 100; // altura proporcional do viewBox (100×H)
 // Cores de identificação dos jogadores (evita vermelho — reservado para perigo)
@@ -13,15 +15,19 @@ export function MapView({
   state,
   selected,
   onSelect,
+  offset = 0,
 }: {
   state: GameState;
   selected: string | null;
   onSelect: (id: string) => void;
+  offset?: number;
 }) {
   const { map, party } = state;
   const here = state.here.locationId;
   const night = state.campaign.night;
   const temp = state.campaign.temperature;
+  const phase = dayPhase(state.campaign.clock);
+  const rain = state.campaign.weather === "chuva";
 
   const pos = (id: string) => {
     const l = map.locations.find((x) => x.id === id);
@@ -29,25 +35,57 @@ export function MapView({
   };
   const reachable = new Set(map.travel.map((t) => t.to));
 
+  // Caminhada em andamento: o marcador avança pela trilha no ritmo da espera real.
+  const pend = state.pending;
+  const travelTo = pend?.type === "mover" && pend.target ? pos(pend.target) : null;
+  const now = useNow(!!travelTo, offset);
+  let travelPct = 0;
+  if (travelTo && pend) {
+    const t0 = Date.parse(pend.submittedAt);
+    const t1 = Date.parse(pend.completesAt);
+    travelPct = t1 > t0 ? Math.min(1, Math.max(0, (now - t0) / (t1 - t0))) : 1;
+  }
+  const hereXY = pos(here);
+  const meXY = (from: { x: number; y: number }) =>
+    travelTo ? { x: from.x + (travelTo.x - from.x) * travelPct, y: from.y + (travelTo.y - from.y) * travelPct } : from;
+  // Centro da "lanterna" noturna, em % da imagem.
+  const light = hereXY ? meXY(hereXY) : null;
+
   return (
-    <div className="map-wrap" data-tut-id="map">
+    <div className={`map-wrap map-phase-${phase}`} data-tut-id="map">
       <div className="map-stage">
         <div className="map-inner">
 
-          {/* Imagem base do mapa */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          {/* Imagem base do mapa, redesenhada em pixel art (1/4 da resolução) */}
+          <PixelCanvas
             className="map-img"
             src={map.image}
-            alt="Mapa do Vale Silente visto de cima"
-            draggable={false}
+            width={418}
+            height={235}
+            phase={phase}
+            label="Mapa do Vale Silente visto de cima"
           />
 
           {/* Grade topográfica */}
           <div className="map-grid" />
 
-          {/* Sobreposição noturna */}
-          <div className="map-night" style={{ opacity: night ? 1 : 0 }} />
+          {/* Luz do horário: amanhecer, dia, entardecer */}
+          <div className="map-grade" />
+
+          {/* Noite: tudo escuro, menos o raio da sua lanterna */}
+          <div
+            className="map-night"
+            style={{
+              opacity: night ? 1 : 0,
+              ["--lx" as string]: `${light?.x ?? 50}%`,
+              ["--ly" as string]: `${((light?.y ?? H / 2) / H) * 100}%`,
+            }}
+          />
+
+          {/* Névoa viva e chuva */}
+          <div className="map-fog map-fog-a" />
+          <div className="map-fog map-fog-b" />
+          {rain && <div className="map-rain" />}
 
           {/* SVG de sobreposição: névoa, trilhas, marcadores */}
           <svg
@@ -97,6 +135,13 @@ export function MapView({
                 <stop offset="0%" stopColor="var(--amber)" stopOpacity="0.9" />
                 <stop offset="100%" stopColor="var(--amber-2)" stopOpacity="0.6" />
               </linearGradient>
+
+              {/* Brilho de fogueira */}
+              <radialGradient id="fire-glow">
+                <stop offset="0%" stopColor="#ffd27a" stopOpacity="0.95" />
+                <stop offset="35%" stopColor="#ff8a1e" stopOpacity="0.55" />
+                <stop offset="100%" stopColor="#ff5a00" stopOpacity="0" />
+              </radialGradient>
             </defs>
 
             {/* Camada de névoa de guerra */}
@@ -126,6 +171,7 @@ export function MapView({
                   />
                   {/* Trilha principal tracejada */}
                   <line
+                    className={active ? "trail-active" : undefined}
                     x1={a.x} y1={a.y} x2={b.x} y2={b.y}
                     stroke={active ? "var(--amber)" : "#dde5df"}
                     strokeOpacity={active ? 0.85 : 0.28}
@@ -225,14 +271,12 @@ export function MapView({
                     </text>
                   )}
 
-                  {/* Ícone de fogueira */}
+                  {/* Fogueira: brilho que tremula */}
                   {l.fire && (
-                    <text
-                      x={l.x + 1.8} y={y - 1.2}
-                      style={{ fontSize: 2 }}
-                    >
-                      🔥
-                    </text>
+                    <g className="map-fire" style={{ pointerEvents: "none" }}>
+                      <circle cx={l.x} cy={y} r={5.5} fill="url(#fire-glow)" />
+                      <circle cx={l.x + 1.9} cy={y - 1.1} r={0.45} fill="#ffcf6a" />
+                    </g>
                   )}
 
                   {/* Rótulo do local */}
@@ -258,10 +302,23 @@ export function MapView({
               );
             })}
 
+            {/* Caminhada em andamento: trilha acesa até o destino */}
+            {travelTo && hereXY && (
+              <g style={{ pointerEvents: "none" }}>
+                <line
+                  x1={hereXY.x} y1={hereXY.y} x2={travelTo.x} y2={travelTo.y}
+                  stroke="var(--amber-2)" strokeOpacity={0.9} strokeWidth={0.35}
+                  strokeDasharray="0.6 0.6" className="trail-active"
+                />
+                <circle cx={travelTo.x} cy={travelTo.y} r={2.2} fill="none" stroke="var(--amber-2)" strokeWidth={0.2} className="pulse" />
+              </g>
+            )}
+
             {/* Marcadores dos jogadores */}
             {party.map((p, i) => {
-              const a = pos(p.locationId);
-              if (!a || !p.alive) return null;
+              const base = pos(p.locationId);
+              if (!base || !p.alive) return null;
+              const a = p.isMe ? meXY(base) : base;
               const col = PARTY_COLORS[i % 4];
               return (
                 <g key={p.characterId}>

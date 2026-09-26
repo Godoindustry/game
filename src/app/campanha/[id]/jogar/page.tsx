@@ -7,11 +7,13 @@ import { useGame } from "@/client/game/useGame";
 import { MapView } from "@/client/game/MapView";
 import { CharacterPanel } from "@/client/game/CharacterPanel";
 import { Inventory } from "@/client/game/Inventory";
-import { EndScreen, EventCard, Feed, HereCard, PartyList, PendingCard } from "@/client/game/Panels";
+import { EndScreen, Feed, HereCard, PartyList, PendingCard } from "@/client/game/Panels";
 import { ObjectiveCompass } from "@/client/game/Compass";
 import { ScreenFx } from "@/client/game/ScreenFx";
 import { Tutorial, restartTutorial } from "@/client/game/Tutorial";
 import { useAudio, useHealthAudio, SFX } from "@/client/game/useAudio";
+import { useAmbience } from "@/client/game/ambience";
+import { GameWorld } from "@/client/world/GameWorld";
 
 type Tab = "acoes" | "diario" | "grupo";
 
@@ -30,14 +32,23 @@ export default function PlayPage() {
   const user = useRequireUser();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { state, busy, fatal, offset, submit, cancel } = useGame(id);
+  const { state, busy, fatal, offset, submit, cancel, encounter } = useGame(id);
   const [tab, setTab] = useState<Tab>("acoes");
-  const [panel, setPanel] = useState<"char" | "bag" | null>(null);
+  const [panel, setPanel] = useState<"char" | "bag" | "map" | null>(null);
   const [endClosed, setEndClosed] = useState(false);
   const { play, toggle, enabled } = useAudio();
 
   // Alertas automáticos de saúde (sangue, hipotermia, etc.)
   useHealthAudio(state?.me);
+
+  // Ambiente sonoro: vento, chuva, grilos à noite, fogo e coração acelerado.
+  useAmbience({
+    enabled: enabled && state?.campaign.status === "active",
+    night: !!state?.campaign.night,
+    rain: state?.campaign.weather === "chuva",
+    fire: !!state?.here.fire,
+    stress: state?.me?.alive ? state.me.status.stress : 0,
+  });
 
   useEffect(() => {
     if (state?.campaign.status === "lobby") router.replace(`/campanha/${id}/lobby`);
@@ -215,11 +226,16 @@ export default function PlayPage() {
       {/* ── Corpo do jogo ─────────────────────────────────────────────── */}
       <div className="game-body">
 
-        {/* Mapa top-down */}
-        <MapView
+        {/* Mundo andável */}
+        <GameWorld
           state={state}
-          selected={selected}
-          onSelect={(l) => { setSelected(l); setTab("acoes"); }}
+          offset={offset}
+          busy={busy}
+          onAct={act}
+          onCancel={cancel}
+          onOpen={setPanel}
+          onEncounter={encounter}
+          sound={enabled}
         />
 
         {/* Painel lateral */}
@@ -276,9 +292,6 @@ export default function PlayPage() {
                     busy={busy}
                   />
                 )}
-                {state.event && !state.pending && (
-                  <EventCard event={state.event} onAct={act} busy={busy} />
-                )}
                 {!finished && !dead && !state.pending && (
                   <HereCard state={state} onAct={act} busy={busy} selected={selected} />
                 )}
@@ -306,7 +319,7 @@ export default function PlayPage() {
 
                 {/* Preview das últimas mensagens */}
                 <div className="label" style={{ marginTop: 8 }}>Últimas mensagens</div>
-                <Feed log={state.log.slice(-4)} clues={[]} />
+                <Feed log={state.log.slice(-4)} clues={[]} autoScroll={false} />
               </div>
             )}
 
@@ -339,9 +352,38 @@ export default function PlayPage() {
         />
       )}
 
+      {/* Mapa do vale (menu B do mundo) */}
+      {panel === "map" && (
+        <div className="world-map-modal" role="dialog" aria-label="Mapa do vale">
+          <div className="world-map-bar">
+            <span className="label">Mapa do vale</span>
+            <button className="btn btn-sm" onClick={() => setPanel(null)}>Fechar</button>
+          </div>
+          <MapView state={state} selected={selected} offset={offset} onSelect={(l) => setSelected(l)} />
+          <div className="world-map-foot">
+            {(() => {
+              const t = state.map.travel.find((x) => x.to === selected);
+              const loc = state.map.locations.find((x) => x.id === selected);
+              if (!loc) return <span className="tiny muted">Toque num local para ver o caminho.</span>;
+              return (
+                <>
+                  <span className="small"><b>{loc.name}</b> — {loc.description}</span>
+                  {t && (
+                    <button className="btn btn-sm btn-primary" disabled={busy || !t.available} title={t.reason ?? undefined}
+                      onClick={() => { act("mover", { to: t.to }); setPanel(null); }}>
+                      Caminhar até lá · ~{t.estimatedMinutes} min
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
       {/* ── Imersão: filtros de tela e tutorial ─────────────────────────── */}
       <ScreenFx me={me} />
-      {!finished && !dead && <Tutorial state={state} panel={panel} selected={selected} />}
+      {!finished && !dead && <Tutorial state={state} panel={panel === "map" ? null : panel} selected={selected} />}
 
       {/* ── Tela de fim ────────────────────────────────────────────────── */}
       {(finished || dead) && !endClosed && (

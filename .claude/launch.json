@@ -1,6 +1,32 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "dev", "url": "http://localhost:3100", "port": 3100 }
+    {
+      "name": "dev",
+      "url": "http://localhost:3100",
+      "port": 3100
+    },
+    {
+      "name": "next-dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "-p",
+        "3101"
+      ],
+      "port": 3101
+    },
+    {
+      "name": "next-start",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "start",
+        "-p",
+        "3102"
+      ],
+      "port": 3102
+    }
   ]
 }

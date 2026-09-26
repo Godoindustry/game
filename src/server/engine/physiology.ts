@@ -164,10 +164,13 @@ export function passTime(
     const now = startMinute + elapsed;
     const r = RATES[activity];
     const gastro = h.diseases.some((d) => d.key === "gastroenterite" && d.until > now);
+    // Mordida de vampiro: a "sede escura" — a garganta seca como se água não bastasse.
+    const bite = h.diseases.find((d) => d.key === "mordida" && d.until > now);
+    const biteThirst = bite ? 1 + 0.4 * (bite.level ?? 1) : 1;
 
     // Necessidades
     s.hunger = clamp(s.hunger + r.hunger * hr * (s.bodyTemp < 36 ? 1.25 : 1), 0, 100);
-    s.thirst = clamp(s.thirst + r.thirst * hr * (gastro ? 1.7 : 1) * (activity === "walk" ? load : 1), 0, 100);
+    s.thirst = clamp(s.thirst + r.thirst * hr * (gastro ? 1.7 : 1) * biteThirst * (activity === "walk" ? load : 1), 0, 100);
     if (r.energy < 0) {
       const mult = resist * cond * (activity === "walk" || activity === "heavy" ? load : 1) * (s.fatigue >= 85 ? 1.3 : 1);
       s.energy = clamp(s.energy + r.energy * mult * hr - (gastro ? 2 * hr : 0), 0, 100);
@@ -222,6 +225,9 @@ export function passTime(
       hit("Infecção", 1.5 * hr);
       if (!h.diseases.some((d) => d.key === "febre")) h.diseases.push({ key: "febre", startedAt: now, until: now + 1440 });
     }
+    // Dormir junto ao fogo acelera a cura da mordida (o calor espanta o frio que ela deixa).
+    if (bite && activity === "sleep" && fireActive(world, s.locationId)) bite.until -= dt * 3;
+    if (bite) note("mordida", "As marcas no pescoço latejam. A sede não passa com água.");
     h.diseases = h.diseases.filter((d) => d.until > now && !(d.key === "febre" && h.infection < 40));
 
     const totalDamage = Object.values(damage).reduce((a, b) => a + b, 0);

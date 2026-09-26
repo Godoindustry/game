@@ -14,6 +14,7 @@ import type { Rng } from "./rng";
 import { hasExperience } from "./character";
 import { addItem, countItem, hasItem, itemDef, removeItem } from "./inventory";
 import { clamp, clothingWaterResistance, initialBleeding, isSheltered, kill, passTime } from "./physiology";
+import { applyBite } from "./vampire";
 
 export interface EffectContext {
   world: WorldState;
@@ -223,6 +224,12 @@ function applyEffect(char: CharacterState, e: Effect, ctx: EffectContext): void 
         ctx.lines.push(e.key === "gastroenterite" ? "Horas depois, cólicas fortes: a água não estava boa." : "Você está com febre.");
         ctx.applied.push(`doença: ${e.key}`);
       }
+      break;
+    }
+    case "bite": {
+      const b = applyBite(char, ctx.minute, ctx.genId);
+      ctx.lines.push(...b.lines);
+      ctx.applied.push(`mordida ${b.level}/3`);
       break;
     }
     case "painkiller":

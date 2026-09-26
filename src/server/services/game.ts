@@ -19,17 +19,18 @@ import { unlockAchievement } from "./achievements";
 import { getScenario } from "../content/valeSilente";
 import { ACTION_TYPES, type ActionInput, type ActionReport, type CharacterState, type GameContent, type WorldState } from "../engine/types";
 import { validateAction, neighbors, travelMinutes } from "../engine/actions";
-import { resolveRound, defaultActionFor, type RoundAction } from "../engine/round";
+import { resolveRound, type RoundAction } from "../engine/round";
 import { eventById } from "../engine/events";
 import { meetsRequirements } from "../engine/effects";
 import { computeScore } from "../engine/setup";
 import { inventorySummary, itemDef, loadRatio } from "../engine/inventory";
 import { clockLabel, dayNumber, fireActive, isNight, isSheltered, locationTemp } from "../engine/physiology";
 import { aiClassifyIntent, aiNarrative, aiNpcReply } from "../ai/service";
-import type { Activity } from "../engine/physiology";
 import { bodyCondition, conditionLine, conditionWords } from "../engine/condition";
 import { currentObjective, urgentNeed } from "../engine/objective";
 import { stripVoiceTags, toVoiceText } from "@/shared/voiceTags";
+import { nightEncounter } from "../engine/vampire";
+import { rngFor } from "../engine/rng";
 
 /** Ações que recebem uma linha de ambientação (IA ou texto de reserva sobre o corpo). */
 const NARRATED: ActionInput["type"][] = ["mover", "examinar", "procurar", "escolha_evento", "dormir", "descansar", "coletar_lenha", "montar_abrigo"];
@@ -135,6 +136,39 @@ export async function cancelAction(user: SessionUser, campaignId: string): Promi
   await db.run("UPDATE player_actions SET status = 'cancelled' WHERE id = ? AND status = 'pending'", a.id);
 }
 
+// ---------- Criaturas da noite ----------
+const encounterSchema = z.strictObject({ kind: z.enum(["morcego", "alma"]) });
+
+/**
+ * O mundo andável avisa que uma criatura alcançou o jogador no escuro.
+ * A regra (engine/vampire.ts) decide se houve ataque: só à noite, longe do fogo,
+ * no máximo a cada 30 min de jogo. Não gasta a vez da rodada.
+ */
+export async function encounter(user: SessionUser, campaignId: string, input: unknown) {
+  const { kind } = encounterSchema.parse(input);
+  const camp = await requireMember(user, campaignId);
+  if (camp.status !== "active") throw conflict("A campanha não está em andamento.", "campanha_inativa");
+  const charId = await myCharacterId(campaignId, user.id);
+  const db = getDb();
+  const content = getScenario(camp.scenario_id);
+  let result: ReturnType<typeof nightEncounter> | null = null;
+  await db.tx(async () => {
+    await db.lock(`campaign:${campaignId}`);
+    const world = await loadWorld(campaignId);
+    const chars = await loadCampaignCharacters(campaignId);
+    const char = chars.find((c) => c.id === charId);
+    if (!char) throw notFound("Personagem não encontrado.");
+    result = nightEncounter(char, world, content, kind, rngFor(world.seed, world.minute, charId, "noite"), newId);
+    if (!result.happened) return;
+    await saveCharacter(char);
+    await saveWorld(world);
+    for (const line of result.lines) await addLog(campaignId, charId, world.minute, "narrative", line);
+    if (result.died) await addLog(campaignId, charId, world.minute, "death", `${char.name} não é mais humano.`);
+  });
+  const r = result as ReturnType<typeof nightEncounter> | null;
+  return { happened: !!r?.happened, reason: r?.reason ?? null, bitten: !!r?.bitten, level: r?.level ?? 0 };
+}
+
 // ---------- Sincronização / pausa ----------
 export async function sync(user: SessionUser, campaignId: string) {
   const camp = await requireMember(user, campaignId);
@@ -177,9 +211,9 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
   const alive = chars.filter((c) => c.alive);
   const pending = await db.all<ActionRow>("SELECT * FROM player_actions WHERE campaign_id = ? AND round = ? AND status = 'pending'", campaignId, camp.current_round);
   if (!alive.length) return false;
-  const deadlinePassed = !!camp.round_deadline_at && now.toISOString() >= camp.round_deadline_at;
-  const missing = alive.filter((c) => !pending.some((a) => a.character_id === c.id));
-  if (missing.length && !deadlinePassed) return false;
+  // Sem espera pelos amigos: quem agiu resolve na hora. Quem não agiu só vê o tempo passar
+  // (fica parado no mesmo lugar). Num evento em grupo, decide quem responder primeiro.
+  if (!pending.length) return false;
   if (pending.some((a) => a.completes_at > now.toISOString())) return false;
 
   const world = await loadWorld(campaignId);
@@ -200,12 +234,6 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
       continue;
     }
     actions.push({ ...input, id: a.id, characterId: char.id, minutes: v.minutes, activity: v.activity, isOwner: char.userId === camp.owner_user_id });
-  }
-  for (const c of missing) {
-    const d = defaultActionFor(c, activeEvent, content);
-    const id = newId();
-    autoRows.push({ id, charId: c.id, type: d.type, params: d.params, minutes: d.minutes });
-    actions.push({ ...d, id, characterId: c.id, activity: d.activity as Activity, isOwner: c.userId === camp.owner_user_id });
   }
 
   // IA (fora da transação): classifica intenções de conversa com NPC.
@@ -357,6 +385,7 @@ export async function finalizeCampaign(campaignId: string, world: WorldState, ch
     if (ending.type === "victory" && c.alive) {
       await unlockAchievement(c.userId, "resgatado", campaignId);
       if (camp.mode === "coop") await unlockAchievement(c.userId, "equipe", campaignId);
+      if (ending.key === "a_verdade") await unlockAchievement(c.userId, "justica", campaignId);
     }
   }
   const def = content.endings[ending.key];
@@ -505,7 +534,10 @@ export async function getState(user: SessionUser, campaignId: string) {
           durationMinutes: myPending.duration_minutes,
           submittedAt: myPending.submitted_at,
           completesAt: myPending.completes_at,
-          waitingFor: chars.filter((c) => c.alive && !actions.some((a) => a.character_id === c.id)).map((c) => c.name),
+          // Destino da caminhada: o mapa anima o marcador pela trilha durante a espera.
+          target: myPending.type === "mover" ? String(json<Record<string, unknown>>(myPending.params, {}).to ?? "") || null : null,
+          // Ninguém espera ninguém: a ação resolve sozinha (campo mantido por compatibilidade).
+          waitingFor: [] as string[],
         }
       : null,
     event:
@@ -513,6 +545,7 @@ export async function getState(user: SessionUser, campaignId: string) {
         ? {
             instanceId: activeEvent.instanceId,
             title: ev.title,
+            locationId: ev.locationId ?? loc,
             // Tela sem tags; `voice` mantém as tags de expressão para o modelo de voz.
             body: stripVoiceTags(ev.body),
             voice: toVoiceText(ev.body),
@@ -593,7 +626,10 @@ function characterView(
     status: c.status,
     health: {
       ...c.health,
-      diseases: c.health.diseases.map((d) => ({ key: d.key, label: d.key === "gastroenterite" ? "Gastroenterite" : "Febre" })),
+      diseases: c.health.diseases.map((d) => ({
+        key: d.key,
+        label: d.key === "gastroenterite" ? "Gastroenterite" : d.key === "mordida" ? `Mordida (${d.level ?? 1}/3) · sede escura` : "Febre",
+      })),
       painkillerActive: c.health.painkillerUntil > world.minute,
     },
     wounds: c.wounds

@@ -1,0 +1,148 @@
+/* ==========================================================================
+   Mundo andável (GameWorld): canvas do Phaser + controles e menus por cima.
+   ========================================================================== */
+
+.world {
+  position: relative; min-height: 0; overflow: hidden;
+  background: #05030a;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.world-canvas { position: absolute; inset: 0; }
+.world-canvas canvas { display: block; image-rendering: pixelated; }
+
+@media (max-width: 900px) {
+  .world { height: min(72dvh, 640px); }
+}
+
+/* Nome do local */
+.world-place {
+  position: absolute; top: 8px; left: 8px; z-index: 5;
+  display: flex; gap: 6px; align-items: center; pointer-events: none;
+}
+.world-place-name {
+  font-family: var(--font-head); font-size: 9px; letter-spacing: 0.04em;
+  color: var(--text); background: rgba(5,3,10,0.82); border: 2px solid var(--line-2);
+  padding: 5px 8px; text-transform: uppercase;
+}
+.world-chip { background: rgba(5,3,10,0.82); border: 2px solid var(--line-2); padding: 1px 5px; font-size: 16px; }
+
+/* Barra de ação em andamento */
+.world-pending {
+  position: absolute; top: 8px; right: 8px; z-index: 6; max-width: 70%;
+  display: flex; gap: 8px; align-items: center;
+  background: rgba(5,3,10,0.9); border: 2px solid var(--amber); padding: 4px 8px;
+  font-size: 18px; line-height: 1.1;
+}
+
+/* Susto */
+.world-scare {
+  position: absolute; left: 50%; top: 22%; transform: translateX(-50%); z-index: 7;
+  width: min(360px, calc(100% - 24px)); text-align: center;
+  background: rgba(20,0,6,0.92); border: 3px solid var(--red); color: #ffd0d0;
+  padding: 10px 12px; font-size: 19px; line-height: 1.15;
+  animation: pix-pop-center 0.2s steps(3);
+}
+@keyframes pix-pop-center { from { transform: translateX(-50%) scale(0.6); opacity: 0; } }
+
+/* Prompt "A: Vasculhar …" */
+.world-prompt {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 6;
+  max-width: calc(100% - 200px);
+  display: flex; gap: 8px; align-items: center;
+  background: rgba(5,3,10,0.92); border: 3px solid var(--text); color: var(--text);
+  padding: 6px 12px; font-family: var(--font-body); font-size: 19px; line-height: 1.1;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  animation: prompt-bob 0.9s steps(2) infinite;
+}
+.world-prompt b { color: var(--amber-3); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
+.world-prompt-event { border-color: var(--amber); animation: none; top: 44px; bottom: auto !important; }
+@keyframes prompt-bob { 50% { transform: translateX(-50%) translateY(-2px); } }
+.world-key {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; flex: none;
+  background: var(--amber); color: #fff; font-family: var(--font-head); font-size: 10px;
+  box-shadow: inset -2px -2px 0 rgba(0,0,0,0.4);
+}
+
+/* Joystick e botões: só em tela de toque */
+.world-joy, .world-buttons { display: none; }
+@media (hover: none), (pointer: coarse) {
+  .world-joy {
+    display: block; position: absolute; left: 14px; bottom: 14px; z-index: 6;
+    width: 104px; height: 104px; border-radius: 50%;
+    background: rgba(236,214,170,0.08); border: 3px solid rgba(236,214,170,0.35);
+    touch-action: none;
+  }
+  .world-joy-knob {
+    position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px;
+    border-radius: 50%; background: rgba(236,214,170,0.35); border: 3px solid rgba(236,214,170,0.7);
+    pointer-events: none;
+  }
+  .world-buttons {
+    display: flex; gap: 10px; align-items: flex-end; position: absolute; right: 14px; bottom: 14px; z-index: 6;
+  }
+  .world-prompt { bottom: 128px; max-width: calc(100% - 24px); }
+}
+.world-btn {
+  width: 58px; height: 58px; border-radius: 50%;
+  font-family: var(--font-head); font-size: 16px; color: #fff; cursor: pointer;
+  border: 3px solid rgba(0,0,0,0.6); box-shadow: inset -4px -4px 0 rgba(0,0,0,0.35), 0 3px 0 rgba(0,0,0,0.6);
+  touch-action: manipulation;
+}
+.world-btn:active { transform: translateY(2px); box-shadow: inset 3px 3px 0 rgba(0,0,0,0.4); }
+.world-btn-a { background: var(--amber); margin-bottom: 22px; }
+.world-btn-b { background: #3a2a4a; width: 48px; height: 48px; font-size: 13px; }
+
+/* Menus (estilo RPG de celular) */
+.world-menu {
+  position: absolute; z-index: 8; left: 50%; bottom: 14px; transform: translateX(-50%);
+  width: min(380px, calc(100% - 20px)); max-height: calc(100% - 28px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 4px;
+  background: #0d0710; border: 3px solid var(--text); box-shadow: 6px 6px 0 rgba(0,0,0,0.8);
+  padding: 10px; animation: pix-pop-center 0.18s steps(3);
+}
+.world-menu-title {
+  font-family: var(--font-head); font-size: 10px; color: var(--amber-2); text-transform: uppercase;
+  padding-bottom: 6px; margin-bottom: 2px; border-bottom: 2px dotted var(--line-3); line-height: 1.5;
+}
+.world-opt {
+  display: flex; justify-content: space-between; gap: 10px; align-items: center;
+  background: none; border: 2px solid transparent; color: var(--text); text-align: left;
+  padding: 6px 8px; font-family: var(--font-body); font-size: 20px; line-height: 1.05; cursor: pointer;
+}
+.world-opt:hover:not(:disabled), .world-opt:focus-visible { border-color: var(--amber-2); background: var(--panel-3); outline: none; }
+.world-opt:disabled { color: var(--faint); cursor: not-allowed; }
+.world-opt-min { font-size: 16px; color: var(--muted); text-align: right; flex: none; max-width: 55%; }
+.world-opt-back { color: var(--muted); justify-content: center; }
+
+/* Evento como caixa de diálogo */
+.world-dialog {
+  position: absolute; z-index: 8; left: 50%; bottom: 10px; transform: translateX(-50%);
+  width: min(560px, calc(100% - 16px)); max-height: calc(100% - 20px); overflow-y: auto;
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.85);
+  animation: pix-pop-center 0.2s steps(3);
+}
+.world-dialog .event-card { background: #0d0710; }
+.world-dialog-min {
+  position: sticky; top: 0; float: right; z-index: 3; margin: 4px 4px -30px 0;
+  width: 28px; height: 26px; background: #0d0710; color: var(--text); border: 2px solid var(--line-3); cursor: pointer;
+}
+
+/* Mapa como sobreposição */
+.world-map-modal { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.85); display: grid; grid-template-rows: auto 1fr auto; }
+.world-map-modal .map-wrap { position: relative; min-height: 0; aspect-ratio: auto; height: auto; }
+.world-map-bar { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 8px 12px; background: #0a060c; border-bottom: 3px solid var(--line-2); }
+.world-map-foot { padding: 10px 12px; background: #0a060c; border-top: 3px solid var(--line-2); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* Caixa de texto de RPG com o que acabou de acontecer */
+.world-say {
+  position: absolute; z-index: 7; left: 50%; top: 40px; transform: translateX(-50%);
+  width: min(460px, calc(100% - 16px)); max-height: 45%; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px; text-align: left; cursor: pointer;
+  background: #0d0710; border: 3px solid var(--text); box-shadow: 5px 5px 0 rgba(0,0,0,0.8);
+  padding: 10px 12px 18px; color: var(--text); font-family: var(--font-body); font-size: 19px; line-height: 1.15;
+  animation: pix-pop-center 0.18s steps(3);
+}
+.world-say-narrative { color: #d8c4a0; font-style: italic; }
+.world-say-npc { color: #c7a8ff; }
+.world-say-death { color: var(--red-2); }
+.world-say-next { position: absolute; right: 10px; bottom: 4px; font-size: 14px; color: var(--amber-2); animation: rec-blink 0.8s steps(1) infinite; }

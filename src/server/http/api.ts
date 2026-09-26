@@ -120,6 +120,10 @@ function buildRouter(): Router {
     const res = await game.submitAction(u(ctx), ctx.params.id, await ctx.body());
     return { ...res, state: await game.getState(u(ctx), ctx.params.id) };
   }, { auth: true, rate: "action" });
+  r.post("/api/campaigns/:id/encounter", async (ctx) => {
+    const res = await game.encounter(u(ctx), ctx.params.id, await ctx.body());
+    return { ...res, state: await game.getState(u(ctx), ctx.params.id) };
+  }, { auth: true, rate: "action" });
   r.delete("/api/campaigns/:id/actions/pending", async (ctx) => {
     await game.cancelAction(u(ctx), ctx.params.id);
     return game.getState(u(ctx), ctx.params.id);

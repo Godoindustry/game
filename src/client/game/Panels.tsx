@@ -4,30 +4,36 @@ import { useEffect, useRef, useState } from "react";
 import { formatMinutes, Spinner } from "../ui";
 import { ACTION_LABEL, useNow, type GameState } from "./useGame";
 import { useAudio, deathAudioId, SFX } from "./useAudio";
+import { LocationScene, Typewriter, dayPhase, sceneProps } from "./Scene";
 
 type Act = (type: string, params?: Record<string, unknown>) => void;
 
 // ── Evento / Decisão ────────────────────────────────────────────────────────
 export function EventCard({
-  event, onAct, busy,
+  state, event, onAct, busy,
 }: {
+  state: GameState;
   event: NonNullable<GameState["event"]>;
   onAct: Act;
   busy: boolean;
 }) {
-  const isDangerous = event.choices.some((c) => c.label.toLowerCase().includes("corr") || c.label.toLowerCase().includes("fug") || c.label.toLowerCase().includes("enfrent"));
+  const scene = sceneProps(state, event.locationId);
+  const isDangerous = !!scene?.danger || event.choices.some((c) => /\b(corr|fug|enfrent)/i.test(c.label));
 
   return (
     <section
-      className={`event-card ${isDangerous ? "event-critical" : ""}`}
+      className={`event-card ${isDangerous ? "event-critical" : ""} ${scene ? "event-has-scene" : ""}`}
       aria-live="polite"
       data-tut-id="event"
     >
-      <p className="label amber" style={{ marginBottom: 8, fontSize: 10 }}>
-        ▶ Evento ativo
+      {scene && <LocationScene {...scene} />}
+      <p className="label amber event-kicker" style={{ marginBottom: 8, fontSize: 10 }}>
+        ▶ Evento · {state.campaign.clock}
       </p>
       <h2 className="event-title">{event.title}</h2>
-      <p className="event-body">{event.body}</p>
+      <p className="event-body">
+        <Typewriter key={event.instanceId} text={event.body} />
+      </p>
 
       {!event.participating ? (
         <div style={{
@@ -40,14 +46,16 @@ export function EventCard({
         </div>
       ) : (
         <div>
-          {event.choices.map((c) => (
+          {event.choices.map((c, i) => (
             <button
               key={c.id}
               className={`choice ${event.myChoiceId === c.id ? "selected" : ""}`}
+              style={{ animationDelay: `${0.15 + i * 0.08}s` }}
               disabled={busy || !c.available}
               onClick={() => onAct("escolha_evento", { choiceId: c.id })}
               title={c.reason ?? undefined}
             >
+              <span className="choice-key" aria-hidden="true">{String.fromCharCode(65 + i)}</span>
               <span style={{ flex: 1, textAlign: "left" }}>
                 <span style={{ display: "block", fontWeight: 500, fontSize: 14 }}>{c.label}</span>
                 {c.reason && (
@@ -149,6 +157,7 @@ export function HereCard({
     ? map.locations.find((l) => l.id === selected)
     : null;
   const travelSel = sel ? map.travel.find((t) => t.to === sel.id) : null;
+  const scene = sceneProps(state, here.locationId);
 
   return (
     <div className="stack">
@@ -177,6 +186,7 @@ export function HereCard({
 
       {/* Localização atual */}
       <section className="stack" style={{ gap: 6 }}>
+        {scene && !state.event && <LocationScene {...scene} caption={undefined} fire={here.fire} compact />}
         <div className="row-between">
           <div>
             <p className="label amber" style={{ margin: "0 0 2px" }}>Você está em</p>
@@ -185,6 +195,7 @@ export function HereCard({
           <div className="row" style={{ gap: 5 }}>
             {here.fire  && <span className="chip chip-amber">🔥 Fogo</span>}
             {here.water && <span className="chip chip-blue">💧 Água</span>}
+            {here.sheltered && <span className="chip chip-green">⛺ Abrigo</span>}
           </div>
         </div>
         <span className="small muted">{here.description}</span>
@@ -270,18 +281,25 @@ export function HereCard({
 }
 
 // ── Diário / Feed ───────────────────────────────────────────────────────────
+const KIND_ICON: Record<string, string> = {
+  event: "◆", result: "▸", narrative: "❝", npc: "☍", death: "✝", ending: "★", party: "◦",
+};
+
 export function Feed({
-  log, clues,
+  log, clues, autoScroll = true,
 }: {
   log: GameState["log"];
   clues: GameState["clues"];
+  /** Rolar até a última mensagem. Desligado na prévia da aba Ações, para não esconder o evento. */
+  autoScroll?: boolean;
 }) {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (!autoScroll) return;
     // Em navegadores recentes scrollIntoView() retorna uma Promise: não pode ser o retorno do efeito
     // (o React tentaria chamá-la como limpeza e a tela do jogo quebra).
     void end.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [log.length]);
+  }, [log.length, autoScroll]);
 
   return (
     <div className="stack">
@@ -293,11 +311,12 @@ export function Feed({
           >
             🔎 Pistas encontradas ({clues.length})
           </summary>
-          <div className="stack" style={{ marginTop: 12, gap: 8 }}>
-            {clues.map((c) => (
-              <div key={c.key} style={{ paddingLeft: 8, borderLeft: "2px solid var(--blue)" }}>
-                <strong className="small" style={{ color: "var(--blue-2)" }}>{c.title}</strong>
-                <div className="small muted" style={{ marginTop: 2 }}>{c.text}</div>
+          <div className="dossier">
+            {clues.map((c, i) => (
+              <div key={c.key} className="dossier-card" style={{ ["--tilt" as string]: `${((i * 37) % 5) - 2}deg` }}>
+                <span className="dossier-no">#{String(i + 1).padStart(2, "0")}</span>
+                <strong className="small">{c.title}</strong>
+                <div className="small" style={{ marginTop: 2 }}>{c.text}</div>
               </div>
             ))}
           </div>
@@ -305,15 +324,31 @@ export function Feed({
       )}
 
       <div className="feed">
-        {log.map((l, idx) => (
-          <div
-            key={l.id}
-            className={`msg msg-${l.kind} ${idx === log.length - 1 ? "msg-new" : ""}`}
-          >
-            <div className="msg-meta">DIA {l.day} · {l.clock}</div>
-            {l.text}
-          </div>
-        ))}
+        {log.map((l, idx) => {
+          // Eventos chegam como "【Título】 corpo": o título vira cabeçalho da mensagem.
+          const m = l.kind === "event" ? /^【([^】]+)】\s*([\s\S]*)$/.exec(l.text) : null;
+          const phase = dayPhase(l.clock);
+          return (
+            <div
+              key={l.id}
+              className={`msg msg-${l.kind} ${idx === log.length - 1 ? "msg-new" : ""}`}
+            >
+              <div className="msg-meta">
+                <span aria-hidden="true">{KIND_ICON[l.kind] ?? "·"}</span>
+                DIA {l.day} · {l.clock}
+                <span className={`msg-phase msg-phase-${phase}`} aria-hidden="true" />
+              </div>
+              {m ? (
+                <>
+                  <strong className="msg-title">{m[1]}</strong>
+                  {m[2]}
+                </>
+              ) : (
+                l.text
+              )}
+            </div>
+          );
+        })}
         <div ref={end} />
       </div>
     </div>
@@ -427,6 +462,11 @@ export function EndScreen({
       aria-modal="true"
       aria-label={title}
     >
+      <div
+        className="end-bg"
+        aria-hidden="true"
+        style={{ backgroundImage: `url(${state.map.image})` }}
+      />
       <div className="end-card stack-lg">
         {/* Subtítulo */}
         <p className="label" style={{ margin: 0, letterSpacing: "0.2em" }}>
@@ -462,6 +502,21 @@ export function EndScreen({
                 <span style={{ color: "var(--blue-2)" }}>{e.cluesFound}</span>
                 <span className="muted" style={{ fontSize: 18 }}>/{e.totalClues}</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* O que o vale revelou */}
+        {e && (
+          <div className="end-clues">
+            <p className="label" style={{ margin: "0 0 8px", letterSpacing: "0.2em" }}>O que o vale revelou</p>
+            <div className="end-clue-list">
+              {state.clues.map((c) => (
+                <span key={c.key} className="chip chip-blue" title={c.text}>{c.title}</span>
+              ))}
+              {e.totalClues > state.clues.length && (
+                <span className="chip end-clue-missing">+{e.totalClues - state.clues.length} ainda no escuro</span>
+              )}
             </div>
           </div>
         )}

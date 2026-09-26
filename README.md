@@ -129,9 +129,10 @@ Todas as mutações exigem o cabeçalho `x-csrf-token`, igual ao cookie `ls_csrf
 - **Personagem:** ficha completa (físico, profissão, conhecimentos, medos, histórico, personalidade, até 2 experiências) e 24 pontos em 12 atributos, validados no servidor.
 - **Motor determinístico:** tempo, fome, sede, energia, sono, dor, estresse, temperatura corporal, umidade, sangramento, infecção, doenças, mobilidade, membros, peso, volume, compartimentos, acessibilidade, durabilidade, bateria, testes de atributo (5–95%), eventos, consequências, morte e finais.
 - **Ações:** examinar, procurar, caminhar, descansar, dormir, comer, beber, coletar/purificar/ferver água, tratar ferimento, analgésico, montar abrigo, fogueira, lenha, pegar/largar/mover/equipar itens, conversar com NPC e escolhas de evento. Todas com duração oficial calculada pelo servidor.
-- **Conteúdo:** 9 locais, 12 trilhas (3 ocultas), 31 itens, 18 eventos, 18 pistas, 1 NPC, 3 finais positivos + 1 negativo.
+- **Conteúdo:** 9 locais, 12 trilhas (3 ocultas), 32 itens, 25 eventos, 27 pistas, 1 NPC, 4 finais positivos + 1 negativo.
 - **Salvamento automático:** cada rodada é salva numa transação única com controle de versão.
-- **Conquistas (11) e ranking.**
+- **Conquistas (12) e ranking.**
+- **Atmosfera:** mapa com luz do horário (amanhecer, dia, entardecer, noite com raio de lanterna), névoa animada, chuva, fogueiras que tremulam, marcador que anda pela trilha durante a caminhada; eventos com cena recortada do mapa e texto em máquina de escrever; dossiê de pistas; som ambiente procedural (vento, chuva, grilos, fogo, coração acelerado).
 - **IA:** narrativa, fala do NPC e classificação de intenção, com cache, timeout, cotas, orçamento, filtro e fallback.
 - **Admin:** estatísticas, uso e custo de IA, usuários, campanhas, auditoria e caixa de e-mails de dev.
 
@@ -183,8 +184,30 @@ Todas as mutações exigem o cabeçalho `x-csrf-token`, igual ao cookie `ls_csrf
 1. **Deploy Vercel + Supabase** — ver seção abaixo.
 2. Mailer real (Resend/SMTP) e credenciais do Google OAuth.
 3. Tempo real com WebSocket/Supabase Realtime no cooperativo.
-4. Zoom e arraste no mapa; sons ambientes; mais regiões e campanhas.
+4. Zoom e arraste no mapa; mais regiões e campanhas.
 5. Editor de eventos no painel admin (hoje o conteúdo está em código versionado).
+
+## Mundo andável (modo jogo)
+
+A tela de jogo é um mundo 2D visto de cima (Phaser 3): cada local vira um cenário gerado de forma fixa (`src/client/world/layout.ts`), com o personagem andando (setas/WASD, joystick no celular ou tocando no chão) e interagindo (tecla E/espaço ou botão A) com caixas, galhos, fogueira, água, itens, NPC e as saídas para outros locais. O servidor continua decidindo tudo: o mundo só envia as mesmas ações de antes (`src/client/world/GameWorld.tsx`).
+
+- **Sem espera:** as ações resolvem na hora (`ACTION_REAL_SECONDS_PER_GAME_MINUTE=0`). No cooperativo ninguém espera ninguém: quem agiu resolve; os outros só veem o tempo passar.
+- **Noite e vampiros:** à noite só a lanterna ilumina. Morcegos-vampiro e almas perseguem quem está no escuro e fogem da fogueira. O ataque é decidido no servidor (`src/server/engine/vampire.ts`, rota `POST /api/campaigns/:id/encounter`): mordida = ferida + "sede escura"; dormir junto ao fogo cura; três mordidas transformam o personagem.
+- **Arte e sons:** pacote "Ninja Adventure" de Pixel-boy (licença CC0), em `public/game/`. Música: `theme-3` (dia) e `theme-9` (noite), trocáveis em `useMusic`.
+
+## App no celular (Android / iOS)
+
+O visual retrô ("celular de 2002") fica em `src/app/retro.css` + `src/client/game/PixelCanvas.tsx` (pixel art gerada do próprio mapa, com paleta de 16 cores e pontilhado). Para voltar ao visual anterior, remova o `import "./retro.css"` em `src/app/layout.tsx`.
+
+**PWA (grátis, Android e iPhone).** Com o site publicado em HTTPS: no Android, Chrome → "Instalar app" (o jogo também mostra um botão). No iPhone, Safari → Compartilhar → "Adicionar à Tela de Início". Service worker em `public/sw.js`; página sem conexão em `public/offline.html`.
+
+**APK Android (grátis).** O app Capacitor abre a URL publicada (o jogo precisa do servidor: API, banco e IA).
+1. GitHub → Settings → Secrets and variables → Actions → Variables → `CAP_SERVER_URL` = `https://seu-jogo.vercel.app`.
+2. Aba Actions → "APK Android" → Run workflow. Baixe o APK em "Artifacts" e instale no celular (permitir "fontes desconhecidas").
+
+Local (precisa Android Studio): `CAP_SERVER_URL=https://seu-jogo.vercel.app npx cap sync android && npm run cap:android`.
+
+**Lojas (pagas):** Google Play cobra US$ 25 uma vez; App Store cobra US$ 99/ano e exige um Mac para compilar (`npx cap add ios`). Login com Google não funciona dentro do WebView do app (o Google bloqueia); use e-mail e senha no app.
 
 ## Deploy: Supabase + Vercel
 

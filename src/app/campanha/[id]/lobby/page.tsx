@@ -23,6 +23,7 @@ function LobbyView() {
   const [lobby, setLobby] = useState<Lobby | null>(null);
   const [invite, setInvite] = useState<{ code: string; url: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [inviteLoaded, setInviteLoaded] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -34,6 +35,18 @@ function LobbyView() {
     }
   }, [id, router]);
 
+  // Gera o convite automaticamente na primeira vez que o dono abre o lobby coop
+  const ensureInvite = useCallback(async (l: Lobby) => {
+    if (!l.isOwner || l.mode !== "coop" || inviteLoaded) return;
+    setInviteLoaded(true);
+    try {
+      const inv = await api<{ code: string; url: string }>("POST", `/api/campaigns/${id}/invites`);
+      setInvite(inv);
+    } catch {
+      // convite já existe ou sala cheia — ignora
+    }
+  }, [id, inviteLoaded]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- busca assíncrona ao montar; o setState ocorre após o await
     void load();
@@ -41,11 +54,29 @@ function LobbyView() {
     return () => clearInterval(t);
   }, [load]);
 
+  useEffect(() => {
+    if (lobby) void ensureInvite(lobby);
+  }, [lobby, ensureInvite]);
+
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
     try {
       await fn();
       await load();
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function renewInvite() {
+    setBusy(true);
+    try {
+      await api("DELETE", `/api/campaigns/${id}/invites`);
+      const inv = await api<{ code: string; url: string }>("POST", `/api/campaigns/${id}/invites`);
+      setInvite(inv);
+      push("ok", "Novo link gerado.");
     } catch (err) {
       toastError(err);
     } finally {
@@ -91,20 +122,32 @@ function LobbyView() {
           {lobby.mode === "coop" && lobby.isOwner && (
             <>
               <div className="panel-head" style={{ marginBottom: 0 }}><span className="h2">Convite</span></div>
-              <p className="small muted" style={{ margin: 0 }}>Links valem 48 horas. O código só é mostrado agora — gere outro se precisar.</p>
+              <p className="small muted" style={{ margin: 0 }}>Compartilhe o link ou código com seus amigos. O link vale 48 horas.</p>
               {invite ? (
                 <div className="stack">
-                  <input className="input mono small" readOnly value={invite.url} onFocus={(e) => e.target.select()} />
-                  <button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(invite.url).then(() => push("ok", "Link copiado."))}>Copiar link</button>
+                  <div className="stack" style={{ gap: 4 }}>
+                    <label className="small muted">Link de convite</label>
+                    <input className="input mono small" readOnly value={invite.url} onFocus={(e) => e.target.select()} />
+                  </div>
+                  <div className="stack" style={{ gap: 4 }}>
+                    <label className="small muted">Código</label>
+                    <input className="input mono small" readOnly value={invite.code} onFocus={(e) => e.target.select()} />
+                  </div>
+                  <div className="row" style={{ gap: 8 }}>
+                    <button className="btn" onClick={() => navigator.clipboard.writeText(invite.url).then(() => push("ok", "Link copiado!"))}>
+                      Copiar link
+                    </button>
+                    <button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(invite.code).then(() => push("ok", "Código copiado!"))}>
+                      Copiar código
+                    </button>
+                  </div>
+                  <button className="btn btn-sm btn-ghost" disabled={busy} onClick={renewInvite}>
+                    Gerar novo link
+                  </button>
                 </div>
               ) : (
-                <button className="btn" disabled={busy || lobby.members.length >= lobby.maxPlayers} onClick={() => run(async () => setInvite(await api("POST", `/api/campaigns/${id}/invites`)))}>
-                  Gerar link de convite
-                </button>
+                <div className="row small muted"><Spinner /> Gerando convite…</div>
               )}
-              <button className="btn btn-sm btn-ghost" disabled={busy} onClick={() => run(async () => { await api("DELETE", `/api/campaigns/${id}/invites`); setInvite(null); push("ok", "Convites revogados."); })}>
-                Revogar convites
-              </button>
             </>
           )}
           <div className="panel-head" style={{ marginBottom: 0 }}><span className="h2">Início</span></div>

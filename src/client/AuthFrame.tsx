@@ -1,12 +1,14 @@
 "use client";
 import type { ReactNode } from "react";
 import { Brand } from "./ui";
+import { PixelCanvas } from "./game/PixelCanvas";
 
 export function AuthFrame({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <div className="auth-wrap">
       {/* Painel de arte lateral */}
       <section className="auth-art" aria-hidden="true">
+        <PixelCanvas className="auth-art-pixels" src="/assets/mapa-vale-silente.png" width={220} height={200} crop={{ x: 0.45, y: 0.5, w: 0.5 }} phase="night" />
         <div className="auth-art-text">
           {/* Coordenadas fictícias */}
           <div style={{

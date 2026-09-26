@@ -135,11 +135,13 @@ export interface Wound {
   healed: boolean;
 }
 
-export type DiseaseKey = "gastroenterite" | "febre";
+export type DiseaseKey = "gastroenterite" | "febre" | "mordida";
 export interface Disease {
   key: DiseaseKey;
   startedAt: number;
   until: number;
+  /** Mordida: quantas vezes foi mordido (3 = transformado). */
+  level?: number;
 }
 
 export interface CharacterStatus {
@@ -285,6 +287,7 @@ export type Effect =
   | { op: "revealLink"; from: string; to: string }
   | { op: "time"; minutes: number }
   | { op: "disease"; key: DiseaseKey; chanceAttr?: AttributeKey; base?: number }
+  | { op: "bite" } // mordida de vampiro (acumula; na 3ª o personagem se transforma)
   | { op: "painkiller"; minutes: number }
   | { op: "fire"; minutes: number }
   | { op: "kill"; cause: string }

@@ -37,7 +37,8 @@ const schema = z.object({
   PREMIUM_EARLY_SLOTS: z.coerce.number().int().nonnegative().default(12),
 
   // Tempo real de espera: segundos reais por minuto de jogo, com teto.
-  ACTION_REAL_SECONDS_PER_GAME_MINUTE: z.coerce.number().nonnegative().default(0.5),
+  // 0 = ações instantâneas (padrão). Um valor > 0 volta a exigir espera real por minuto de jogo.
+  ACTION_REAL_SECONDS_PER_GAME_MINUTE: z.coerce.number().nonnegative().default(0),
   ACTION_MAX_REAL_SECONDS: z.coerce.number().nonnegative().default(60),
   ROUND_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(300),
   PAUSE_AFTER_SECONDS: z.coerce.number().int().positive().default(60),

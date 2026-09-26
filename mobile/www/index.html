@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Linha de Sobrevivência</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #07050a; color: #ecd6aa; }
+    body { display: grid; place-items: center; font-family: "Courier New", monospace; text-align: center; padding: 24px; box-sizing: border-box; }
+    h1 { color: #ff4a5a; font-size: 18px; letter-spacing: 0.1em; text-transform: uppercase; }
+    p { font-size: 15px; line-height: 1.4; max-width: 300px; }
+    button { margin-top: 12px; background: #c8203a; color: #fff; border: 2px solid #ff6070; padding: 12px 18px; font: inherit; text-transform: uppercase; }
+    .blink { animation: b 1s steps(1) infinite; }
+    @keyframes b { 50% { opacity: 0; } }
+  </style>
+</head>
+<body>
+  <div>
+    <h1>Sem sinal<span class="blink">_</span></h1>
+    <p>Não foi possível alcançar o Vale Silente. Verifique a conexão com a internet.</p>
+    <button onclick="location.reload()">Tentar de novo</button>
+  </div>
+</body>
+</html>

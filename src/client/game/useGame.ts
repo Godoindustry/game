@@ -53,6 +53,20 @@ export function useGame(campaignId: string) {
     [campaignId, accept, sync],
   );
 
+  /** Uma criatura alcançou o jogador no escuro: o servidor decide se houve ataque. */
+  const encounter = useCallback(
+    async (kind: "morcego" | "alma") => {
+      try {
+        const r = await api<{ happened: boolean; state: GameState }>("POST", `/api/campaigns/${campaignId}/encounter`, { kind });
+        accept(r.state);
+        return r.happened;
+      } catch {
+        return false;
+      }
+    },
+    [campaignId, accept],
+  );
+
   const cancel = useCallback(async () => {
     setBusy(true);
     try {
@@ -89,7 +103,7 @@ export function useGame(campaignId: string) {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [sync]);
 
-  return { state, busy, fatal, offset, sync, submit, cancel };
+  return { state, busy, fatal, offset, sync, submit, cancel, encounter };
 }
 
 export function useNow(active: boolean, offset: number): number {
