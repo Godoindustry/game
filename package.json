@@ -19,7 +19,6 @@
     "@anthropic-ai/sdk": "^0.128.0",
     "@capacitor/android": "^8.5.2",
     "@capacitor/ios": "^8.5.2",
-    "canvas": "^3.2.3",
     "next": "16.3.6",
     "pg": "^8.23.0",
     "phaser": "^3.90.0",
