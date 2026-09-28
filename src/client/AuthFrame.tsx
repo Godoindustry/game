@@ -1,74 +1,60 @@
 "use client";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { Brand } from "./ui";
-import { PixelCanvas } from "./game/PixelCanvas";
 import { mixVolume } from "./audioMixer";
 
 export function AuthFrame({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <div className="auth-wrap">
-      {/* Painel de arte lateral */}
-      <section className="auth-art" aria-hidden="true">
-        <PixelCanvas className="auth-art-pixels" src="/assets/mapa-vale-silente.png" width={220} height={200} crop={{ x: 0.45, y: 0.5, w: 0.5 }} phase="night" />
+      <section className="auth-art" aria-label="Vale Silente durante a tempestade">
+        <Image
+          className="auth-art-image"
+          src="/art/vale-silente/landing-hero.png"
+          alt=""
+          fill
+          priority
+          sizes="(max-width: 860px) 100vw, 58vw"
+        />
+        <div className="auth-art-atmosphere" aria-hidden="true" />
         <div className="auth-art-text">
-          {/* Coordenadas fictícias */}
-          <div style={{
-            fontFamily: "var(--font-mono)", fontSize: 10,
-            color: "rgba(126,203,133,0.5)", letterSpacing: "0.12em",
-            marginBottom: 14, display: "flex", gap: 14,
-          }}>
-            <span>LAT -23.842°</span>
-            <span>LNG -46.319°</span>
-            <span>ALT 1240m</span>
+          <div className="auth-art-kicker">
+            <span>TRANSMISSÃO 074</span>
+            <i aria-hidden="true" />
+            <span>23:40</span>
           </div>
-          <p className="label amber" style={{ marginBottom: 8, fontSize: 10, letterSpacing: "0.18em" }}>
-            Vale Silente · 23:40
+          <h2>O vale lembra<br />quem tentou fugir.</h2>
+          <p>
+            O avião caiu. O piloto desapareceu. Na frequência morta, uma mulher repete três números há vinte e oito anos.
           </p>
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-            <p className="mono small" style={{ color: "#c0ccc4", maxWidth: 380, lineHeight: 1.65, margin: 0, fontStyle: "italic", flex: 1 }}>
-              &quot;sete… quatro… zero…&quot; — a voz no rádio não para. O cinto do piloto foi cortado. Ninguém sabe que você está aqui.
-            </p>
+          <div className="auth-transmission">
+            <span className="auth-wave" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /></span>
+            <blockquote>“Sete… quatro… zero…”</blockquote>
             <button
+              type="button"
               onClick={() => {
                 const audio = new Audio('/audio/sistema/intro-quote-1.mp3');
                 audio.volume = mixVolume("narracao", 0.5);
-                audio.play();
+                void audio.play().catch(() => undefined);
               }}
-              className="btn btn-sm"
-              style={{ padding: "4px 8px", fontSize: 10, background: "rgba(126,203,133,0.1)", color: "var(--green)" }}
+              className="auth-audio"
               title="Ouvir transmissão"
             >
-              ▶ ÁUDIO
+              <span aria-hidden="true">▶</span> OUVIR
             </button>
-          </div>
-          {/* Barras de sinal */}
-          <div style={{
-            marginTop: 20, display: "flex", alignItems: "center", gap: 8,
-            fontFamily: "var(--font-mono)", fontSize: 10,
-            color: "rgba(126,203,133,0.4)", letterSpacing: "0.1em",
-          }}>
-            <span>SIG</span>
-            {[1, 2, 3, 4, 5].map((bar) => (
-              <span key={bar} style={{
-                display: "inline-block", width: 4,
-                height: 4 + bar * 2.5,
-                background: bar <= 2 ? "rgba(126,203,133,0.55)" : "rgba(126,203,133,0.12)",
-                borderRadius: 1, verticalAlign: "bottom",
-              }} />
-            ))}
-            <span style={{ color: "rgba(232,160,32,0.55)" }}>FRACO</span>
           </div>
         </div>
       </section>
-      {/* Formulário */}
       <section className="auth-form">
         <div className="auth-card stack-lg">
-          <Brand />
-          <div className="stack" style={{ gap: 4 }}>
-            <h1 className="h2">{title}</h1>
-            {subtitle && <p className="muted small" style={{ margin: 0 }}>{subtitle}</p>}
+          <div className="auth-brand"><Brand /></div>
+          <div className="auth-heading">
+            <span>ACESSO À CAMPANHA</span>
+            <h1>{title}</h1>
+            {subtitle && <p>{subtitle}</p>}
           </div>
           {children}
+          <p className="auth-footnote">A escuridão escuta. Use fones de ouvido.</p>
         </div>
       </section>
     </div>

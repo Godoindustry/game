@@ -197,7 +197,7 @@ A tela de jogo é um mundo 2D visto de cima (Phaser 3): cada local vira um cená
 
 ## App no celular (Android / iOS)
 
-O visual retrô ("celular de 2002") fica em `src/app/retro.css` + `src/client/game/PixelCanvas.tsx` (pixel art gerada do próprio mapa, com paleta de 16 cores e pontilhado). Para voltar ao visual anterior, remova o `import "./retro.css"` em `src/app/layout.tsx`.
+As telas públicas e de autenticação usam a direção cinematográfica de Vale Silente. O mapa e os recortes de cena exibem a arte original em alta resolução, sem redução de paleta, canvas de baixa resolução ou filtro pixelado.
 
 **PWA (grátis, Android e iPhone).** Com o site publicado em HTTPS: no Android, Chrome → "Instalar app" (o jogo também mostra um botão). No iPhone, Safari → Compartilhar → "Adicionar à Tela de Início". Service worker em `public/sw.js`; página sem conexão em `public/offline.html`.
 

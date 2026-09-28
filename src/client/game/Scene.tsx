@@ -1,12 +1,11 @@
 "use client";
 /**
- * Cenas: recorte "de câmera" do mapa em volta de um local, em pixel art de
- * celular antigo (PixelCanvas), com luz do horário, chuva, névoa e fogo —
- * sem assets extras, só a arte do mapa + CSS.
+ * Cenas: recorte cinematográfico do mapa em volta de um local, com luz do
+ * horário, chuva, névoa e fogo.
  * Também o texto em máquina de escrever dos eventos.
  */
+import Image from "next/image";
 import { useEffect, useState } from "react";
-import { PixelCanvas } from "./PixelCanvas";
 
 export type DayPhase = "dawn" | "day" | "dusk" | "night";
 
@@ -39,12 +38,13 @@ export function LocationScene({
       aria-hidden="true"
     >
       <div className="scene-img">
-        <PixelCanvas
+        <Image
+          className="scene-image"
           src={image}
-          width={compact ? 168 : 192}
-          height={compact ? 48 : 80}
-          crop={{ x: x / 100, y: y / 100, w: compact ? 0.24 : 0.19 }}
-          phase={phase}
+          alt=""
+          fill
+          sizes={compact ? "430px" : "720px"}
+          style={{ objectPosition: `${x}% ${y}%` }}
         />
       </div>
       {fire && <div className="scene-fire" style={{ left: `${x}%`, top: `${y}%` }} />}

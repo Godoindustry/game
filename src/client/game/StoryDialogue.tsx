@@ -92,9 +92,12 @@ export function SpokenScene({ state }: { state: GameState }) {
   const [active, setActive] = useState<LogLine | null>(null);
   const hideTimer = useRef<number | null>(null);
   const latestRef = useRef(latest);
-  latestRef.current = latest;
   const campaignId = state.campaign.id;
   const bossActive = !!state.story.boss?.active;
+
+  useEffect(() => {
+    latestRef.current = latest;
+  }, [latest]);
 
   useEffect(() => {
     const latestLine = latestRef.current;
@@ -156,8 +159,11 @@ export function ParticipantTransition({ state }: { state: GameState }) {
   const [participant, setParticipant] = useState<GameState["party"][number] | null>(null);
   const previous = useRef<{ round: number; acted: Set<string> } | null>(null);
   const partyRef = useRef(state.party);
-  partyRef.current = state.party;
   const actedKey = state.party.filter((member) => member.acted).map((member) => member.characterId).sort().join("|");
+
+  useEffect(() => {
+    partyRef.current = state.party;
+  }, [state.party]);
 
   useEffect(() => {
     const current = new Set(actedKey ? actedKey.split("|") : []);

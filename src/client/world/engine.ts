@@ -122,7 +122,7 @@ export class WorldScene extends Phaser.Scene {
     makeTextures(this);
     this.makeAnims();
     this.cameras.main.setBackgroundColor("#05030a");
-    this.cameras.main.setRoundPixels(true);
+    this.cameras.main.setRoundPixels(false);
 
     const kb = this.input.keyboard!;
     // Sem "capture": as teclas continuam funcionando nos campos de texto do React.

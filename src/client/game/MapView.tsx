@@ -3,10 +3,10 @@
  * MapView — mapa top-down do Vale Silente.
  * Visão radar: grade topográfica, névoa de guerra, marcadores táticos, personagens.
  */
+import Image from "next/image";
 import { useNow, type GameState } from "./useGame";
 import { useState } from "react";
 import { dayPhase } from "./Scene";
-import { PixelCanvas } from "./PixelCanvas";
 
 const H = (941 / 1672) * 100; // altura proporcional do viewBox (100×H)
 // Cores de identificação dos jogadores (evita vermelho — reservado para perigo)
@@ -80,14 +80,13 @@ export function MapView({
       <div className="map-stage">
         <div className="map-inner">
 
-          {/* Imagem base do mapa, redesenhada em pixel art (1/4 da resolução) */}
-          <PixelCanvas
+          <Image
             className="map-img"
             src={map.image}
-            width={418}
-            height={235}
-            phase={phase}
-            label="Mapa do Vale Silente visto de cima"
+            alt="Mapa do Vale Silente visto de cima"
+            fill
+            priority
+            sizes="(max-width: 900px) 100vw, 70vw"
           />
 
           {/* Grade topográfica */}
@@ -382,9 +381,6 @@ export function MapView({
 
           {/* Vignetagem nas bordas */}
           <div className="map-vignette" />
-
-          {/* Scanlines */}
-          <div className="map-scan" />
 
           {/* Informações de status sobrepostas */}
           <div className="map-status">

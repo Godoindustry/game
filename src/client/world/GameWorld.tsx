@@ -198,14 +198,15 @@ export function GameWorld({
       const Phaser = await import("phaser");
       const { WorldScene } = await import("./engine");
       if (cancelled || !host.current) return;
-      const font = getComputedStyle(document.documentElement).getPropertyValue("--font-lcd").trim() || "monospace";
+      const font = getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim() || "monospace";
       const scene = new WorldScene();
       game = new Phaser.Game({
         type: Phaser.AUTO,
         parent: host.current,
         backgroundColor: "#05030a",
-        pixelArt: true,
-        roundPixels: true,
+        pixelArt: false,
+        antialias: true,
+        roundPixels: false,
         scale: { mode: Phaser.Scale.RESIZE, width: host.current.clientWidth, height: host.current.clientHeight },
         audio: { noAudio: true },
         banner: false,

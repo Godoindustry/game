@@ -120,7 +120,7 @@
   pointer-events: none;
   background-image: repeating-radial-gradient(circle at 30% 20%, transparent 0 1px, rgba(255, 255, 255, .2) 2px, transparent 3px);
   background-size: 6px 6px;
-  animation: horror-grain .22s steps(2) infinite;
+  animation: horror-grain 1.8s ease-in-out infinite alternate;
 }
 .scene-card-boss { border-color: rgba(190, 44, 68, .68); box-shadow: 0 18px 44px rgba(0, 0, 0, .6), inset 0 0 38px rgba(142, 19, 41, .2); }
 .scene-card-boss::after { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(105deg, rgba(36, 3, 11, .88), transparent 70%); animation: boss-card-breathe 2.8s ease-in-out infinite; }

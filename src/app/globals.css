@@ -278,10 +278,10 @@ img { max-width: 100%; display: block; }
   height: 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--line);
   border-radius: 2px; overflow: hidden; position: relative;
 }
-/* Scanline sutil nos medidores */
+/* Reflexo sutil nos medidores */
 .meter-track::after {
   content: ""; position: absolute; inset: 0;
-  background: repeating-linear-gradient(90deg, transparent 0 3px, rgba(255,255,255,0.03) 3px 4px);
+  background: linear-gradient(180deg, rgba(255,255,255,.06), transparent 55%);
   pointer-events: none;
 }
 .meter-fill {
@@ -346,45 +346,109 @@ img { max-width: 100%; display: block; }
 /* ── Telas de autenticação ───────────────────────────────────────────────── */
 .auth-wrap {
   min-height: 100dvh;
-  display: grid; grid-template-columns: 1.15fr 1fr;
+  display: grid; grid-template-columns: minmax(0, 1.18fr) minmax(420px, .82fr);
+  background: #080607;
 }
 .auth-art {
-  position: relative; overflow: hidden; border-right: 1px solid var(--line);
-  background: #030504 url("/assets/mapa-vale-silente.png") center/cover no-repeat;
+  position: relative; overflow: hidden; isolation: isolate;
+  min-height: 100dvh; border-right: 1px solid rgba(151, 59, 72, .28);
+  background: #050607;
 }
-/* Overlay de suspense em camadas */
+.auth-art-image {
+  z-index: -4; object-fit: cover; object-position: 58% center;
+  filter: saturate(.66) contrast(1.09) brightness(.68);
+  transform: scale(1.025);
+  animation: auth-camera 18s ease-out both;
+}
 .auth-art::before {
-  content: ""; position: absolute; inset: 0;
+  content: ""; position: absolute; inset: 0; z-index: -2;
   background:
-    linear-gradient(90deg, rgba(3,5,4,0.15), rgba(3,5,4,0.88)),
-    radial-gradient(ellipse at 30% 70%, rgba(15,30,20,0.5), transparent 60%);
-  z-index: 1;
+    linear-gradient(0deg, rgba(5,3,4,.98) 0%, rgba(5,3,4,.1) 55%),
+    linear-gradient(90deg, rgba(4,3,4,.28), rgba(4,3,4,.72) 100%),
+    radial-gradient(ellipse at 64% 45%, transparent 10%, rgba(3,3,4,.38) 68%, #030304 120%);
 }
-/* Efeito de scanline suave */
 .auth-art::after {
-  content: ""; position: absolute; inset: 0; z-index: 2;
-  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.08) 0 1px, transparent 1px 3px);
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(115deg, transparent 54%, rgba(145, 31, 49, .13));
+  box-shadow: inset 0 0 130px rgba(0,0,0,.46);
   pointer-events: none;
 }
+.auth-art-atmosphere {
+  position: absolute; z-index: -1; inset: -35%; opacity: .14; pointer-events: none;
+  background: repeating-linear-gradient(103deg, transparent 0 15px, rgba(223,231,229,.38) 16px, transparent 17px 32px);
+  animation: auth-rain .52s linear infinite;
+}
 .auth-art-text {
-  position: absolute; left: 36px; bottom: 36px; right: 36px;
-  z-index: 3;
+  position: absolute; left: clamp(28px, 5vw, 76px); bottom: clamp(34px, 8vh, 88px); right: clamp(28px, 5vw, 76px);
+  z-index: 3; max-width: 620px; color: #e7ded2; text-shadow: 0 3px 20px #000;
 }
-.auth-art-text::before {
-  content: "● REC"; font-family: var(--font-mono); font-size: 10px;
-  color: var(--red-2); letter-spacing: 0.12em;
-  display: block; margin-bottom: 12px;
-  animation: rec-blink 2s step-end infinite;
+.auth-art-kicker { display: flex; align-items: center; gap: 11px; color: #c67984; font: 700 9px var(--font-mono); letter-spacing: .25em; }
+.auth-art-kicker i { width: 32px; height: 1px; background: #a42c41; box-shadow: 0 0 10px #a42c41; }
+.auth-art-text h2 { max-width: 590px; margin: 13px 0 0; color: #f2e5d1; font: 700 clamp(42px, 6.2vw, 78px)/.88 var(--font-head); letter-spacing: .025em; text-transform: uppercase; }
+.auth-art-text > p { max-width: 540px; margin: 17px 0 0; color: #b8aaa8; font: italic clamp(14px, 1.55vw, 18px)/1.55 Georgia, serif; }
+.auth-transmission {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 13px;
+  max-width: 510px; margin-top: 23px; padding: 11px 12px;
+  border: 1px solid rgba(171, 76, 89, .34); border-left: 2px solid #a83549;
+  background: rgba(9, 7, 8, .66); backdrop-filter: blur(9px);
 }
-@keyframes rec-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+.auth-transmission blockquote { margin: 0; color: #d8c9bb; font: italic 13px Georgia, serif; }
+.auth-wave { display: flex; align-items: center; gap: 2px; height: 24px; }
+.auth-wave i { display: block; width: 2px; height: 7px; background: #b44356; box-shadow: 0 0 5px rgba(180,67,86,.5); animation: auth-wave 1.25s ease-in-out infinite; }
+.auth-wave i:nth-child(2), .auth-wave i:nth-child(6) { height: 13px; animation-delay: -.2s; }
+.auth-wave i:nth-child(3), .auth-wave i:nth-child(5) { height: 20px; animation-delay: -.4s; }
+.auth-wave i:nth-child(4) { height: 10px; animation-delay: -.6s; }
+.auth-audio { padding: 7px 9px; color: #d8c3a1; border: 1px solid #695044; background: rgba(34,25,24,.82); cursor: pointer; font: 700 8px var(--font-mono); letter-spacing: .13em; }
+.auth-audio:hover { color: #fff0d4; border-color: #aa6470; background: rgba(87,31,42,.42); }
+.auth-form {
+  position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  padding: clamp(30px, 6vw, 72px); background: radial-gradient(circle at 100% 0%, rgba(112,27,44,.12), transparent 33%), linear-gradient(150deg, #130d10, #080607 72%);
+}
+.auth-form::before { content: ""; position: absolute; inset: 18px; pointer-events: none; border: 1px solid rgba(205,181,148,.08); border-radius: 3px 24px 3px 3px; }
+.auth-form::after { content: "074"; position: absolute; right: -12px; bottom: -42px; color: rgba(210,188,157,.025); font: 700 190px/1 var(--font-head); letter-spacing: -.05em; pointer-events: none; }
+.auth-card { position: relative; z-index: 1; width: 100%; max-width: 430px; }
+.auth-brand { padding-bottom: 19px; border-bottom: 1px solid #39262c; }
+.auth-heading > span { color: #a85060; font: 700 8px var(--font-mono); letter-spacing: .23em; }
+.auth-heading h1 { margin: 5px 0 0; color: #f0dfc6; font: 700 clamp(34px, 4vw, 48px)/1 var(--font-head); letter-spacing: .055em; text-transform: uppercase; }
+.auth-heading p { margin: 8px 0 0; color: #8f8082; font-size: 13px; }
+.auth-card .field > .label { color: #a99a96; }
+.auth-card .input { min-height: 48px; border-color: #453038; border-radius: 3px 11px 3px 3px; background: rgba(8,6,7,.72); }
+.auth-card .input:focus { border-color: #985064; box-shadow: 0 0 0 3px rgba(152,80,100,.11); }
+.auth-card .btn { min-height: 47px; border-radius: 3px 11px 3px 3px; }
+.auth-card .btn-primary { border-color: #a34b5c; background: linear-gradient(105deg, #762238, #a33a4e); box-shadow: 0 10px 28px rgba(113,22,43,.22); }
+.auth-card .btn-primary:hover:not(:disabled) { background: linear-gradient(105deg, #8d2941, #b34a5d); box-shadow: 0 12px 34px rgba(135,28,50,.3); }
+.auth-card .btn-google { color: #c8bbb5; border-color: #45343a; background: rgba(23,17,19,.86); box-shadow: none; }
+.auth-card .btn-google:hover { color: #eee0d0; border-color: #73505a; background: #21171a; }
+.auth-card a:not(.brand):not(.btn) { color: #c79e70; }
+.auth-footnote { margin: 2px 0 0; padding-top: 14px; color: #5e5356; border-top: 1px solid #2c2024; font: 8px var(--font-mono); letter-spacing: .14em; text-align: center; text-transform: uppercase; }
+@keyframes auth-camera { from { transform: scale(1.09); } to { transform: scale(1.025); } }
+@keyframes auth-rain { to { transform: translate(-13px, 28px); } }
+@keyframes auth-wave { 50% { height: 4px; opacity: .42; } }
+@keyframes rec-blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
-.auth-form { display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
-.auth-card { width: 100%; max-width: 400px; }
+@media (max-width: 1040px) {
+  .auth-wrap { grid-template-columns: minmax(0, 1fr) minmax(390px, .86fr); }
+  .auth-art-text h2 { font-size: clamp(38px, 5.6vw, 60px); }
+}
 
 @media (max-width: 860px) {
   .auth-wrap { grid-template-columns: 1fr; }
-  .auth-art { min-height: 220px; border-right: 0; border-bottom: 1px solid var(--line); }
-  .auth-art-text { left: 18px; right: 18px; bottom: 18px; }
+  .auth-art { min-height: min(42dvh, 380px); border-right: 0; border-bottom: 1px solid #482832; }
+  .auth-art-image { object-position: 59% 55%; }
+  .auth-art-text { left: 22px; right: 22px; bottom: 22px; }
+  .auth-art-text h2 { max-width: 470px; font-size: clamp(34px, 8vw, 54px); }
+  .auth-art-text > p { display: none; }
+  .auth-transmission { margin-top: 14px; }
+  .auth-form { padding: 42px 24px 56px; }
+  .auth-form::before { inset: 11px; }
+}
+
+@media (max-width: 520px) {
+  .auth-art { min-height: 300px; }
+  .auth-art-text h2 { font-size: 36px; }
+  .auth-transmission { grid-template-columns: auto minmax(0, 1fr); }
+  .auth-transmission .auth-audio { grid-column: 1 / -1; width: 100%; }
+  .auth-form { padding-inline: 22px; }
 }
 
 /* ── Feed de mensagens (estilo terminal/SMS) ─────────────────────────────── */
@@ -585,12 +649,6 @@ img { max-width: 100%; display: block; }
 .map-vignette {
   position: absolute; inset: 0; pointer-events: none;
   background: radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(3,6,4,0.75));
-}
-/* Scanlines do mapa: efeito de tela de radar */
-.map-scan {
-  position: absolute; inset: 0; pointer-events: none;
-  background: repeating-linear-gradient(0deg, rgba(126,203,133,0.02) 0 1px, transparent 1px 4px);
-  mix-blend-mode: screen;
 }
 /* Noite: escuro azulado, com o raio da lanterna em volta de você (--lx/--ly) */
 .map-night {
@@ -1146,12 +1204,11 @@ body[data-tut="map"] [data-tut-id="map"] { outline-offset: -4px; }
 .scene-compact { height: 96px; margin: 0 0 4px; border: 1px solid var(--line); border-radius: var(--radius); }
 .scene-img {
   position: absolute; inset: -6%;
-  background-size: 520% auto; background-repeat: no-repeat;
   filter: saturate(0.85) contrast(1.1);
   animation: scene-pan 26s ease-in-out infinite alternate;
   transition: filter 2s ease;
 }
-.scene-compact .scene-img { background-size: 420% auto; }
+.scene-image { object-fit: cover; transform: scale(1.02); }
 @keyframes scene-pan {
   from { transform: scale(1.02) translate(0, 0); }
   to   { transform: scale(1.12) translate(-2%, 1.5%); }
