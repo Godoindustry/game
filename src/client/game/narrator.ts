@@ -52,8 +52,8 @@ async function fetchVoice(campaignId: string, logId: number): Promise<LoadedVoic
   });
   if (!response.ok) throw new Error(await errorMessage(response));
   const blob = await response.blob();
-  if (!blob.size || !/audio\/(?:wav|wave|x-wav)/i.test(blob.type || response.headers.get("content-type") || "")) {
-    throw new Error("O servidor devolveu uma fala inválida. A conversa continua em texto.");
+  if (!blob.size || !/audio\/(?:wav|wave|x-wav|mpeg|mp3)/i.test(blob.type || response.headers.get("content-type") || "")) {
+    throw new Error("O servidor devolveu um áudio de voz inválido. A conversa continua em texto.");
   }
   const audioKey = response.headers.get("x-voice-cache-key") || key;
   await storeVoice(key, audioKey, blob);

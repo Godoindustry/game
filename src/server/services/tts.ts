@@ -1,5 +1,5 @@
 /**
- * Voz dinâmica do jogo via Gemini TTS.
+ * Voz humana gravada do jogo, com Gemini TTS opcional para falas dinâmicas.
  *
  * A rota só sintetiza linhas que já existem no diário e que o jogador pode ver.
  * Texto, interpretação e voz são separados: a tela nunca mostra as marcações sonoras,
@@ -8,7 +8,7 @@
 import { getDb, nowIso } from "../db/database";
 import { getConfig } from "../config";
 import { newId, sha256 } from "./ids";
-import { AppError, notFound } from "./errors";
+import { notFound } from "./errors";
 import type { SessionUser } from "./auth";
 import { requireMember } from "./campaigns";
 import { stripVoiceTags, toVoiceText } from "@/shared/voiceTags";
@@ -25,6 +25,75 @@ interface LogVoiceRow {
   speech_tone: string | null;
   speech_voice: string | null;
   speech_say: string | null;
+}
+
+type RecordedVoiceRow = Pick<LogVoiceRow, "text" | "kind" | "speaker_key">;
+
+function recordedVariant(seed: string, choices: readonly string[]): string {
+  const index = Number.parseInt(sha256(seed).slice(0, 8), 16) % choices.length;
+  return choices[index];
+}
+
+/**
+ * Vozes e interpretações humanas já gravadas no projeto. É o modo padrão quando
+ * não existe chave externa e também a reserva para cota/indisponibilidade da IA.
+ */
+export function recordedVoiceAsset(row: RecordedVoiceRow): string {
+  const source = row.text.toLocaleLowerCase("pt-BR");
+  const speaker = row.speaker_key ?? "";
+
+  if (row.kind === "death") {
+    if (/fome|inanição/.test(source)) return "/audio/voz-da-morte/death-fome.mp3";
+    if (/frio|hipotermia/.test(source)) return "/audio/voz-da-morte/death-hipotermia.mp3";
+    if (/sangr|ferimento|lacera|fratura/.test(source)) return "/audio/voz-da-morte/death-ferimento.mp3";
+    return "/audio/voz-da-morte/death-1.mp3";
+  }
+  if (row.kind === "ending") {
+    return /rádio|radio|frequência|transmit|sinal/.test(source)
+      ? "/audio/narrador/victory-radio.mp3"
+      : "/audio/sistema/victory-1.mp3";
+  }
+
+  if (speaker === "npc:iara" || /iara|23h40|sete.+quatro.+zero/.test(source)) {
+    return recordedVariant(source, [
+      "/audio/iara/sussurro-chamado.mp3",
+      "/audio/iara/sussurro-numeros.mp3",
+      "/audio/iara/suspiro.mp3",
+    ]);
+  }
+  if (speaker === "creature:mae") return "/audio/mae-das-asas/grito-aparicao.mp3";
+  if (speaker === "creature:ambar") return "/audio/lobo-de-ambar/rosnado.mp3";
+  if (speaker.startsWith("creature:")) return "/audio/almas/sussurro-arrepiante.mp3";
+  if (row.kind === "npc" || speaker.startsWith("npc:")) {
+    return recordedVariant(`${speaker}|${source}`, [
+      "/audio/desconhecido/npc-desconhecido-1.mp3",
+      "/audio/desconhecido/npc-desconhecido-2.mp3",
+    ]);
+  }
+
+  if (/rádio|radio|frequência|transmiss|chiado|sinal/.test(source)) return "/audio/narrador/event-radio.mp3";
+  if (/fogueira|chama|fogo|crepita/.test(source)) return "/audio/narrador/event-fogueira.mp3";
+  if (/abrigo|cabana|dorm|descans/.test(source)) return "/audio/narrador/event-abrigo.mp3";
+  if (/rastro|pegada|lama|carcaça|passos/.test(source)) return "/audio/narrador/event-rastros.mp3";
+  if (/ferimento|atadura|sangr|curativo/.test(source)) return "/audio/narrador/action-tratando.mp3";
+  if (/colet|vasculh|procur|examinar/.test(source)) return "/audio/narrador/action-coletando.mp3";
+  return recordedVariant(source, [
+    "/audio/narrador/event-noite.mp3",
+    "/audio/narrador/intro-quote-2.mp3",
+    "/audio/narrador/intro-quote-4.mp3",
+  ]);
+}
+
+function recordedVoiceResponse(row: RecordedVoiceRow): Response {
+  const asset = recordedVoiceAsset(row);
+  return new Response(null, {
+    status: 307,
+    headers: {
+      Location: asset,
+      "Cache-Control": "private, max-age=31536000, immutable",
+      "X-Voice-Source": "recorded",
+    },
+  });
 }
 
 interface CachedAudio {
@@ -202,7 +271,8 @@ export async function logVoice(user: SessionUser, campaignId: string, logId: str
     const mine = await db.get("SELECT 1 FROM characters WHERE id = ? AND user_id = ?", row.character_id, user.id);
     if (!mine) throw notFound("Mensagem não encontrada.");
   }
-  if (!geminiKeys(config).length) throw new AppError(503, "Voz Gemini não configurada. Adicione GEMINI_API_KEY no servidor.", "tts_off");
+  // Sem chave, usa imediatamente as interpretações humanas que já acompanham o jogo.
+  if (!geminiKeys(config).length) return recordedVoiceResponse(row);
 
   const visibleText = stripVoiceTags(row.text).replace(/[【】]/g, "").trim();
   if (!visibleText) throw notFound("Nada para narrar.");
@@ -240,25 +310,29 @@ export async function logVoice(user: SessionUser, campaignId: string, logId: str
       since,
     );
     if (Number(used?.n ?? 0) + missing > config.TTS_USER_DAILY_REQUESTS) {
-      throw new AppError(429, "Cota diária de vozes atingida. As falas continuam disponíveis em texto.", "tts_cota");
+      return recordedVoiceResponse(row);
     }
     const spent = await db.get<{ s: number }>(
       "SELECT COALESCE(SUM(prompt_chars),0) AS s FROM ai_requests WHERE purpose = 'tts' AND status = 'ok' AND created_at >= ?",
       since,
     );
     if (Number(spent?.s ?? 0) + chunks.reduce((sum, chunk) => sum + chunk.length, 0) > config.TTS_DAILY_CHAR_BUDGET) {
-      throw new AppError(429, "Orçamento diário de vozes atingido. As falas continuam disponíveis em texto.", "tts_orcamento");
+      return recordedVoiceResponse(row);
     }
   }
 
   const parts: Buffer[] = [];
   const sources: string[] = [];
   let model = existing.find(Boolean)?.model ?? "gemini-cache";
-  for (let index = 0; index < chunks.length; index++) {
-    const result = await chunkAudio(user, campaignId, chunkKeys[index], chunks[index], style, profile, scene, context);
-    parts.push(result.value.audio);
-    sources.push(result.source);
-    model = result.value.model;
+  try {
+    for (let index = 0; index < chunks.length; index++) {
+      const result = await chunkAudio(user, campaignId, chunkKeys[index], chunks[index], style, profile, scene, context);
+      parts.push(result.value.audio);
+      sources.push(result.source);
+      model = result.value.model;
+    }
+  } catch {
+    return recordedVoiceResponse(row);
   }
   const source = sources.every((item) => item === "cache") ? "cache" : sources.some((item) => item === "generated") ? "gemini" : "inflight";
   return audioResponse(concatWav(parts), {

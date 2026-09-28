@@ -58,8 +58,10 @@ describe("Chefes", () => {
     const { char, world } = setup();
     char.health.diseases.push({ key: "mordida", startedAt: 0, until: 5000, level: 2 });
     const golpe = choiceById(eventById(content, "ch_mae_furia")!, "ch_mae_furia.golpe")!;
-    const r = applyChoiceOutcome(char, golpe, ctx(world)); // rng 0 → d20 natural 20
+    const effectCtx = ctx(world);
+    const r = applyChoiceOutcome(char, golpe, effectCtx); // rng 0 → d20 natural 20
     expect(r.success).toBe(true);
+    expect(effectCtx.applied.join(" ")).toMatch(/\[d20:20:\d+:-?\d+:-?\d+:0:0:1\]/);
     expect(world.flags.mae_caida).toBe(true);
     expect(char.health.diseases.some((d) => d.key === "mordida")).toBe(false);
 

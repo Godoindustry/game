@@ -8,7 +8,7 @@ import type { CharacterState, ChoiceDef, EventDef, GameContent, WorldState } fro
 import type { Rng } from "./rng";
 import { hasItem } from "./inventory";
 import { isNight, isSheltered } from "./physiology";
-import { applyEffects, meetsRequirements, rollCheck, type EffectContext } from "./effects";
+import { applyEffects, applyRollLog, meetsRequirements, rollCheck, type EffectContext } from "./effects";
 import { lineageOf } from "./lineage";
 
 function eventEligibleFor(
@@ -119,9 +119,9 @@ export function applyChoiceOutcome(
   if (o.text) ctx.lines.push(o.text);
   applyEffects(char, o.effects, ctx);
   if (!o.check) return { success: null };
-  const roll = rollCheck(char, o.check, ctx.rng, ctx.minute);
+  const roll = rollCheck(char, o.check, ctx.rng, ctx.minute, ctx.content);
   const branch = roll.success ? o.success : o.failure;
-  ctx.applied.push(`teste ${o.check.attr}: ${roll.success ? "sucesso" : "falha"} (${roll.chance}%) [d20:${roll.roll}:${roll.target}]`);
+  applyRollLog(ctx, o.check.attr, roll);
   if (branch) {
     ctx.lines.push(branch.text);
     applyEffects(char, branch.effects, ctx);

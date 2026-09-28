@@ -276,7 +276,7 @@ export function NarratorVoice({ state }: { state: GameState }) {
         className={`hud-icon narrator-toggle ${enabled ? "is-live" : ""} ${voiceStatus.available ? "" : "has-error"}`}
         onClick={toggle}
         aria-pressed={enabled}
-        title={voiceStatus.message ?? "Voz dinâmica Gemini"}
+        title={voiceStatus.message ?? "Voz humana do narrador"}
       >
         <span aria-hidden="true">◖</span>
         <span className="hide-mobile">{voiceStatus.available ? "Narrador" : "Voz indisponível"}</span>

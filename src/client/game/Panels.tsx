@@ -21,6 +21,9 @@ export function EventCard({
 }) {
   const scene = sceneProps(state, event.locationId);
   const isDangerous = !!scene?.danger || event.choices.some((c) => /\b(corr|fug|enfrent)/i.test(c.label));
+  const [armedRoll, setArmedRoll] = useState<{ eventInstanceId: string; choiceId: string } | null>(null);
+  const armedChoiceId = armedRoll?.eventInstanceId === event.instanceId ? armedRoll.choiceId : null;
+  const armedChoice = event.choices.find((choice) => choice.id === armedChoiceId && choice.roll) ?? null;
 
   return (
     <section
@@ -54,26 +57,51 @@ export function EventCard({
         </div>
       ) : (
         <div>
-          {event.choices.map((c, i) => (
-            <button
-              key={c.id}
-              className={`choice ${event.myChoiceId === c.id ? "selected" : ""}`}
-              style={{ animationDelay: `${0.15 + i * 0.08}s` }}
-              disabled={busy || !c.available}
-              onClick={() => onAct("escolha_evento", { choiceId: c.id })}
-              title={c.reason ?? undefined}
-            >
-              <span className="choice-key" aria-hidden="true">{String.fromCharCode(65 + i)}</span>
-              <span style={{ flex: 1, textAlign: "left" }}>
-                <span style={{ display: "block", fontWeight: 500, fontSize: 14 }}>{c.label}</span>
-                {c.reason && (
-                  <span className="tiny muted" style={{ display: "block", marginTop: 2 }}>
-                    {c.reason}
-                  </span>
-                )}
-              </span>
-            </button>
-          ))}
+          {armedChoice?.roll ? (
+            <div className="d20-challenge" role="group" aria-label={`Teste de ${armedChoice.roll.attribute}`}>
+              <span className="d20-challenge-kicker">TESTE DE {armedChoice.roll.attribute.replaceAll("_", " ")}</span>
+              <button
+                className={`d20-throw ${busy ? "is-rolling" : ""}`}
+                disabled={busy || !armedChoice.available}
+                onClick={() => onAct("escolha_evento", { choiceId: armedChoice.id })}
+              >
+                <span className="d20-throw-die" aria-hidden="true"><b>{busy ? "?" : "20"}</b></span>
+                <strong>{busy ? "ROLANDO..." : "ROLAR D20"}</strong>
+              </button>
+              <p>
+                <b>{armedChoice.roll.chance}% de chance</b> · o resultado é calculado pelo servidor.
+              </p>
+              <button className="d20-choice-back" disabled={busy} onClick={() => setArmedRoll(null)}>
+                ← Escolher outra ação
+              </button>
+            </div>
+          ) : event.choices.map((c, i) => (
+              <button
+                key={c.id}
+                className={`choice ${event.myChoiceId === c.id ? "selected" : ""}`}
+                style={{ animationDelay: `${0.15 + i * 0.08}s` }}
+                disabled={busy || !c.available}
+                onClick={() => c.roll
+                  ? setArmedRoll({ eventInstanceId: event.instanceId, choiceId: c.id })
+                  : onAct("escolha_evento", { choiceId: c.id })}
+                title={c.reason ?? undefined}
+              >
+                <span className="choice-key" aria-hidden="true">{String.fromCharCode(65 + i)}</span>
+                <span style={{ flex: 1, textAlign: "left" }}>
+                  <span style={{ display: "block", fontWeight: 500, fontSize: 14 }}>{c.label}</span>
+                  {c.roll && (
+                    <span className="choice-roll">
+                      D20 · {c.roll.attribute.replaceAll("_", " ")} · {c.roll.chance}%
+                    </span>
+                  )}
+                  {c.reason && (
+                    <span className="tiny muted" style={{ display: "block", marginTop: 2 }}>
+                      {c.reason}
+                    </span>
+                  )}
+                </span>
+              </button>
+            ))}
           {event.participants.length > 1 && (
             <p className="tiny muted" style={{ margin: "4px 0 0" }}>
               Decisão em grupo: vence a mais votada; empate, o admin decide. Os testes são individuais.

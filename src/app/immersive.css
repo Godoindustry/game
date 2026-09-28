@@ -688,6 +688,22 @@
 .voice-actions { display: flex; gap: 7px; margin-top: 11px; }
 @keyframes voice-pulse { 50% { opacity: .45; transform: scale(.72); } }
 
+/* D20 jogável — a escolha arma o teste; o resultado continua autoritativo no servidor. */
+.choice-roll { display: block; margin-top: 5px; color: #c9a56e; font: 700 8px var(--font-mono); letter-spacing: .13em; text-transform: uppercase; }
+.d20-challenge { display: grid; justify-items: center; gap: 9px; padding: 18px 14px 14px; border: 1px solid rgba(166, 122, 84, .58); background: radial-gradient(circle at 50% 34%, rgba(126, 33, 49, .22), transparent 48%), rgba(7, 6, 8, .74); box-shadow: inset 0 0 45px rgba(0, 0, 0, .55); text-align: center; }
+.d20-challenge-kicker { color: #c9a56e; font: 700 9px var(--font-mono); letter-spacing: .2em; text-transform: uppercase; }
+.d20-throw { display: grid; justify-items: center; gap: 7px; padding: 0; color: #ecddc5; border: 0; background: none; cursor: pointer; }
+.d20-throw:disabled { cursor: wait; }
+.d20-throw-die { display: grid; place-items: center; width: 104px; height: 104px; color: #fff0d4; clip-path: polygon(50% 0, 87% 18%, 100% 58%, 76% 94%, 24% 94%, 0 58%, 13% 18%); background: linear-gradient(150deg, transparent 49%, rgba(231, 202, 155, .3) 50%, transparent 51%), linear-gradient(30deg, transparent 49%, rgba(231, 202, 155, .18) 50%, transparent 51%), radial-gradient(circle at 42% 31%, #9f3044, #350e19 66%, #13070b); border: 1px solid #d5bb8b; filter: drop-shadow(0 13px 13px rgba(0, 0, 0, .65)); transition: transform .2s, filter .2s; }
+.d20-throw:hover:not(:disabled) .d20-throw-die { transform: translateY(-4px) rotate(3deg) scale(1.04); filter: drop-shadow(0 18px 18px rgba(0, 0, 0, .72)) brightness(1.12); }
+.d20-throw-die b { font: 700 34px Georgia, serif; text-shadow: 0 2px 2px #000, 0 0 16px rgba(255, 225, 173, .42); }
+.d20-throw > strong { font: 700 15px var(--font-head); letter-spacing: .14em; }
+.d20-throw.is-rolling .d20-throw-die { animation: d20-ready-roll .7s linear infinite; }
+.d20-challenge p { margin: 0; color: #8f8587; font: 10px/1.5 var(--font-mono); }
+.d20-challenge p b { color: #d6c4a9; }
+.d20-choice-back { padding: 4px 7px; color: #8f8587; border: 0; border-bottom: 1px solid rgba(143, 133, 135, .3); background: none; cursor: pointer; font: 9px var(--font-mono); }
+.d20-choice-back:hover:not(:disabled) { color: #e4d3bc; border-color: #a97b60; }
+
 /* Revelação do D20 — o número vem do motor do servidor */
 .dice-reveal {
   position: fixed;
@@ -698,7 +714,7 @@
   place-items: center;
   pointer-events: none;
   background: radial-gradient(circle, rgba(22, 10, 14, .5), transparent 43%);
-  animation: dice-overlay 3.6s ease both;
+  animation: dice-overlay 4.8s ease both;
 }
 .dice-smoke { position: absolute; width: 420px; height: 280px; border-radius: 50%; background: radial-gradient(ellipse, rgba(151, 31, 53, .2), transparent 65%); filter: blur(24px); animation: dice-smoke 2.2s ease-out both; }
 .d20-stage { width: 154px; height: 154px; perspective: 700px; filter: drop-shadow(0 22px 24px rgba(0, 0, 0, .72)); }
@@ -749,6 +765,7 @@
   70% { transform: translateY(-9px) rotateX(704deg) rotateY(710deg) rotateZ(350deg) scale(.98); }
   100% { transform: translateY(0) rotateX(720deg) rotateY(720deg) rotateZ(360deg) scale(1); }
 }
+@keyframes d20-ready-roll { to { transform: rotate(360deg) scale(.92); } }
 @keyframes dice-copy { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes dice-smoke { from { opacity: 0; transform: scale(.5); } 50% { opacity: 1; } to { opacity: .3; transform: scale(1.4); } }
 @keyframes dice-overlay { 0%, 88% { opacity: 1; } 100% { opacity: 0; } }

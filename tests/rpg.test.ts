@@ -13,9 +13,9 @@ import { nightEncounter, fallbackAttitude } from "@/server/engine/vampire";
 import { lineageOf, lineageCheckModifier } from "@/server/engine/lineage";
 import { DIFFICULTIES, type Difficulty } from "@/server/engine/difficulty";
 import { extractVoiceTags, isVoiceTag } from "@/shared/voiceTags";
-import { narrationText } from "@/server/services/tts";
+import { narrationText, recordedVoiceAsset } from "@/server/services/tts";
 import { getDb } from "@/server/db/database";
-import { freshApp, registered, VALID_SHEET } from "./helpers";
+import { act, freshApp, registered, soloCampaign, VALID_SHEET } from "./helpers";
 import { AUDIO_SCRIPT } from "../scripts/generate-audio.js";
 
 function setup(difficulty: Difficulty = "medio") {
@@ -148,21 +148,48 @@ describe("Salas e IA das criaturas (API)", () => {
     expect(Number((await getDb().get<{ n: number }>("SELECT COUNT(*) AS n FROM ai_requests WHERE purpose = 'creature'"))?.n)).toBe(1);
   });
 
-  it("narrador: sem chave → 503; linha de outra campanha → 404", async () => {
+  it("narrador: sem chave usa voz humana gravada; linha de outra campanha → 404", async () => {
     const a = await registered("Caio");
     const c = await a.client.post("/api/campaigns", { name: "Voz", mode: "solo" });
     await a.client.post(`/api/campaigns/${c.body.id}/character`, VALID_SHEET);
     await a.client.post(`/api/campaigns/${c.body.id}/start`);
     const logId = (await getDb().get<{ id: number }>("SELECT id FROM campaign_log WHERE campaign_id = ? LIMIT 1", c.body.id))!.id;
-    expect((await a.client.get(`/api/campaigns/${c.body.id}/log/${logId}/voice`)).status).toBe(503);
+    const voice = await a.client.get(`/api/campaigns/${c.body.id}/log/${logId}/voice`);
+    expect(voice.status).toBe(307);
+    expect(voice.headers.get("location")).toMatch(/^\/audio\/.+\.mp3$/);
+    expect(voice.headers.get("x-voice-source")).toBe("recorded");
     await freshApp({ GEMINI_API_KEY: "gemini_test" });
     const b = await registered("Duda");
     const other = await b.client.post("/api/campaigns", { name: "Outra", mode: "solo" });
     expect((await b.client.get(`/api/campaigns/${other.body.id}/log/999999/voice`)).status).toBe(404);
   });
+
+  it("mostra os testes nas escolhas e devolve o resultado completo do D20", async () => {
+    const a = await registered("Dado");
+    const id = await soloCampaign(a.client);
+    const before = await a.client.get(`/api/campaigns/${id}/state`);
+    const examine = before.body.event.choices.find((choice: { id: string }) => choice.id === "vs_despertar.examinar");
+    expect(examine.roll).toMatchObject({ attribute: "percepcao" });
+    expect(examine.roll.chance).toBeGreaterThanOrEqual(5);
+
+    const result = await act(a.client, id, "escolha_evento", { choiceId: examine.id });
+    expect(result.status).toBe(200);
+    expect(result.body.state.lastRoll).toMatchObject({ attribute: "percepcao" });
+    expect(result.body.state.lastRoll.value).toBeGreaterThanOrEqual(1);
+    expect(result.body.state.lastRoll.value).toBeLessThanOrEqual(20);
+    expect(result.body.state.lastRoll.finalTotal).toBe(
+      result.body.state.lastRoll.value + result.body.state.lastRoll.modifier,
+    );
+  });
 });
 
 describe("Tags de voz", () => {
+  it("mantém vozes humanas fixas para narrador, NPC e morte", () => {
+    expect(recordedVoiceAsset({ kind: "narrative", speaker_key: null, text: "O rádio chia." })).toBe("/audio/narrador/event-radio.mp3");
+    expect(recordedVoiceAsset({ kind: "npc", speaker_key: "npc:iara", text: "Sete quatro zero." })).toMatch(/^\/audio\/iara\/.+\.mp3$/);
+    expect(recordedVoiceAsset({ kind: "death", speaker_key: "system:death", text: "O frio venceu." })).toBe("/audio/voz-da-morte/death-hipotermia.mp3");
+  });
+
   it("todos os áudios fixos têm tags, e só tags permitidas", () => {
     for (const item of AUDIO_SCRIPT as { id: string; text: string }[]) {
       expect(extractVoiceTags(item.text).length, item.id).toBeGreaterThan(0);

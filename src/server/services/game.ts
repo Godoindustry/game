@@ -21,7 +21,7 @@ import { ACTION_TYPES, type ActionInput, type ActionReport, type CharacterState,
 import { validateAction, neighbors, travelMinutes } from "../engine/actions";
 import { resolveRound, type RoundAction } from "../engine/round";
 import { eventById } from "../engine/events";
-import { meetsRequirements } from "../engine/effects";
+import { checkChance, meetsRequirements } from "../engine/effects";
 import { computeScore } from "../engine/setup";
 import { inventorySummary, itemDef, loadRatio } from "../engine/inventory";
 import { clockLabel, dayNumber, fireActive, isNight, isSheltered, locationTemp } from "../engine/physiology";
@@ -716,7 +716,19 @@ export async function getState(user: SessionUser, campaignId: string) {
             myChoiceId: myVote ? String(json<Record<string, unknown>>(myVote.params, {}).choiceId) : null,
             choices: ev.choices.map((ch) => {
               const req = me ? meetsRequirements(me, world, content, ch.requirements) : { ok: false as const, reason: "" };
-              return { id: ch.id, label: ch.label, durationMinutes: ch.durationMinutes, available: req.ok && canAct && inEvent, reason: req.ok ? null : req.reason };
+              return {
+                id: ch.id,
+                label: ch.label,
+                durationMinutes: ch.durationMinutes,
+                available: req.ok && canAct && inEvent,
+                reason: req.ok ? null : req.reason,
+                roll: ch.outcome.check && me
+                  ? {
+                      attribute: ch.outcome.check.attr,
+                      chance: checkChance(me, ch.outcome.check, world.minute, content),
+                    }
+                  : null,
+              };
             }),
           }
         : null,
