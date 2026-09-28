@@ -536,6 +536,169 @@
 @keyframes dice-smoke { from { opacity: 0; transform: scale(.5); } 50% { opacity: 1; } to { opacity: .3; transform: scale(1.4); } }
 @keyframes dice-overlay { 0%, 88% { opacity: 1; } 100% { opacity: 0; } }
 
+/* Cenas faladas: a arte acompanha os novos áudios e identifica quem está falando. */
+.spoken-scene {
+  position: fixed;
+  z-index: 175;
+  inset: 68px 0 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: #030304;
+  animation: spoken-scene-enter .72s cubic-bezier(.18, .8, .22, 1) both;
+}
+.spoken-scene-art {
+  position: absolute;
+  inset: -4%;
+  z-index: -4;
+  background-repeat: no-repeat;
+  filter: saturate(.66) contrast(1.17) brightness(.62);
+  animation: spoken-camera 12s ease-out both;
+}
+.spoken-scene-rain {
+  position: absolute;
+  z-index: -2;
+  inset: -35%;
+  opacity: .18;
+  pointer-events: none;
+  background: repeating-linear-gradient(103deg, transparent 0 14px, rgba(218, 228, 226, .32) 15px, transparent 16px 31px);
+  animation: spoken-rain .46s linear infinite;
+}
+.spoken-scene-shade {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 72% 38%, transparent 0 12%, rgba(3, 3, 4, .2) 52%, #030304 110%),
+    linear-gradient(0deg, #050405 0%, rgba(5, 4, 5, .08) 65%),
+    linear-gradient(90deg, rgba(4, 3, 4, .88), transparent 48%);
+  box-shadow: inset 0 0 160px #000;
+}
+.spoken-scene-close {
+  position: absolute;
+  top: 16px;
+  right: 19px;
+  z-index: 2;
+  padding: 7px 10px;
+  color: #a99b96;
+  border: 1px solid rgba(193, 171, 151, .3);
+  background: rgba(7, 6, 7, .62);
+  backdrop-filter: blur(7px);
+  cursor: pointer;
+  font: 700 8px var(--font-mono);
+  letter-spacing: .17em;
+}
+.spoken-scene-close:hover { color: #f0dfc3; border-color: #9d5260; }
+.spoken-scene-dialogue {
+  position: absolute;
+  left: clamp(18px, 7vw, 108px);
+  right: clamp(18px, 7vw, 108px);
+  bottom: clamp(22px, 8vh, 88px);
+  display: grid;
+  grid-template-columns: clamp(106px, 14vw, 172px) minmax(0, 720px);
+  align-items: end;
+  gap: clamp(14px, 3vw, 35px);
+  animation: spoken-dialogue-in .64s .22s both;
+}
+.spoken-portrait {
+  position: relative;
+  aspect-ratio: .86;
+  overflow: hidden;
+  border: 1px solid rgba(216, 194, 152, .46);
+  border-radius: 2px 20px 2px 2px;
+  background: #0a0809;
+  box-shadow: 0 24px 55px rgba(0, 0, 0, .7), inset 0 0 0 1px rgba(255, 255, 255, .035);
+}
+.spoken-portrait::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(0deg, rgba(5, 4, 5, .82), transparent 45%), linear-gradient(115deg, transparent 60%, rgba(154, 37, 56, .18));
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, .35);
+}
+.spoken-portrait-npc,
+.spoken-portrait-boss,
+.spoken-portrait > .survivor-portrait {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background-repeat: no-repeat;
+  filter: saturate(.72) contrast(1.08) brightness(.82);
+  transform: scale(1.025);
+}
+.spoken-portrait-npc { background-image: url("/art/vale-silente/voice-character-atlas.png"); background-size: 200% 200%; }
+.spoken-portrait-boss { background-image: url("/art/vale-silente/boss-atlas.png"); background-size: 300% 100%; }
+.spoken-portrait-radio {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: #9fc4c7;
+  background: radial-gradient(circle, rgba(93, 153, 160, .22), transparent 24%), repeating-linear-gradient(0deg, #0a0d0e 0 3px, #172326 4px);
+  font: 700 38px var(--font-mono);
+  letter-spacing: .18em;
+  text-shadow: 0 0 17px #6ca9ae;
+}
+.spoken-copy { min-width: 0; padding: 18px 0 8px; text-shadow: 0 3px 15px #000; }
+.spoken-copy > span { color: #be5b6b; font: 700 9px var(--font-mono); letter-spacing: .3em; }
+.spoken-copy > strong { display: block; margin-top: 5px; color: #f0dfc5; font: 700 clamp(28px, 4vw, 52px)/.95 var(--font-head); letter-spacing: .065em; text-transform: uppercase; }
+.spoken-copy > em { display: block; margin-top: 8px; color: #c29c78; font: 700 10px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+.spoken-copy blockquote { max-width: 710px; margin: 14px 0 0; color: #ded3c5; font: italic clamp(15px, 1.8vw, 21px)/1.5 Georgia, serif; }
+.spoken-progress { width: min(480px, 100%); height: 2px; margin-top: 19px; overflow: hidden; background: rgba(175, 153, 143, .2); }
+.spoken-progress > i { display: block; width: 100%; height: 100%; background: linear-gradient(90deg, #a32f45, #d1ae77); box-shadow: 0 0 10px #a32f45; transform-origin: left; animation: spoken-progress linear both; }
+.spoken-spirit .spoken-copy > span { color: #84bbc0; }
+.spoken-spirit .spoken-portrait { border-color: rgba(114, 178, 185, .5); box-shadow: 0 24px 55px rgba(0, 0, 0, .7), 0 0 34px rgba(84, 147, 155, .18); }
+.spoken-creature .spoken-copy > span { color: #e36676; }
+.spoken-creature .spoken-portrait { border-color: rgba(192, 48, 70, .66); }
+.spoken-player .spoken-copy > span { color: #d1b174; }
+
+/* Uma ação cooperativa ganha uma troca breve, sem esconder a mesa. */
+.participant-transition {
+  position: fixed;
+  z-index: 180;
+  top: 82px;
+  right: 20px;
+  display: grid;
+  grid-template-columns: 48px minmax(120px, 1fr) 24px;
+  align-items: center;
+  gap: 10px;
+  min-width: 265px;
+  padding: 8px 10px 8px 8px;
+  color: #d8cbb9;
+  border: 1px solid #67503e;
+  border-radius: 2px 12px 2px 2px;
+  background: linear-gradient(110deg, rgba(28, 19, 20, .97), rgba(9, 8, 9, .94));
+  box-shadow: 0 18px 45px rgba(0, 0, 0, .58), inset 3px 0 #b18a50;
+  backdrop-filter: blur(9px);
+  animation: participant-in 2.6s ease both;
+}
+.participant-transition > .survivor-portrait { width: 48px; height: 48px; flex-basis: 48px; border-radius: 2px 10px 2px 2px; }
+.participant-transition > span { min-width: 0; }
+.participant-transition small { display: block; color: #a98d5f; font: 700 7px var(--font-mono); letter-spacing: .2em; }
+.participant-transition b { display: block; overflow: hidden; margin-top: 2px; color: #ecddc6; font: 700 14px var(--font-head); text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.participant-transition em { display: block; overflow: hidden; color: #827679; font: italic 9px Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
+.participant-transition > i { display: grid; place-items: center; width: 21px; height: 21px; color: #b7d4b6; border: 1px solid #587358; border-radius: 50%; background: rgba(60, 99, 61, .18); font: normal 12px var(--font-mono); }
+
+/* Retrato e autoria também permanecem no histórico, depois da cena fechar. */
+.game-immersive .msg-spoken { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 9px; padding-left: 9px; }
+.game-immersive .msg-spoken > .survivor-portrait { width: 34px; height: 34px; flex-basis: 34px; border-radius: 2px 8px 2px 2px; }
+.game-immersive .msg-copy { min-width: 0; }
+.game-immersive .msg-meta > b { color: #c6a773; font-weight: 700; text-transform: uppercase; }
+.party-member-card { position: relative; overflow: hidden; transition: border-color .2s, box-shadow .2s; }
+.party-member-card.is-online::after { content: ""; position: absolute; top: 8px; right: 8px; width: 5px; height: 5px; border-radius: 50%; background: #77b77e; box-shadow: 0 0 7px #77b77e; }
+.party-member-card.is-acted { border-color: rgba(174, 137, 78, .5) !important; box-shadow: inset 3px 0 #a9824a, 0 0 15px rgba(169, 130, 74, .08); }
+.party-member-card.is-acted::before { content: "AÇÃO"; position: absolute; right: 18px; bottom: 6px; color: rgba(205, 171, 113, .45); font: 700 7px var(--font-mono); letter-spacing: .14em; }
+
+@keyframes spoken-scene-enter { from { opacity: 0; clip-path: inset(50% 0 50%); } to { opacity: 1; clip-path: inset(0); } }
+@keyframes spoken-camera { from { opacity: .3; transform: scale(1.11) translateX(1.5%); } to { opacity: 1; transform: scale(1.015); } }
+@keyframes spoken-rain { to { transform: translate(-13px, 27px); } }
+@keyframes spoken-dialogue-in { from { opacity: 0; transform: translateY(24px); filter: blur(5px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes spoken-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes participant-in { 0% { opacity: 0; transform: translateX(35px); } 12%, 82% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateX(12px); } }
+
 @media (max-width: 1120px) {
   .game-immersive .game-body { grid-template-columns: minmax(0, 1fr) 370px; }
   .lineage-badge { min-width: 42px; }
@@ -547,6 +710,8 @@
   .game-immersive .hud { height: 60px; min-height: 60px; }
   .game-immersive .game-side { border-left: 0; border-top: 1px solid #4b2932; }
   .voice-popover { position: fixed; top: 68px; right: 10px; width: min(340px, calc(100vw - 20px)); }
+  .spoken-scene { top: 60px; }
+  .spoken-scene-dialogue { grid-template-columns: clamp(92px, 19vw, 140px) minmax(0, 1fr); }
 }
 
 @media (max-width: 560px) {
@@ -563,6 +728,17 @@
   .awakening-ring i { transform-origin: 0 26px; }
   .horror-cinematic-copy { padding-left: 9px; }
   .horror-cinematic-copy > small { font-size: 9px; }
+  .spoken-scene { inset: 60px 0 0; }
+  .spoken-scene-dialogue { left: 13px; right: 13px; bottom: 22px; grid-template-columns: 78px minmax(0, 1fr); gap: 11px; }
+  .spoken-portrait { border-radius: 2px 11px 2px 2px; }
+  .spoken-copy { padding-bottom: 0; }
+  .spoken-copy > span { font-size: 7px; letter-spacing: .2em; }
+  .spoken-copy > strong { font-size: 23px; }
+  .spoken-copy > em { margin-top: 5px; font-size: 8px; }
+  .spoken-copy blockquote { margin-top: 8px; font-size: 13px; line-height: 1.38; display: -webkit-box; overflow: hidden; -webkit-line-clamp: 7; -webkit-box-orient: vertical; }
+  .spoken-progress { margin-top: 11px; }
+  .spoken-scene-close { top: 10px; right: 10px; }
+  .participant-transition { top: 70px; right: 8px; left: 8px; min-width: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -570,6 +746,8 @@
   .scene-card-noise, .scene-card-boss::after, .power-danger .power-resource,
   .power-act-warning i, .awakening-ring, .horror-cinematic,
   .horror-cinematic-art, .horror-cinematic-rain, .horror-cinematic-copy,
-  .horror-cinematic-copy > i { animation: none !important; }
+  .horror-cinematic-copy > i, .spoken-scene, .spoken-scene-art,
+  .spoken-scene-rain, .spoken-scene-dialogue, .spoken-progress > i,
+  .participant-transition { animation: none !important; }
   .power-card:hover .power-hero-art { transform: none; }
 }

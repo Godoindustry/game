@@ -57,3 +57,6 @@ next-env.d.ts
 # ferramentas locais / scripts de debug
 /.kilo/
 /test-db.ts
+
+# Originais baixados à mão do Pixabay (caixa de entrada; os usados vão para public/audio)
+/audios pixabay/

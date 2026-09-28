@@ -1,5 +1,5 @@
 /**
- * generate-audio.js — gera os áudios fixos do jogo (public/audio/*.mp3) com o ElevenLabs v3.
+ * generate-audio.js — gera os áudios fixos do jogo (public/audio/<voz>/*.mp3) com o ElevenLabs v3.
  *
  * O modelo `eleven_v3` interpreta TAGS DE EXPRESSÃO entre colchetes, em inglês:
  *   [sighs] [laughs] [dark laugh] [whispers] [gasps] [crying] [pause] [long pause] …
@@ -38,6 +38,8 @@ const VOICES = {
 const MODEL = process.env.ELEVENLABS_MODEL ?? "eleven_v3";
 const FORCE = process.argv.includes("--force");
 const OUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../public/audio");
+/** public/audio é organizado por pessoa: cada voz salva na própria pasta (a situação vai no nome). */
+export const ROLE_DIR = { narrador: "narrador", sistema: "sistema", npc: "desconhecido", morte: "voz-da-morte" };
 
 // ── Roteiro: todo áudio leva tags de expressão ──────────────────────────────
 export const AUDIO_SCRIPT = [
@@ -129,7 +131,8 @@ async function main() {
   let total = 0;
   console.log(`\n🎙  ${AUDIO_SCRIPT.length} áudios · modelo ${MODEL} · ${KEYS.length} conta(s)\n`);
   for (const item of AUDIO_SCRIPT) {
-    const outFile = path.join(OUT_DIR, `${item.id}.mp3`);
+    const outFile = path.join(OUT_DIR, ROLE_DIR[item.role], `${item.id}.mp3`);
+    fs.mkdirSync(path.dirname(outFile), { recursive: true });
     if (fs.existsSync(outFile) && !FORCE) {
       console.log(`  ⏭  ${item.id}.mp3 já existe — pulando (use --force para regerar)`);
       continue;

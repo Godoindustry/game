@@ -2,56 +2,56 @@
 /**
  * useAudio — gerenciador de áudio S-OS v1.4
  *
- * Catálogo de IDs:
- *   intro-quote-1..4    → tela de entrada (aleatório)
- *   hud-alert-*         → alertas críticos do HUD
- *   event-*             → narração de eventos
- *   npc-desconhecido-*  → falas de NPC
- *   death-1, death-fome, death-hipotermia, death-ferimento
- *   victory-1, victory-radio
- *   action-*            → feedback de ações
+ * public/audio é organizado por PESSOA (pasta) e SITUAÇÃO (nome do arquivo):
+ *   sistema/       intro-quote-1/3, hud-alert-*, victory-1   (locutor frio)
+ *   narrador/      intro-quote-2/4, event-*, action-*, victory-radio
+ *   desconhecido/  npc-desconhecido-*
+ *   voz-da-morte/  death-*
+ * Efeitos de pessoas e criaturas (jogador, iara, mae-das-asas, lobo-de-ambar, tavares,
+ * almas) e do cenário ficam em horrorAudio.ts. Créditos: public/audio/CREDITOS.md.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { mixVolume } from "../audioMixer";
 
 const AUDIO_BASE = "/audio";
 
 // Catálogo completo de IDs de arquivo
 export const SFX = {
   // Tela inicial — pick aleatório
-  INTRO: ["intro-quote-1", "intro-quote-2", "intro-quote-3", "intro-quote-4"] as const,
+  INTRO: ["sistema/intro-quote-1", "narrador/intro-quote-2", "sistema/intro-quote-3", "narrador/intro-quote-4"] as const,
 
   // Alertas HUD
-  ALERT_FOME:       "hud-alert-fome",
-  ALERT_SEDE:       "hud-alert-sede",
-  ALERT_SANGUE:     "hud-alert-sangue",
-  ALERT_HIPOTERMIA: "hud-alert-hipotermia",
+  ALERT_FOME:       "sistema/hud-alert-fome",
+  ALERT_SEDE:       "sistema/hud-alert-sede",
+  ALERT_SANGUE:     "sistema/hud-alert-sangue",
+  ALERT_HIPOTERMIA: "sistema/hud-alert-hipotermia",
 
   // Eventos narrativos
-  EVENT_RASTROS:  "event-rastros",
-  EVENT_RADIO:    "event-radio",
-  EVENT_FOGUEIRA: "event-fogueira",
-  EVENT_ABRIGO:   "event-abrigo",
-  EVENT_NOITE:    "event-noite",
+  EVENT_RASTROS:  "narrador/event-rastros",
+  EVENT_RADIO:    "narrador/event-radio",
+  EVENT_FOGUEIRA: "narrador/event-fogueira",
+  EVENT_ABRIGO:   "narrador/event-abrigo",
+  EVENT_NOITE:    "narrador/event-noite",
 
   // NPC
-  NPC_DESCONHECIDO_1: "npc-desconhecido-1",
-  NPC_DESCONHECIDO_2: "npc-desconhecido-2",
+  NPC_DESCONHECIDO_1: "desconhecido/npc-desconhecido-1",
+  NPC_DESCONHECIDO_2: "desconhecido/npc-desconhecido-2",
 
   // Morte — mapeado por causa
-  DEATH_DEFAULT:    "death-1",
-  DEATH_FOME:       "death-fome",
-  DEATH_HIPOTERMIA: "death-hipotermia",
-  DEATH_FERIMENTO:  "death-ferimento",
+  DEATH_DEFAULT:    "voz-da-morte/death-1",
+  DEATH_FOME:       "voz-da-morte/death-fome",
+  DEATH_HIPOTERMIA: "voz-da-morte/death-hipotermia",
+  DEATH_FERIMENTO:  "voz-da-morte/death-ferimento",
 
   // Vitória
-  VICTORY:       "victory-1",
-  VICTORY_RADIO: "victory-radio",
+  VICTORY:       "sistema/victory-1",
+  VICTORY_RADIO: "narrador/victory-radio",
 
   // Ações
-  ACTION_COLETANDO:   "action-coletando",
-  ACTION_TRATANDO:    "action-tratando",
-  ACTION_DESCANSANDO: "action-descansando",
+  ACTION_COLETANDO:   "narrador/action-coletando",
+  ACTION_TRATANDO:    "narrador/action-tratando",
+  ACTION_DESCANSANDO: "narrador/action-descansando",
 } as const;
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ export function useAudio(volume = 0.55) {
         currentRef.current.currentTime = 0;
       }
       const audio = new Audio(`${AUDIO_BASE}/${id}.mp3`);
-      audio.volume = opts?.vol ?? volume;
+      audio.volume = mixVolume("narracao", opts?.vol ?? volume);
       audio.loop   = opts?.loop ?? false;
       currentRef.current = audio;
       audio.play().catch(() => { /* autoplay bloqueado — silencioso */ });

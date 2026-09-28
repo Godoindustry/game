@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { onMixChange, peerVolume, useMixer } from "../audioMixer";
 
 type Peer = { id: string; name: string };
 type OutgoingSignal = {
@@ -26,6 +27,10 @@ export function RoomVoice({ campaignId, compact = false }: { campaignId: string;
   const selfId = useRef("");
   const busy = useRef(false);
   const audioHost = useRef<HTMLDivElement>(null);
+  const peerMuted = useMixer((s) => s.peerMuted);
+  const peerVolumes = useMixer((s) => s.peerVolume);
+  const togglePeer = useMixer((s) => s.togglePeer);
+  const setPeerVolume = useMixer((s) => s.setPeerVolume);
 
   const closePeer = useCallback((id: string) => {
     connections.current.get(id)?.close();
@@ -52,6 +57,7 @@ export function RoomVoice({ campaignId, compact = false }: { campaignId: string;
         audioHost.current.appendChild(audio);
       }
       audio.srcObject = streams[0];
+      audio.volume = peerVolume(id); // respeita o mudo/volume que eu escolhi para esta pessoa
       void audio.play().catch(() => undefined);
     };
     peer.onconnectionstatechange = () => {
@@ -114,6 +120,16 @@ export function RoomVoice({ campaignId, compact = false }: { campaignId: string;
     return () => window.clearInterval(timer);
   }, [active, tick]);
 
+  // Mudar o mudo/volume de alguém (ou o geral) vale na hora para quem já está falando.
+  useEffect(() => {
+    const unsubscribe = onMixChange(() => {
+      audioHost.current?.querySelectorAll<HTMLAudioElement>("audio[data-peer]").forEach((audio) => {
+        audio.volume = peerVolume(audio.dataset.peer ?? "");
+      });
+    });
+    return unsubscribe;
+  }, []);
+
   useEffect(() => {
     const activeConnections = connections.current;
     return () => {
@@ -164,7 +180,34 @@ export function RoomVoice({ campaignId, compact = false }: { campaignId: string;
           {error && <div className="voice-error">{error}</div>}
           <div className="voice-members">
             {active && <span><i className={muted ? "is-muted" : "is-connected"} /> Você {muted ? "· mudo" : "· microfone ativo"}</span>}
-            {peers.map((peer) => <span key={peer.id}><i className={connected.includes(peer.id) ? "is-connected" : ""} /> {peer.name} · {connected.includes(peer.id) ? "conectado" : "chamando…"}</span>)}
+            {peers.map((peer) => {
+              const off = !!peerMuted[peer.id];
+              return (
+                <span key={peer.id} className="voice-peer" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <i className={connected.includes(peer.id) && !off ? "is-connected" : off ? "is-muted" : ""} />
+                  <span className="voice-peer-name" style={{ flex: 1, minWidth: 0 }}>{peer.name} · {off ? "áudio desligado" : connected.includes(peer.id) ? "conectado" : "chamando…"}</span>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => togglePeer(peer.id)}
+                    aria-pressed={!off}
+                    aria-label={off ? `Ligar o áudio de ${peer.name}` : `Desligar o áudio de ${peer.name}`}
+                    title={off ? "Ligar o áudio desta pessoa" : "Desligar o áudio desta pessoa"}
+                  >
+                    {off ? "🔇" : "🔊"}
+                  </button>
+                  <input
+                    type="range" min={0} max={1.5} step={0.05}
+                    value={peerVolumes[peer.id] ?? 1}
+                    disabled={off}
+                    onChange={(e) => setPeerVolume(peer.id, Number(e.target.value))}
+                    aria-label={`Volume de ${peer.name}`}
+                    title={`Volume de ${peer.name}: ${Math.round((peerVolumes[peer.id] ?? 1) * 100)}%`}
+                    style={{ width: 70 }}
+                  />
+                </span>
+              );
+            })}
             {active && peers.length === 0 && <em>Aguardando os outros sobreviventes…</em>}
           </div>
           <div className="voice-actions">

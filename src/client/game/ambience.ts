@@ -6,6 +6,7 @@
  * depois de um gesto do usuário, então o contexto nasce no primeiro clique/tecla.
  */
 import { useEffect, useRef } from "react";
+import { mixVolume, onMixChange } from "../audioMixer";
 
 export interface AmbienceParams {
   enabled: boolean;
@@ -90,7 +91,8 @@ class Ambience {
   update(p: AmbienceParams) {
     this.p = p;
     if (p.enabled && this.ctx.state === "suspended") void this.ctx.resume();
-    this.ramp(this.master, p.enabled ? 0.35 : 0, 1.2);
+    // 0,8 × "Ambiente" (0,55) × geral (0,8) = 0,35, o mesmo volume de antes no padrão do mixer.
+    this.ramp(this.master, p.enabled ? mixVolume("ambiente", 0.8) : 0, 1.2);
     this.ramp(this.rainGain, p.rain ? 0.22 : 0, 3);
     this.ramp(this.cricketGain, p.night && !p.rain ? 0.05 : 0, 4);
   }
@@ -171,6 +173,12 @@ export function useAmbience(params: AmbienceParams) {
     latest.current = p;
     ref.current?.update(p);
   }, [enabled, night, rain, fire, stress]);
+
+  // Slider "Ambiente" do mixer: reaplica o volume na hora.
+  useEffect(() => {
+    const unsubscribe = onMixChange(() => ref.current?.update(latest.current));
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     const start = () => {

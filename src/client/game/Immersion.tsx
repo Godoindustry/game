@@ -30,6 +30,28 @@ function sceneArtwork(state: GameState) {
       backgroundSize: "300% 100%",
     };
   }
+  const sceneSource = `${state.event?.id ?? ""} ${state.event?.title ?? ""} ${state.event?.body ?? ""}`.toLocaleLowerCase("pt-BR");
+  if (/rádio|frequência|iara|celular|23h40|sinal|antena/.test(sceneSource)) {
+    return {
+      backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.png")',
+      backgroundPosition: "100% 0%",
+      backgroundSize: "200% 200%",
+    };
+  }
+  if (/fogueira|abrigo|descans|acampamento/.test(sceneSource)) {
+    return {
+      backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.png")',
+      backgroundPosition: "0% 100%",
+      backgroundSize: "200% 200%",
+    };
+  }
+  if (/rastro|pegada|carcaça|passos|lama/.test(sceneSource)) {
+    return {
+      backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.png")',
+      backgroundPosition: "0% 0%",
+      backgroundSize: "200% 200%",
+    };
+  }
   if (state.story.phase) {
     return {
       backgroundImage: 'url("/art/vale-silente/phase-atlas.png")',

@@ -13,12 +13,15 @@ import { ScreenFx } from "@/client/game/ScreenFx";
 import { Tutorial, restartTutorial } from "@/client/game/Tutorial";
 import { useAudio, useHealthAudio, SFX } from "@/client/game/useAudio";
 import { useAmbience } from "@/client/game/ambience";
+import { useHorrorAudio } from "@/client/game/horrorAudio";
+import { AudioSettings } from "@/client/game/AudioSettings";
 import { GameWorld } from "@/client/world/GameWorld";
 import { CampaignDirector, D20Overlay, HorrorCinematics, LineageBadge, NarratorVoice, SceneCard } from "@/client/game/Immersion";
 import { RoomVoice } from "@/client/game/RoomVoice";
 import { SurvivorPortrait } from "@/client/game/Portrait";
 import { usePresence } from "@/client/presence";
 import { PowerCard } from "@/client/game/PowerCard";
+import { ParticipantTransition, SpokenScene } from "@/client/game/StoryDialogue";
 
 type Tab = "acoes" | "diario" | "grupo";
 
@@ -42,6 +45,8 @@ export default function PlayPage() {
   const [panel, setPanel] = useState<"char" | "bag" | "map" | null>(null);
   const [endClosed, setEndClosed] = useState(false);
   const { play, toggle, enabled } = useAudio();
+  // Trilha de terror: chefes, despertar, noite, morte, mordida e compulsões.
+  useHorrorAudio(state, enabled);
 
   // Amigos veem "Em partida" enquanto esta tela estiver aberta.
   usePresence(user ? "playing" : null, id);
@@ -182,6 +187,7 @@ export default function PlayPage() {
         {/* Som e tutorial */}
         <div className="hud-tools">
           <NarratorVoice state={state} />
+          <AudioSettings />
           {state.campaign.mode === "coop" && <RoomVoice campaignId={id} compact />}
           <button
             className="hud-icon"
@@ -404,6 +410,8 @@ export default function PlayPage() {
       {(finished || dead) && !endClosed && (
         <EndScreen state={state} onClose={() => setEndClosed(true)} />
       )}
+      <ParticipantTransition state={state} />
+      {!finished && !dead && <SpokenScene state={state} />}
       <HorrorCinematics state={state} />
       <D20Overlay roll={state.lastRoll} />
     </div>

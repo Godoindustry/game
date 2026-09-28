@@ -636,6 +636,7 @@ export async function getState(user: SessionUser, campaignId: string) {
     event:
       ev && activeEvent
         ? {
+            id: ev.id,
             instanceId: activeEvent.instanceId,
             title: ev.title,
             locationId: ev.locationId ?? loc,
@@ -666,7 +667,16 @@ export async function getState(user: SessionUser, campaignId: string) {
     clues: world.clues.map((k) => content.clues[k]).filter(Boolean),
     log: logRows
       .reverse()
-      .map((l) => ({ id: Number(l.id), kind: l.kind, clock: clockLabel(content, l.game_minute), day: dayNumber(content, l.game_minute), text: stripVoiceTags(l.text), voice: toVoiceText(l.text) })),
+      .map((l) => ({
+        id: Number(l.id),
+        kind: l.kind,
+        characterId: l.character_id,
+        speaker: l.character_id ? chars.find((c) => c.id === l.character_id)?.name ?? null : null,
+        clock: clockLabel(content, l.game_minute),
+        day: dayNumber(content, l.game_minute),
+        text: stripVoiceTags(l.text),
+        voice: toVoiceText(l.text),
+      })),
     ending:
       camp.status === "finished"
         ? {

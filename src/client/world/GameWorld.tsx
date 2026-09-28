@@ -11,6 +11,7 @@ import { dayPhase } from "../game/Scene";
 import { EventCard } from "../game/Panels";
 import type { Hotspot } from "./layout";
 import type { WorldCallbacks, WorldScene, WorldView } from "./engine";
+import { mixVolume } from "../audioMixer";
 
 type Act = (type: string, params?: Record<string, unknown>) => void;
 type Option = { key: string; label: string; minutes: number; available: boolean; reason: string | null; run: () => void };
@@ -410,7 +411,7 @@ function useSfx(enabled: boolean) {
       if (!enabled) return;
       try {
         const a = new Audio(`/game/sounds/${name}.ogg`);
-        a.volume = 0.45;
+        a.volume = mixVolume("efeitos", 0.6);
         void a.play().catch(() => {});
       } catch {}
     },
@@ -430,7 +431,13 @@ function useMusic(enabled: boolean, night: boolean) {
     const start = () => void a.play().catch(() => {});
     start();
     window.addEventListener("pointerdown", start, { once: true });
-    const fade = setInterval(() => { if (a.volume < 0.22) a.volume = Math.min(0.22, a.volume + 0.02); }, 150);
+    // Sobe até o volume do mixer ("Música"; abaixa sozinha durante a luta com chefe) e acompanha o slider.
+    const target = () => mixVolume("musica", 0.55);
+    const fade = setInterval(() => {
+      const t = target();
+      if (Math.abs(a.volume - t) < 0.02) a.volume = t;
+      else a.volume = Math.max(0, Math.min(1, a.volume + (a.volume < t ? 0.02 : -0.02)));
+    }, 150);
     return () => {
       clearInterval(fade);
       window.removeEventListener("pointerdown", start);

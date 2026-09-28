@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import { Brand } from "./ui";
 import { PixelCanvas } from "./game/PixelCanvas";
+import { mixVolume } from "./audioMixer";
 
 export function AuthFrame({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
@@ -29,8 +30,8 @@ export function AuthFrame({ title, subtitle, children }: { title: string; subtit
             </p>
             <button
               onClick={() => {
-                const audio = new Audio('/audio/quote-1.mp3');
-                audio.volume = 0.5;
+                const audio = new Audio('/audio/sistema/intro-quote-1.mp3');
+                audio.volume = mixVolume("narracao", 0.5);
                 audio.play();
               }}
               className="btn btn-sm"

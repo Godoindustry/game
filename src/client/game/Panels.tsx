@@ -332,21 +332,27 @@ export function Feed({
           return (
             <div
               key={l.id}
-              className={`msg msg-${l.kind} ${idx === log.length - 1 ? "msg-new" : ""}`}
+              className={`msg msg-${l.kind} ${l.speaker ? "msg-spoken" : ""} ${idx === log.length - 1 ? "msg-new" : ""}`}
             >
-              <div className="msg-meta">
-                <span aria-hidden="true">{KIND_ICON[l.kind] ?? "·"}</span>
-                DIA {l.day} · {l.clock}
-                <span className={`msg-phase msg-phase-${phase}`} aria-hidden="true" />
-              </div>
-              {m ? (
-                <>
-                  <strong className="msg-title">{m[1]}</strong>
-                  {m[2]}
-                </>
-              ) : (
-                l.text
+              {l.characterId && l.speaker && (
+                <SurvivorPortrait id={l.characterId} name={l.speaker} />
               )}
+              <div className="msg-copy">
+                <div className="msg-meta">
+                  <span aria-hidden="true">{KIND_ICON[l.kind] ?? "·"}</span>
+                  {l.speaker && <b>{l.speaker}</b>}
+                  DIA {l.day} · {l.clock}
+                  <span className={`msg-phase msg-phase-${phase}`} aria-hidden="true" />
+                </div>
+                {m ? (
+                  <>
+                    <strong className="msg-title">{m[1]}</strong>
+                    {m[2]}
+                  </>
+                ) : (
+                  l.text
+                )}
+              </div>
             </div>
           );
         })}
@@ -372,7 +378,7 @@ export function PartyList({ state }: { state: GameState }) {
         return (
           <div
             key={p.characterId}
-            className="panel panel-tight"
+            className={`panel panel-tight party-member-card ${p.acted ? "is-acted" : ""} ${p.online ? "is-online" : ""}`}
             style={{
               borderColor: p.isMe ? `${color}55` : undefined,
               background: p.isMe
