@@ -34,15 +34,6 @@ function eventId(state: GameState): string {
 }
 
 function speakerFor(state: GameState, line: LogLine): SpeakerView {
-  if (line.characterId) {
-    return {
-      name: line.speaker ?? state.party.find((member) => member.characterId === line.characterId)?.name ?? "Sobrevivente",
-      role: "SOBREVIVENTE",
-      kind: "player",
-      characterId: line.characterId,
-    };
-  }
-
   const source = `${eventId(state)} ${line.text}`.toLocaleLowerCase("pt-BR");
   if (/tavares|dono da carga|faróis/.test(source)) return { name: "Tavares", role: "O HOMEM DA CARGA", kind: "npc", portrait: "tavares" };
   if (/iara|23h40|vinte e oito anos/.test(source)) return { name: "Iara Menezes", role: "A VOZ NA FREQUÊNCIA", kind: "spirit", portrait: "iara" };
@@ -51,6 +42,14 @@ function speakerFor(state: GameState, line: LogLine): SpeakerView {
   if (/lobo de âmbar|lua cheia|garras a três metros/.test(source)) return { name: "Lobo de Âmbar", role: "O GUARDIÃO DA CRISTA", kind: "creature", portrait: "ambar" };
   if (line.kind === "npc" && state.here.npc) return { name: state.here.npc.name, role: "INTERLOCUTOR", kind: "npc", portrait: "stranger" };
   if (line.kind === "npc") return { name: "Desconhecido", role: "VOZ NA ESCURIDÃO", kind: "npc", portrait: "stranger" };
+  if (line.characterId) {
+    return {
+      name: line.speaker ?? state.party.find((member) => member.characterId === line.characterId)?.name ?? "Sobrevivente",
+      role: "SOBREVIVENTE",
+      kind: "player",
+      characterId: line.characterId,
+    };
+  }
   return { name: "Narrador", role: "O VALE OBSERVA", kind: "narrator" };
 }
 
@@ -86,8 +85,10 @@ function splitEventText(text: string) {
 
 export function SpokenScene({ state }: { state: GameState }) {
   const latest = useMemo(
-    () => [...state.log].reverse().find((line) => ["event", "narrative", "npc"].includes(line.kind)) ?? null,
-    [state.log],
+    () => [...state.log].reverse().find((line) =>
+      ["event", "narrative", "npc"].includes(line.kind) && speakerFor(state, line).kind !== "narrator",
+    ) ?? null,
+    [state],
   );
   const [active, setActive] = useState<LogLine | null>(null);
   const hideTimer = useRef<number | null>(null);
@@ -106,7 +107,8 @@ export function SpokenScene({ state }: { state: GameState }) {
     if (window.sessionStorage.getItem(storageKey)) return;
     window.sessionStorage.setItem(storageKey, "shown");
     const duration = Math.min(11_000, Math.max(5_800, latestLine.text.length * 42));
-    const delay = bossActive ? 3_900 : 80;
+    // A revelação do chefe ocupa 5,2 s; a fala entra depois, sem cobrir as duas artes.
+    const delay = bossActive ? 5_400 : 80;
     const showTimer = window.setTimeout(() => {
       setActive(latestLine);
       hideTimer.current = window.setTimeout(() => setActive(null), duration);

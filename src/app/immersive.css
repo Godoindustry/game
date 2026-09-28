@@ -451,8 +451,14 @@
   filter: grayscale(.75) brightness(.48);
 }
 
-.character-lineage-vampire .character-lineage-art { background-position: 0% 0%; filter: none; }
-.character-lineage-werewolf .character-lineage-art { background-position: 100% 0%; filter: none; }
+.character-lineage-vampire .character-lineage-art,
+.character-lineage-werewolf .character-lineage-art {
+  background-image: linear-gradient(0deg, rgba(8, 5, 6, .18), transparent), url("/art/vale-silente/lineage-atlas.png");
+  background-size: 200% 100%;
+  filter: saturate(.82) contrast(1.12) brightness(.76);
+}
+.character-lineage-vampire .character-lineage-art { background-position: 0% center; }
+.character-lineage-werewolf .character-lineage-art { background-position: 100% center; }
 .character-lineage-haunted .character-lineage-art { background-position: 0% 100%; filter: none; }
 .character-lineage-hunter .character-lineage-art { background-position: 100% 100%; filter: none; }
 .character-lineage > div:last-child { align-self: center; padding: 13px; }
@@ -547,7 +553,13 @@
   transition: transform 5s ease;
 }
 .power-card:hover .power-hero-art { transform: scale(1.075); }
-.power-werewolf .power-hero-art { background-position: 100% 0%; }
+.power-vampire .power-hero-art,
+.power-werewolf .power-hero-art {
+  background-image: url("/art/vale-silente/lineage-atlas.png");
+  background-size: 200% 100%;
+}
+.power-vampire .power-hero-art { background-position: 0% center; }
+.power-werewolf .power-hero-art { background-position: 100% center; }
 .power-haunted .power-hero-art { background-position: 0% 100%; }
 .power-hunter .power-hero-art { background-position: 100% 100%; }
 .power-hero-shade { position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(8, 5, 7, .94), rgba(8, 5, 7, .3) 70%), linear-gradient(0deg, #0b0709 0%, transparent 76%); }

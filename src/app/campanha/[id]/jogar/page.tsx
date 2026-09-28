@@ -18,7 +18,7 @@ import { RoomVoice } from "@/client/game/RoomVoice";
 import { SurvivorPortrait } from "@/client/game/Portrait";
 import { usePresence } from "@/client/presence";
 import { PowerCard } from "@/client/game/PowerCard";
-import { ParticipantTransition } from "@/client/game/StoryDialogue";
+import { ParticipantTransition, SpokenScene } from "@/client/game/StoryDialogue";
 
 type Tab = "acoes" | "diario" | "grupo";
 
@@ -380,6 +380,7 @@ export default function PlayPage() {
       {(finished || dead) && !endClosed && (
         <EndScreen state={state} onClose={() => setEndClosed(true)} />
       )}
+      <SpokenScene state={state} />
       <ParticipantTransition state={state} />
       <HorrorCinematics state={state} />
       <D20Overlay roll={state.lastRoll} />
