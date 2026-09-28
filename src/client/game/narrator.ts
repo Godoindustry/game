@@ -2,6 +2,7 @@
 
 import { mixVolume } from "../audioMixer";
 import { audioDirector } from "./audioDirector";
+import { localAudioFallback } from "./mediaBase";
 import { cachedVoice, storeVoice } from "./voiceCache";
 
 export const VOICE_STATUS_EVENT = "vale-silente:voice-status";
@@ -28,6 +29,14 @@ async function audioBlob(response: Response): Promise<Blob> {
     throw new Error("O servidor devolveu um áudio de voz inválido. A conversa continua em texto.");
   }
   return blob;
+}
+
+/** Busca no Storage/CDN e tenta a cópia empacotada se o objeto externo ainda não chegou. */
+async function fetchAudio(url: string, init?: RequestInit): Promise<Response> {
+  const response = await fetch(url, init);
+  if (response.ok) return response;
+  const fallback = localAudioFallback(response.url || url);
+  return fallback ? fetch(fallback, init) : response;
 }
 
 /** null = a cena não tem voz (fica só em texto, sem aviso). */
@@ -59,7 +68,7 @@ async function fetchVoice(campaignId: string, logId: number): Promise<LoadedVoic
   const cached = await cachedVoice(key);
   if (cached) return { blobs: [cached] };
 
-  const response = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}/log/${logId}/voice`, {
+  const response = await fetchAudio(`/api/campaigns/${encodeURIComponent(campaignId)}/log/${logId}/voice`, {
     credentials: "same-origin",
   });
   if (response.status === 204) return null;
@@ -68,7 +77,7 @@ async function fetchVoice(campaignId: string, logId: number): Promise<LoadedVoic
     const { parts } = await response.json() as { parts?: string[] };
     if (!parts?.length) return null;
     const blobs = await Promise.all(parts.map(async (url) => {
-      const part = await fetch(url);
+      const part = await fetchAudio(url);
       if (!part.ok) throw new Error("A voz da cena está indisponível. A conversa continua em texto.");
       return audioBlob(part);
     }));

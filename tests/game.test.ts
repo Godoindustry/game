@@ -189,7 +189,9 @@ describe("Fluxo solo completo", () => {
         const pick =
           (PREF[evId] ?? []).map((p) => avail.find((c: { id: string }) => c.id === `${evId}.${p}`)).find(Boolean) ??
           avail[avail.length - 1];
-        res = await act(client, id, "escolha_evento", { choiceId: pick.id });
+        // O objetivo aqui é validar o fluxo HTTP até o final, não sortear uma derrota.
+        // Em modo cliente, envia uma face determinística como a própria interface faz.
+        res = await act(client, id, "escolha_evento", { choiceId: pick.id, ...(pick.roll ? { d20: [20, 20] } : {}) });
       } else {
         const me = state.me;
         const bleeding = me.wounds.find((w: { bleedingRate: number; treat: { available: boolean } }) => w.bleedingRate > 0 && w.treat.available);

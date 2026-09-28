@@ -78,3 +78,17 @@ e 3 cantos de pássaro (one birds song, voices of birds, song thrush).
 | iara/passos-salto | freesound_community – passos de salto – 70753 (7 s iniciais) | 23h40 em ponto: Iara se aproxima |
 | almas/sussurro-ola | misfit_melomaniac – hello whisper – 533246 | Alguém chama seu nome |
 | mae-das-asas/vampira-olhar | alesiadavina – female vampire calculating gaze – 508989 | Despertar Vampiro, oferecer o pescoço |
+| dado/rolando | freesound_community – rpg dice rolling – 95182 | Botão ROLAR D20 |
+| dado/sucesso | phatphrogstudio – rpg m bard voice crescendo – 520950 | Sucesso no D20 |
+| dado/falha | primalhousemusic – production elements impactor e – 188986 (2 s iniciais) | Falha no D20 |
+| jogador/golpe | freesound_gamestudio – rpg sword attack combo 24 – 388941 | Golpear, derrubar, acabar com isso |
+| jogador/engasgo | universfield – male choking sound 03 – 244324 | Beber da poça |
+| jogador/grunhido-golpe | phatphrogstudio – male fighter voice heavy attack grunt – 544355 | (acervo) |
+| jogador/grunhido-ataque | phatphrogstudio – male soldier voice attack grunt – 520841 | (acervo) |
+| tavares/espingarda-1 | dragon-studio – gunshot – 372470 | Tomar a espingarda; caçada |
+| tavares/espingarda-2 | dragon-studio – gunshot – 504030 | Tomar a espingarda; caçada |
+| tavares/espingarda-3 | universfield – gunshot – 352466 | Tomar a espingarda; caçada |
+| desconhecido/assobio | kaazoom – the happy whistler 30 sec edit – 532434 (10 s iniciais) | O acampamento abandonado |
+| iara/choro | universfield – female crying 02 – 291097 (8 s iniciais) | Febre: a visão de Iara |
+| cenario/arco | freesound_community – 39 tensar arco – 100190 | Despertar Caçador |
+| cenario/flecha | djartmusic – arrow swish 03 – 306040 | (acervo) |

@@ -17,10 +17,8 @@ export interface SoundCue {
 
 /** Sons que ainda não existem em public/audio: o que buscar no Pixabay e onde tocam. */
 export const PIXABAY_WANTED: Record<string, { search: string; where: string; seconds: string }> = {
-  "jogador/grito-socorro": { search: "shouting help / hey over here (de preferência uma voz que sirva para homem e mulher)", where: "Gritar pelo piloto, Acenar e gritar, Chamar por alguém, Pedir ajuda", seconds: "1–3" },
   "jogador/respiracao-correndo": { search: "running breathing panic / out of breath running", where: "Correr, Fugir", seconds: "3–6" },
   "jogador/respiracao-contida": { search: "holding breath scared / nervous breathing", where: "Ficar imóvel, Prender a respiração, Deitar no chão, Observar em silêncio", seconds: "3–5" },
-  "jogador/golpe": { search: "punch impact struggle / body hit fight", where: "Golpear, Derrubar o capanga, Acabar com isso, Tomar a chave de roda", seconds: "1–2" },
   "jogador/gemido-dor": { search: "pain groan short", where: "Enfaixar, tratar ferimento, morder a língua", seconds: "1–3" },
   "jogador/beber-agua": { search: "drinking water gulp", where: "Beber da poça, Beber do córrego", seconds: "2–3" },
   "cenario/metal-forcando": { search: "metal door creak force / crowbar metal", where: "Forçar a porta, Alavanca, Forçar o cadeado, Pular a cerca", seconds: "2–4" },
@@ -35,9 +33,6 @@ export const PIXABAY_WANTED: Record<string, { search: string; where: string; sec
   "cenario/helicoptero": { search: "helicopter flyby distant", where: "Evento Rotor ao longe / Céu aberto", seconds: "5–10" },
   "cenario/motor-carro": { search: "car engine approaching night / off road vehicle", where: "Eventos Motor na ponte e Faróis entre as árvores", seconds: "5–8" },
   "cenario/celular-vibrando": { search: "phone vibrate / cellphone static interference", where: "Evento 23h40 (o celular)", seconds: "2–4" },
-  "dado/rolando": { search: "dice roll wooden table", where: "Botão ROLAR D20", seconds: "1–2" },
-  "dado/sucesso": { search: "success sting dark / mysterious positive hit", where: "Resultado do D20: sucesso", seconds: "1–2" },
-  "dado/falha": { search: "horror sting fail / suspense hit low", where: "Resultado do D20: falha", seconds: "1–2" },
 };
 
 /**
@@ -45,7 +40,6 @@ export const PIXABAY_WANTED: Record<string, { search: string; where: string; sec
  * nada de "sair"/"seguir" genérico (tocava passo no mato dentro da cabine do avião).
  */
 const CHOICE_RULES: [RegExp, SoundCue][] = [
-  [/grit|chamar por|acenar|pedir ajuda/i, { want: "jogador/grito-socorro" }],
   [/oferecer o pescoço|próprio sangue/i, { want: "mae-das-asas/vampira-olhar" }],
   [/uiv/i, { want: "lobo-de-ambar/uivo", vol: 0.7 }],
   [/cinto/i, { want: "cenario/cinto-fivela" }],
@@ -55,8 +49,10 @@ const CHOICE_RULES: [RegExp, SoundCue][] = [
   [/rádio|sintoniz|frequência|fios/i, { want: "cenario/radio-chiado" }],
   [/lanterna|apagar a luz/i, { want: "cenario/lanterna-clique" }],
   [/mergulh/i, { want: "cenario/agua-mergulho" }],
+  [/beber da poça/i, { want: "jogador/engasgo" }],
   [/beber/i, { want: "jogador/beber-agua" }],
   [/corr(a|er)|fug(a|ir)/i, { want: "jogador/respiracao-correndo", fallback: "cenario/passos-floresta" }],
+  [/espingarda/i, { want: "tavares/espingarda-1" }],
   [/golpe|derrubar|acabar com isso|tomar a chave/i, { want: "jogador/golpe" }],
   [/imóvel|prender a respiração|deitar no chão|em silêncio/i, { want: "jogador/respiracao-contida" }],
   [/subir na árvore|enfiar no mato|arbust/i, { want: "cenario/mato-arbusto" }],
@@ -77,7 +73,28 @@ export const EVENT_WANTED: Record<string, SoundCue> = {
   vs_celular: { want: "cenario/celular-vibrando" },
 };
 
-export function choiceCue(label: string): SoundCue | null {
+/**
+ * Grito em português, por situação e pelo sexo da personagem — gerado por voz (não há
+ * grito em pt-BR no Pixabay): `npm run audio:shouts` cria cada um e guarda na biblioteca
+ * do Supabase. Até lá o som simplesmente não toca.
+ */
+export const SHOUTS: { choice: RegExp; slug: string; line: string }[] = [
+  { choice: /gritar pelo piloto/i, slug: "piloto", line: "Piloto?! Tem alguém aí?!" },
+  { choice: /acenar e gritar/i, slug: "helicoptero", line: "Aqui! Aqui embaixo! Socorro!" },
+  { choice: /chamar por alguém/i, slug: "estacao", line: "Ô de casa! Tem alguém aí?!" },
+  { choice: /pedir ajuda/i, slug: "ajuda", line: "Ei! Por favor, me ajuda!" },
+];
+
+export type Sex = "feminino" | "masculino" | string;
+
+export function shoutId(slug: string, sex: Sex): string {
+  return `jogador/grito-${sex === "feminino" ? "f" : "m"}-${slug}`;
+}
+
+export function choiceCue(label: string, sex: Sex = "masculino"): SoundCue | null {
+  const shout = SHOUTS.find((s) => s.choice.test(label));
+  // Enquanto a versão falada em pt-BR ainda não foi gerada, nunca deixa o gesto mudo.
+  if (shout) return { want: shoutId(shout.slug, sex), fallback: "jogador/grito-morte" };
   return CHOICE_RULES.find(([re]) => re.test(label))?.[1] ?? null;
 }
 
@@ -89,8 +106,8 @@ export function playCue(cue: SoundCue | null | undefined): void {
   audioDirector().sting(cue.want, cue.vol ?? 1, { important: true, fallback: cue.fallback });
 }
 
-export function playChoice(label: string): void {
-  playCue(choiceCue(label));
+export function playChoice(label: string, sex?: Sex): void {
+  playCue(choiceCue(label, sex));
 }
 
 export const DICE: Record<"rolling" | "success" | "failure", SoundCue> = {

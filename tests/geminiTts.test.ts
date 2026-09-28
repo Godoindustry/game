@@ -5,6 +5,7 @@ import { getDb } from "@/server/db/database";
 import { addLog } from "@/server/services/stateRepo";
 import { pcmToWav, resolveVoiceProfile, synthesizeGeminiSpeech } from "@/server/services/geminiTts";
 import { normalizeSpeechPerformance, splitSpeech, type SpeechTone } from "@/shared/speech";
+import { resetLibraryCache } from "@/server/services/audioLibrary";
 
 const WAV = pcmToWav(Buffer.alloc(960, 7));
 
@@ -19,9 +20,43 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  resetLibraryCache();
 });
 
 describe("Gemini TTS", () => {
+  it("busca uma fala já existente no Supabase sem gastar uma chamada Gemini", async () => {
+    await freshApp({
+      TTS_PROVIDER: "gemini",
+      GEMINI_API_KEY: "key-one",
+      SUPABASE_URL: "https://audio-teste.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "service-role-teste",
+    });
+    resetLibraryCache();
+    const { client } = await registered("Biblioteca");
+    const campaignId = await soloCampaign(client);
+    await addLog(campaignId, null, 91, "npc", "Uma fala inédita já guardada.", {
+      speakerKey: "npc:piloto",
+      tone: "neutral",
+      voice: "calm conversational voice, natural pace and low volume",
+      say: "Uma fala inédita já guardada.",
+    });
+    const row = await getDb().get<{ id: number }>(
+      "SELECT id FROM campaign_log WHERE campaign_id = ? AND speaker_key = 'npc:piloto' ORDER BY id DESC LIMIT 1",
+      campaignId,
+    );
+    const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      if (init?.method === "HEAD") return new Response(null, { status: 200 });
+      throw new Error("Gemini não deveria ser chamado quando a biblioteca já tem a fala.");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await client.get(`/api/campaigns/${campaignId}/log/${row!.id}/voice`);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("x-voice-source")).toBe("biblioteca");
+    expect(response.headers.get("location")).toContain("/storage/v1/object/public/audio/vozes/");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("descarta say quando o modelo muda palavras e divide textos em até 260 caracteres", () => {
     const valid = normalizeSpeechPerformance("Eu ouvi alguma coisa... ali.", {
       tone: "worried",

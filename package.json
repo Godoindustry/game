@@ -15,6 +15,8 @@
     "voice:verify": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.json scripts/verify-gemini-tts.ts",
     "narration:export": "tsx --tsconfig tsconfig.json scripts/export-narration.ts",
     "narration:import": "node scripts/import-narration.mjs",
+    "audio:upload": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.json scripts/upload-audio-supabase.ts",
+    "audio:shouts": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.json scripts/generate-shouts.ts",
     "narration:generate": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.json scripts/generate-narration.ts",
     "media:upload": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.json scripts/upload-media.ts",
     "cap:sync": "cap sync",
@@ -22,6 +24,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
+    "@breezystack/lamejs": "^1.2.7",
     "@capacitor/android": "^8.5.2",
     "@capacitor/ios": "^8.5.2",
     "next": "16.3.6",
@@ -32,7 +35,6 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@breezystack/lamejs": "^1.2.7",
     "@capacitor/cli": "^8.5.2",
     "@capacitor/core": "^8.5.2",
     "@types/node": "^24.13.6",

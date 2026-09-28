@@ -12,6 +12,8 @@ import { notFound } from "./errors";
 import type { SessionUser } from "./auth";
 import { requireMember } from "./campaigns";
 import { narrationForLog } from "./narrationPack";
+import { libraryHas, libraryPath, libraryPut, libraryUrl } from "./audioLibrary";
+import { wavToMp3 } from "./mp3";
 import { mediaUrl } from "./media";
 import { getScenario } from "../content/valeSilente";
 import { stripVoiceTags, toVoiceText } from "@/shared/voiceTags";
@@ -320,17 +322,12 @@ export async function logVoice(user: SessionUser, campaignId: string, logId: str
     });
   }
   if (generated.length > 1) {
-    return new Response(JSON.stringify({ parts: generated }), {
+    return new Response(JSON.stringify({ parts: generated.map(mediaUrl) }), {
       status: 200,
       headers: { "Content-Type": "application/json", "Cache-Control": "private, max-age=3600", "X-Voice-Source": "narracao" },
     });
   }
-  // Produção usa as interpretações já gravadas. Gemini só é consultado com opt-in
-  // explícito e chave válida, evitando espera/erro por uma credencial antiga no ambiente.
-  if (config.TTS_PROVIDER !== "gemini" || !geminiKeys(config).length) return recordedVoiceResponse(row);
-
   const visibleText = stripVoiceTags(row.text).replace(/[【】]/g, "").trim();
-  if (!visibleText) throw notFound("Nada para narrar.");
   const tone = inferredTone(row.kind, row.speech_say ?? row.text);
   const performance = normalizeSpeechPerformance(visibleText, {
     tone: (row.speech_tone as SpeechTone | null) ?? tone,
@@ -340,7 +337,22 @@ export async function logVoice(user: SessionUser, campaignId: string, logId: str
   const profile = resolveVoiceProfile(row.speaker_key, row.kind, visibleText);
   const style = speechStyle(performance, config.TTS_SPEECH_LEVEL);
   const chunks = splitSpeech(performance.say);
-  if (!chunks.length) throw notFound("Nada para narrar.");
+  const overallKey = sha256(`pt-BR|${profile.key}|${profile.voice}|${style}|${performance.say}`);
+
+  // 2º: biblioteca do Supabase — alguém, em qualquer campanha, já gerou exatamente esta fala?
+  // Toca direto de lá: sem token, sem espera, e cada partida deixa a próxima mais barata.
+  const libPath = libraryPath("vozes", [overallKey], "mp3");
+  if (visibleText && chunks.length && (await libraryHas(libPath))) {
+    return new Response(null, {
+      status: 307,
+      headers: { Location: libraryUrl(libPath)!, "Cache-Control": "private, max-age=31536000, immutable", "X-Voice-Source": "biblioteca" },
+    });
+  }
+
+  // Produção usa as interpretações já gravadas. Gemini só é consultado com opt-in
+  // explícito e chave válida, evitando espera/erro por uma credencial antiga no ambiente.
+  if (config.TTS_PROVIDER !== "gemini" || !geminiKeys(config).length) return recordedVoiceResponse(row);
+  if (!visibleText || !chunks.length) throw notFound("Nada para narrar.");
 
   const previous = await db.get<{ text: string }>(
     `SELECT text FROM campaign_log
@@ -353,7 +365,6 @@ export async function logVoice(user: SessionUser, campaignId: string, logId: str
   const context = previous ? stripVoiceTags(previous.text).slice(0, 260) : "";
   const scene = "A rain-soaked night in isolated Vale Silente, Brazil, during an intimate and tense live conversation.";
   const chunkKeys = chunks.map((chunk) => sha256(`pt-BR|${profile.key}|${profile.voice}|${style}|${chunk}`));
-  const overallKey = sha256(`pt-BR|${profile.key}|${profile.voice}|${style}|${performance.say}`);
 
   const existing = await Promise.all(chunkKeys.map(cachedAudio));
   const missing = existing.filter((item) => !item).length;
@@ -390,7 +401,10 @@ export async function logVoice(user: SessionUser, campaignId: string, logId: str
     return recordedVoiceResponse(row);
   }
   const source = sources.every((item) => item === "cache") ? "cache" : sources.some((item) => item === "generated") ? "gemini" : "inflight";
-  return audioResponse(concatWav(parts), {
+  const wav = concatWav(parts);
+  // Guarda na biblioteca (MP3, ~6× menor) para as próximas partidas; no máximo 4 s de espera.
+  await Promise.race([wavToMp3(wav).then((mp3) => libraryPut(libPath, mp3, "audio/mpeg")), new Promise((r) => setTimeout(r, 4000))]).catch(() => undefined);
+  return audioResponse(wav, {
     cacheKey: overallKey,
     source,
     speaker: profile.key,

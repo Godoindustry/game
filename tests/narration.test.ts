@@ -77,9 +77,11 @@ describe("Sons das escolhas", () => {
     for (const id of Object.keys(PIXABAY_WANTED)) expect(used.has(id), `${id} não é usado`).toBe(true);
   });
 
-  it("gritar, acenar e chamar pedem o grito de socorro", () => {
-    expect(choiceCue("Acenar e gritar")?.want).toBe("jogador/grito-socorro");
-    expect(choiceCue("Gritar pelo piloto")?.want).toBe("jogador/grito-socorro");
-    expect(choiceCue("Chamar por alguém")?.want).toBe("jogador/grito-socorro");
+  it("gritar, acenar e chamar pedem o grito da situação, na voz do sexo da personagem", () => {
+    expect(choiceCue("Acenar e gritar", "feminino")?.want).toBe("jogador/grito-f-helicoptero");
+    expect(choiceCue("Gritar pelo piloto", "masculino")?.want).toBe("jogador/grito-m-piloto");
+    expect(choiceCue("Chamar por alguém", "feminino")?.want).toBe("jogador/grito-f-estacao");
+    expect(choiceCue("Derrubar o capanga e tomar a espingarda")?.want).toBe("tavares/espingarda-1");
+    expect(choiceCue("Beber da poça")?.want).toBe("jogador/engasgo");
   });
 });

@@ -94,7 +94,7 @@ export function EventCard({
                 disabled={busy || !c.available}
                 onClick={() => {
                   if (c.roll) return setArmedRoll({ eventInstanceId: event.instanceId, choiceId: c.id });
-                  playChoice(c.label);
+                  playChoice(c.label, state.me?.profile.sex);
                   onAct("escolha_evento", { choiceId: c.id });
                 }}
                 title={c.reason ?? undefined}

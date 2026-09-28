@@ -72,7 +72,8 @@ Veja [`.env.example`](.env.example). As principais:
 | `AI_DAILY_BUDGET_USD`, `AI_COST_*_PER_MTOK`, `AI_USER_DAILY_REQUESTS`, `AI_PREMIUM_DAILY_REQUESTS` | 1, 0, 40, 400 | Orçamento, custo e cotas |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | — | Estado distribuído (voz, lock de TTS). Sem elas, memória do processo |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_JWT_SECRET` | — | Tempo real no coop. As três juntas; sem elas, polling |
-| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | — | CDN de áudio e arte. Sem elas, `public/` |
+| `SUPABASE_SERVICE_ROLE_KEY` (ou `SUPABASE_SECRET_KEY`) / `AUDIO_BUCKET` | — / `audio` | Biblioteca reutilizável de áudio; a chave fica somente no servidor |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | — | CDN das artes e alternativa para áudio. Sem ela, `public/` |
 
 Chaves de API ficam **só** no `.env.local`, que o git ignora, ou nas variáveis de ambiente do provedor de hospedagem. Nunca vão para o frontend. A única exceção é `SUPABASE_ANON_KEY`, que é pública por desenho: ela não abre nada sozinha, porque a RLS de `realtime.messages` só libera o canal de quem participa da campanha.
 
@@ -84,7 +85,8 @@ Nenhuma delas é obrigatória. Sem credencial, cada uma cai no fallback local e 
 |---|---|---|
 | **Upstash Redis** | Voz do coop, filas de sinalização WebRTC e lock de TTS saem da memória do processo — o que permitia voz quebrada em multi-instância | Tudo em memória (1 instância) |
 | **Supabase Realtime** | O grupo vê a rodada resolvida por push, em vez de esperar o polling de 3 s | Polling de 3 s (o comportamento de sempre) |
-| **Cloudinary** | Os ~460 clipes de `public/audio` e as artes saem da edge em vez do bundle da Vercel | Servidos de `public/` |
+| **Supabase Storage** | Guarda os 485 clipes e toda nova voz por hash; jogos seguintes reutilizam o mesmo áudio sem gerar de novo | Áudios tentam a cópia local; voz dinâmica usa o cache local |
+| **Cloudinary** | As artes saem da edge em vez do bundle da Vercel | Servidas de `public/` |
 
 Ativando:
 
@@ -96,7 +98,11 @@ Ativando:
 #    cole SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_JWT_SECRET
 #    e rode supabase/setup.sql de novo (cria a policy de realtime.messages)
 
-# 3) Cloudinary — https://cloudinary.com -> conta Free
+# 3) Biblioteca de áudio — chave service_role/secret somente no servidor
+#    o comando é retomável: envia apenas arquivos ausentes ou alterados
+npm run audio:upload
+
+# 4) Cloudinary — https://cloudinary.com -> conta Free
 #    cole as três chaves e envie os arquivos:
 npm run media:upload          # public/audio, public/art e public/assets
 npm run media:upload audio    # só uma pasta
@@ -105,7 +111,7 @@ npm run media:upload -- --force
 
 O canal do Realtime carrega **apenas** um contador de versão (`{v: n}`). O estado de verdade continua vindo de `POST /api/campaigns/:id/sync`, que exige sessão e participação — o JWT do cliente é assinado no servidor e a RLS exige membro da campanha. Os avisos são descartados se chegarem fora de ordem.
 
-A CSP (`next.config.ts`) abre `wss://<host do Supabase>` e `https://res.cloudinary.com` **só** quando as variáveis existem; sem elas, a política continua exatamente como estava.
+A CSP (`next.config.ts`) abre `wss://<host do Supabase>`, o Storage público de áudio e `https://res.cloudinary.com` **só** quando as variáveis correspondentes existem; sem elas, a política continua exatamente como estava.
 
 ## Credenciais de teste (fictícias)
 
@@ -200,6 +206,7 @@ Todas as mutações exigem o cabeçalho `x-csrf-token`, igual ao cookie `ls_csrf
 | Tempo real (Realtime) | sem as variáveis o endpoint devolve `{realtime:false}` e o jogo segue no polling; não membro recebe 404; membro recebe URL, anon key e token HS256 com o `sub` do usuário do jogo; a rodada resolve mesmo com o Supabase fora do ar |
 | Voz (sinalização) | só entre membros da mesma sala; sinal chega uma vez; fila com teto e sem sobrescrita sob append concorrente |
 | CDN de mídia | sem Cloudinary os caminhos locais saem intactos; com ele o `public_id` é o caminho sem extensão e o `resource_type` bate com o tipo; URL absoluta e rota de API nunca são reescritas; o estado entrega o prefixo dos efeitos |
+| Biblioteca de áudio | caminhos por hash são estáveis; consultas simultâneas são reaproveitadas; upload usa apenas a chave do servidor; efeitos caem no arquivo local se o Storage falhar |
 | Fluxo solo completo | do acidente ao resgate pelo rádio (eventos, inventário, deslocamento, vitória, ranking, conquista) |
 
 **Manual:**
@@ -269,12 +276,13 @@ O código já está pronto; faltam só as credenciais.
    - `APP_URL` (URL final, ex.: `https://linha.vercel.app`)
    - `ADMIN_EMAIL`, `ADMIN_PASSWORD`
    - `AI_PROVIDER=chain` e as chaves `GROQ_API_KEY` / `GEMINI_API_KEY` / `OPENROUTER_API_KEY`
+   - biblioteca de áudio: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (ou `SUPABASE_SECRET_KEY`) e `AUDIO_BUCKET=audio`
    - opcionais: `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` (redirect `{APP_URL}/api/auth/google/callback`)
 5. **Node:** o projeto usa Node ≥ 22.5 (padrão atual da Vercel).
    - A rota da API roda no runtime Node com `maxDuration = 30` s, porque resolver uma rodada pode chamar a IA.
    - O rate limit fica na tabela `rate_limits` e vale entre todas as instâncias serverless.
 
-As chaves `service_role` / `sb_secret` do Supabase **não são usadas** e nunca devem ir para variáveis públicas (`NEXT_PUBLIC_*`).
+As chaves `service_role` / `sb_secret` do Supabase são usadas **somente pelo servidor** para gravar a biblioteca. Nunca devem ir para variáveis públicas (`NEXT_PUBLIC_*`). O navegador recebe apenas URLs públicas de leitura do bucket.
 
 ## Tags de expressão (voz)
 

@@ -24,11 +24,12 @@ export const HORROR = {
     panico: "jogador/panico-compulsao",
     alivio: ["jogador/suspiro-alivio-1", "jogador/suspiro-alivio-2"],
   },
-  iara: { aparicao: "iara/aparicao-coral", suspiro: "iara/suspiro", chamado: "iara/sussurro-chamado", numeros: "iara/sussurro-numeros", passosSalto: "iara/passos-salto" },
+  iara: { aparicao: "iara/aparicao-coral", suspiro: "iara/suspiro", choro: "iara/choro", chamado: "iara/sussurro-chamado", numeros: "iara/sussurro-numeros", passosSalto: "iara/passos-salto" },
   mae: { grito: "mae-das-asas/grito-aparicao", risada: "mae-das-asas/risada", filhas: "mae-das-asas/filhas-risada", vampira: "mae-das-asas/vampira-olhar" },
   lobo: { rosnado: "lobo-de-ambar/rosnado", uivo: "lobo-de-ambar/uivo", distante: "lobo-de-ambar/uivo-distante", eco: "lobo-de-ambar/uivo-eco" },
   bichos: { rugido: "bichos/rugido-selvagem" },
-  tavares: { entrada: "tavares/tensao-entrada", sarcastica: "tavares/risada-sarcastica", cruel: "tavares/risada-cruel" },
+  tavares: { entrada: "tavares/tensao-entrada", sarcastica: "tavares/risada-sarcastica", cruel: "tavares/risada-cruel", espingarda: ["tavares/espingarda-1", "tavares/espingarda-2", "tavares/espingarda-3"] },
+  desconhecido: { assobio: "desconhecido/assobio" },
   almas: {
     murmurios: "almas/murmurios",
     sussurros: ["almas/sussurro-arrepiante", "almas/sussurro-submundo"],
@@ -56,6 +57,7 @@ export const HORROR = {
     ventoInverno: "cenario/vento-inverno",
     ventoForte: "cenario/vento-forte",
     zumbido: "cenario/zumbido",
+    arco: "cenario/arco",
   },
 } as const;
 
@@ -74,19 +76,21 @@ const EVENT_CUE: [RegExp, Cue][] = [
   [/^ch_carcaca$/, { sound: HORROR.lobo.distante, vol: 0.45 }],
   // Tavares e os donos da carga
   [/^ch_tavares$/, { sound: HORROR.tavares.entrada, then: { sound: HORROR.tavares.sarcastica, afterMs: 4200, vol: 0.5 } }],
-  [/^vs_cacada$/, { sound: HORROR.tavares.cruel, vol: 0.45 }],
+  [/^vs_cacada$/, { sound: HORROR.tavares.cruel, vol: 0.45, then: { sound: HORROR.tavares.espingarda[1], afterMs: 2600, vol: 0.5 } }],
   // Iara, a Voz
   // Salto alto no meio da mata, onde ninguém deveria estar — e então os números.
   [/^ch_iara_sinal$/, { sound: HORROR.iara.passosSalto, vol: 0.55, then: { sound: HORROR.iara.numeros, afterMs: 5200, vol: 0.6 } }],
   [/^ch_iara$/, { sound: HORROR.iara.aparicao, then: { sound: HORROR.iara.chamado, afterMs: 5500, vol: 0.45 } }],
   [/^ch_iara_furia$/, { sound: HORROR.almas.demoniaca, vol: 0.5 }],
-  [/^vs_febre$/, { sound: HORROR.iara.suspiro, vol: 0.5 }],
+  [/^vs_febre$/, { sound: HORROR.iara.choro, vol: 0.45 }],
   [/^vs_celular$/, { sound: HORROR.iara.chamado, vol: 0.5 }],
   // Almas do vale
   [/^vs_vozes$/, { sound: HORROR.cenario.galhos[0], vol: 0.5, then: { sound: HORROR.almas.ola, afterMs: 1400, vol: 0.55 } }],
   [/^vs_nevoa$/, { sound: HORROR.almas.sussurros[1], vol: 0.5 }],
   [/^vs_tumulo$/, { sound: HORROR.almas.murmurios, vol: 0.4 }],
   // Mato, água e bichos
+  // Alguém assobia feliz numa mata onde ninguém deveria estar.
+  [/^vs_acampamento$/, { sound: HORROR.desconhecido.assobio, vol: 0.35 }],
   [/^vs_queixadas$/, { sound: HORROR.bichos.rugido, vol: 0.5 }],
   [/^vs_trilha$/, { sound: HORROR.cenario.galhos[1], vol: 0.5 }],
   [/^vs_poco$/, { sound: HORROR.cenario.poco, vol: 0.45 }],
@@ -102,7 +106,7 @@ const LINEAGE_CUE: Record<string, string> = {
   vampire: HORROR.mae.vampira,
   werewolf: HORROR.lobo.uivo,
   haunted: HORROR.iara.aparicao,
-  hunter: HORROR.cenario.encontro,
+  hunter: HORROR.cenario.arco,
 };
 
 /** Toque/sussurro de alma nas linhas do diário (encontros noturnos). */

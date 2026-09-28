@@ -7,6 +7,8 @@ const isDev = process.env.NODE_ENV !== "production";
 // nada de '*' na política por causa de um recurso opcional.
 const supabaseHost = process.env.SUPABASE_URL?.match(/^https?:\/\/([^/]+)/)?.[1];
 const realtimeOrigin = supabaseHost ? ` wss://${supabaseHost}` : "";
+// Biblioteca de áudio (Supabase Storage): a voz já gerada é baixada direto de lá.
+const storageOrigin = supabaseHost ? ` https://${supabaseHost}` : "";
 const cloudinary = process.env.CLOUDINARY_CLOUD_NAME ? " https://res.cloudinary.com" : "";
 
 // CSP: React escapa todo texto e o app não usa dangerouslySetInnerHTML (defesa principal contra XSS).
@@ -17,9 +19,9 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob:${cloudinary}`,
   // A narração toca a partir de blob: (cache em IndexedDB); sem isto toda voz falha.
-  `media-src 'self' blob:${cloudinary}`,
+  `media-src 'self' blob:${cloudinary}${storageOrigin}`,
   "font-src 'self' data:",
-  `connect-src 'self'${realtimeOrigin}${isDev ? " ws: wss:" : ""}`,
+  `connect-src 'self'${realtimeOrigin}${storageOrigin}${isDev ? " ws: wss:" : ""}`,
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",

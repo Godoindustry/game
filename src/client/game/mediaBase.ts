@@ -4,7 +4,7 @@
  *
  * A narração e as falas gravadas chegam prontas do servidor, já com a URL certa. Estes não:
  * `audioDirector` e o catálogo de `useAudio` conhecem só o caminho em `public/audio`. Com
- * Cloudinary, o servidor manda o prefixo em `state.media.audioBase` e o jogo o aplica aqui.
+ * Supabase/Cloudinary: o servidor manda o prefixo em `state.media.audioBase` e o jogo o aplica aqui.
  *
  * Sem CDN o valor é string vazia e `${base}/audio/x.mp3` continua sendo `/audio/x.mp3` —
  * nenhuma chamada muda, nenhum teste quebra, nada some do cache do service worker.
@@ -23,4 +23,10 @@ export function mediaAudioBase(): string {
 /** `sfxUrl("sistema/hud-alert-fome")` → `/audio/sistema/hud-alert-fome.mp3` ou a URL da CDN. */
 export function sfxUrl(id: string): string {
   return `${audioBase}/audio/${id}.mp3`;
+}
+
+/** Se a CDN/Storage falhar, recupera o mesmo arquivo empacotado em `public/audio`. */
+export function localAudioFallback(url: string): string | null {
+  if (!audioBase || !url.startsWith(`${audioBase}/audio/`)) return null;
+  return url.slice(audioBase.length);
 }

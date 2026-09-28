@@ -1,13 +1,14 @@
 /**
- * CDN de mídia (Cloudinary, 25 créditos/mês no plano gratuito).
+ * Entrega de mídia: Supabase Storage para áudio e Cloudinary opcional para artes.
  *
- * O jogo tem ~460 clipes de áudio em `public/audio` e as artes em `public/art`. Sem CDN
+ * O jogo tem 485 clipes de áudio em `public/audio` e as artes em `public/art`. Sem CDN
  * eles saem do bundle da Vercel a cada deploy. Com Cloudinary eles passam a sair da edge,
  * com transformação já aplicada (o áudio da narração em `mp3` de 64 kbps, por exemplo, que
  * é metade do tamanho do original) e sem o custo de CPU do servidor.
  *
- * Regra de ouro: `mediaUrl("/audio/x.mp3")` devolve `/audio/x.mp3` quando não há CDN, e a
- * URL da Cloudinary quando há. Nenhum chamador muda de comportamento, nenhum teste quebra,
+ * Regra de ouro: `mediaUrl("/audio/x.mp3")` devolve a cópia reutilizável do Supabase quando
+ * a biblioteca está configurada, ou cai para Cloudinary/`public` quando não está. Nenhum
+ * chamador muda de comportamento,
  * e o app num celular sem rede continua usando o que já tinha em cache.
  *
  * O caminho local é a chave: o public_id na Cloudinary é o caminho sem extensão
@@ -16,6 +17,7 @@
  * segue a vida — o mesmo tratamento de um clipe que sumiu do repositório.
  */
 import { getConfig } from "../config";
+import { libraryStaticBase } from "./audioLibrary";
 
 const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|wav)$/i;
 const VIDEO_EXT = /\.(mp4|webm)$/i;
@@ -28,7 +30,7 @@ function resourceTypeFor(path: string): "image" | "video" | "raw" {
 }
 
 export function mediaConfigured(): boolean {
-  return Boolean(getConfig().CLOUDINARY_CLOUD_NAME);
+  return Boolean(libraryStaticBase() || getConfig().CLOUDINARY_CLOUD_NAME);
 }
 
 /**
@@ -37,6 +39,8 @@ export function mediaConfigured(): boolean {
  */
 export function mediaUrl(path: string): string {
   if (!path.startsWith("/") || /^\/api\//.test(path)) return path;
+  const audioBase = libraryStaticBase();
+  if (audioBase && path.startsWith("/audio/")) return `${audioBase}${path}`;
   const cloud = getConfig().CLOUDINARY_CLOUD_NAME;
   if (!cloud) return path;
   const ext = /\.[a-z0-9]+$/i.exec(path)?.[0] ?? "";
@@ -47,9 +51,11 @@ export function mediaUrl(path: string): string {
 
 /**
  * Prefixo para o cliente montar URLs de áudio por conta própria (SFX e ambiente, que não
- * passam pelo servidor). Vazio sem CDN, o que mantém as mesmas URLs de hoje.
+ * passam pelo servidor). Supabase tem prioridade; vazio sem CDN, mantendo as URLs locais.
  */
 export function mediaBase(): string {
+  const audioBase = libraryStaticBase();
+  if (audioBase) return audioBase;
   const cloud = getConfig().CLOUDINARY_CLOUD_NAME;
   if (!cloud) return "";
   return `https://res.cloudinary.com/${cloud}/video/upload`;

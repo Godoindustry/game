@@ -117,6 +117,10 @@ const schema = z.object({
   SUPABASE_URL: z.string().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_JWT_SECRET: z.string().optional(),
+  // Biblioteca de áudio (Supabase Storage): só o servidor usa a chave de serviço.
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_SECRET_KEY: z.string().optional(),
+  AUDIO_BUCKET: z.string().default("audio"),
 
   // CDN de imagens e áudio (Cloudinary, 25 créditos/mês no plano gratuito).
   CLOUDINARY_CLOUD_NAME: z.string().optional(),

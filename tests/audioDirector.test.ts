@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AudioDirector } from "@/client/game/audioDirector";
 import { useMixer } from "@/client/audioMixer";
+import { setMediaAudioBase } from "@/client/game/mediaBase";
 
 class FakeAudio {
   static instances: FakeAudio[] = [];
@@ -29,11 +30,13 @@ describe("Diretor de áudio", () => {
     vi.useFakeTimers();
     FakeAudio.instances = [];
     vi.stubGlobal("Audio", FakeAudio);
+    setMediaAudioBase("");
     useMixer.getState().reset();
     useMixer.setState({ voiceActive: false });
   });
 
   afterEach(() => {
+    setMediaAudioBase("");
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
@@ -73,5 +76,15 @@ describe("Diretor de áudio", () => {
     director.voiceFile("/nova.mp3");
     expect(FakeAudio.instances.map((audio) => audio.src)).toEqual(["/antiga.mp3", "/nova.mp3"]);
     await Promise.resolve();
+  });
+
+  it("cai no arquivo local quando o áudio do Supabase falha", () => {
+    setMediaAudioBase("https://audio.test/storage/v1/object/public/audio/estatico");
+    const director = new AudioDirector();
+    director.sting("dado/rolando", 1, { important: true });
+
+    expect(FakeAudio.instances[0].src).toContain("/estatico/audio/dado/rolando.mp3");
+    FakeAudio.instances[0].onerror?.();
+    expect(FakeAudio.instances[1].src).toBe("/audio/dado/rolando.mp3");
   });
 });

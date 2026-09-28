@@ -79,6 +79,21 @@ export const SOURCES = [
   ["freesound_community-passos-de-salto-70753.mp3", "iara/passos-salto", 7],
   ["misfit_melomaniac-hello-whisper-533246.mp3", "almas/sussurro-ola"],
   ["alesiadavina-female-vampire-calculating-gaze-508989.mp3", "mae-das-asas/vampira-olhar"],
+  // dado, luta e tiros (lote 3)
+  ["freesound_community-rpg-dice-rolling-95182.mp3", "dado/rolando"],
+  ["phatphrogstudio-rpg-m-bard-voice-crescendo-520950.mp3", "dado/sucesso"],
+  ["primalhousemusic-production-elements-impactor-e-188986.mp3", "dado/falha", 2],
+  ["freesound_gamestudio-rpg-sword-attack-combo-24-388941.mp3", "jogador/golpe"],
+  ["universfield-male-choking-sound-03-244324.mp3", "jogador/engasgo"],
+  ["phatphrogstudio-male-fighter-voice-heavy-attack-grunt-544355.mp3", "jogador/grunhido-golpe"],
+  ["phatphrogstudio-male-soldier-voice-attack-grunt-520841.mp3", "jogador/grunhido-ataque"],
+  ["dragon-studio-gunshot-372470.mp3", "tavares/espingarda-1"],
+  ["dragon-studio-gunshot-504030.mp3", "tavares/espingarda-2"],
+  ["universfield-gunshot-352466.mp3", "tavares/espingarda-3"],
+  ["kaazoom-the-happy-whistler-30-sec-edit-532434.mp3", "desconhecido/assobio", 10],
+  ["universfield-female-crying-02-291097.mp3", "iara/choro", 8],
+  ["freesound_community-39-tensar-arco-100190.mp3", "cenario/arco"],
+  ["djartmusic-arrow-swish_03-306040.mp3", "cenario/flecha"],
 ];
 
 const BR = { 1: [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320], 2: [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160] };

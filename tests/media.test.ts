@@ -4,6 +4,8 @@ import { mediaBase, mediaConfigured, mediaUrl } from "@/server/services/media";
 
 const CLOUD = "nuvem-de-teste";
 const CDN = `https://res.cloudinary.com/${CLOUD}`;
+const SUPABASE = "https://audio-teste.supabase.co";
+const STORAGE = `${SUPABASE}/storage/v1/object/public/audio/estatico`;
 
 describe("CDN de mídia (Cloudinary)", () => {
   beforeEach(() => freshApp());
@@ -26,6 +28,19 @@ describe("CDN de mídia (Cloudinary)", () => {
     // Prefixo que o cliente concatena com `/audio/...`: tem de bater com a URL de cima.
     expect(mediaBase()).toBe(`${CDN}/video/upload`);
     expect(`${mediaBase()}/audio/narracao/ch_abrir_1.mp3`).toBe(mediaUrl("/audio/narracao/ch_abrir_1.mp3"));
+  });
+
+  it("usa o Supabase para todo áudio e mantém o Cloudinary apenas para as artes", () => {
+    freshApp({
+      SUPABASE_URL: SUPABASE,
+      SUPABASE_SERVICE_ROLE_KEY: undefined,
+      CLOUDINARY_CLOUD_NAME: CLOUD,
+    });
+    expect(mediaConfigured()).toBe(true);
+    expect(mediaBase()).toBe(STORAGE);
+    expect(mediaUrl("/audio/narracao/ch_abrir_1.mp3")).toBe(`${STORAGE}/audio/narracao/ch_abrir_1.mp3`);
+    expect(mediaUrl("/audio/dado/rolando.mp3")).toBe(`${STORAGE}/audio/dado/rolando.mp3`);
+    expect(mediaUrl("/art/vale-silente/landing-hero.webp")).toBe(`${CDN}/image/upload/art/vale-silente/landing-hero.webp`);
   });
 
   it("URL absoluta e rota de API nunca são reescritas", () => {

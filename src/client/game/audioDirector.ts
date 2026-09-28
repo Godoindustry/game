@@ -13,7 +13,7 @@
  * então 1 = "volume certo da categoria"; o mixer multiplica por categoria e geral.
  */
 import { mixVolume, onMixChange, useMixer, type AudioCategory } from "../audioMixer";
-import { sfxUrl } from "./mediaBase";
+import { localAudioFallback, sfxUrl } from "./mediaBase";
 
 export type VoicePriority = "narracao" | "alerta";
 
@@ -98,11 +98,18 @@ export class AudioDirector {
             finish = null;
             resolve();
           };
-          el = new Audio(url);
-          el.volume = mixVolume("narracao", base);
-          el.onended = () => finish?.();
-          el.onerror = () => finish?.();
-          void el.play().catch(() => finish?.());
+          const start = (source: string, allowLocalFallback: boolean) => {
+            el = new Audio(source);
+            el.volume = mixVolume("narracao", base);
+            el.onended = () => finish?.();
+            el.onerror = () => {
+              const fallback = allowLocalFallback ? localAudioFallback(source) : null;
+              if (fallback) start(fallback, false);
+              else finish?.();
+            };
+            void el.play().catch(() => finish?.());
+          };
+          start(url, true);
         }),
       stop: () => {
         el?.pause();
@@ -190,6 +197,15 @@ export class AudioDirector {
     el.volume = 0;
     const bed = { sound, el, base, cat, fading: true };
     this.bed = bed;
+    el.onerror = () => {
+      const fallback = localAudioFallback(el.src);
+      if (!fallback || this.bed !== bed) return;
+      const local = new Audio(fallback);
+      local.loop = true;
+      local.volume = 0;
+      bed.el = local;
+      void local.play().then(() => fade(local, mixVolume(cat, base), BED_FADE_IN_MS, () => { bed.fading = false; })).catch(() => undefined);
+    };
     void el.play().then(() => fade(el, mixVolume(cat, base), BED_FADE_IN_MS, () => { bed.fading = false; })).catch(() => undefined);
   }
 
@@ -210,20 +226,27 @@ export class AudioDirector {
     this.lastSting = now;
     try {
       this.stopSting();
-      const el = new Audio(sfxUrl(sound));
-      el.volume = mixVolume("efeitos", base);
-      this.currentSting = { el, base };
-      const clear = () => {
-        if (this.currentSting?.el === el) this.currentSting = null;
+      const start = (source: string, allowLocalFallback: boolean) => {
+        const el = new Audio(source);
+        el.volume = mixVolume("efeitos", base);
+        this.currentSting = { el, base };
+        const clear = () => {
+          if (this.currentSting?.el === el) this.currentSting = null;
+        };
+        el.onended = clear;
+        el.onerror = () => {
+          clear();
+          const local = allowLocalFallback ? localAudioFallback(source) : null;
+          if (local) start(local, false);
+          else {
+            this.missing.add(sound);
+            if (opts.fallback) this.sting(opts.fallback, base, { ...opts, fallback: undefined, important: true });
+          }
+        };
+        void el.play().catch(clear);
+        if (opts.fadeOutAfterMs) setTimeout(() => fade(el, 0, 1500, () => { el.pause(); clear(); }), opts.fadeOutAfterMs);
       };
-      el.onended = clear;
-      el.onerror = () => {
-        clear();
-        this.missing.add(sound);
-        if (opts.fallback) this.sting(opts.fallback, base, { ...opts, fallback: undefined, important: true });
-      };
-      void el.play().catch(clear);
-      if (opts.fadeOutAfterMs) setTimeout(() => fade(el, 0, 1500, () => { el.pause(); clear(); }), opts.fadeOutAfterMs);
+      start(sfxUrl(sound), true);
     } catch {
       /* áudio é enfeite, nunca quebra o jogo */
     }

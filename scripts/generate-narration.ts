@@ -21,6 +21,7 @@ import { getConfig } from "../src/server/config";
 import { VALE_SILENTE } from "../src/server/content/valeSilente";
 import { narrationScript, type NarrationEmotion, type NarrationIndex, type NarrationLine } from "../src/server/services/narrationPack";
 import { resolveVoiceProfile, synthesizeGeminiSpeech } from "../src/server/services/geminiTts";
+import { wavToMp3 } from "../src/server/services/mp3";
 
 const OUT = path.resolve("public", "audio", "narracao");
 const INDEX = path.resolve("src", "server", "content", "narracao.json");
@@ -37,41 +38,6 @@ const GEMINI_STYLE: Record<NarrationEmotion, string> = {
   tenso: "Brazilian Portuguese horror audiobook narrator. Tense and suspenseful, low voice close to the microphone, slightly faster pace, dread in every sentence.",
   triste: "Brazilian Portuguese horror audiobook narrator. Sad and heavy voice, slow pace, quiet ending of each sentence.",
 };
-
-type Encoder = { encodeBuffer(samples: Int16Array): Uint8Array; flush(): Uint8Array };
-type EncoderClass = new (channels: number, sampleRate: number, kbps: number) => Encoder;
-let Mp3Encoder: EncoderClass;
-
-/** PCM 16 bits de um WAV (lê os blocos fmt e data, sem supor cabeçalho de 44 bytes). */
-function readWav(wav: Buffer) {
-  let offset = 12;
-  let sampleRate = 24_000;
-  let channels = 1;
-  while (offset + 8 <= wav.length) {
-    const id = wav.toString("ascii", offset, offset + 4);
-    const size = wav.readUInt32LE(offset + 4);
-    if (id === "fmt ") {
-      channels = wav.readUInt16LE(offset + 10);
-      sampleRate = wav.readUInt32LE(offset + 12);
-    }
-    if (id === "data") {
-      const data = Buffer.from(wav.subarray(offset + 8, offset + 8 + size));
-      return { sampleRate, channels, samples: new Int16Array(data.buffer, data.byteOffset, Math.floor(data.length / 2)) };
-    }
-    offset += 8 + size + (size % 2);
-  }
-  throw new Error("WAV sem bloco de dados.");
-}
-
-function toMp3(wav: Buffer): Buffer {
-  const { sampleRate, channels, samples } = readWav(wav);
-  const mono = channels === 1 ? samples : samples.filter((_, i) => i % channels === 0);
-  const encoder = new Mp3Encoder(1, sampleRate, 64);
-  const chunks: Uint8Array[] = [];
-  for (let i = 0; i < mono.length; i += 1152) chunks.push(encoder.encodeBuffer(mono.subarray(i, i + 1152)));
-  chunks.push(encoder.flush());
-  return Buffer.concat(chunks.map((c) => Buffer.from(c)));
-}
 
 function piperWav(line: NarrationLine): Buffer {
   const exe = process.env.PIPER_EXE;
@@ -110,10 +76,6 @@ async function geminiWav(line: NarrationLine, previous: string): Promise<Buffer>
 }
 
 async function main() {
-  // O pacote expõe o encoder de jeitos diferentes em ESM e CJS.
-  const lame = (await import("@breezystack/lamejs")) as unknown as { Mp3Encoder?: EncoderClass; default?: { Mp3Encoder: EncoderClass } };
-  Mp3Encoder = lame.Mp3Encoder ?? lame.default!.Mp3Encoder;
-
   fs.mkdirSync(OUT, { recursive: true });
   const index: NarrationIndex = fs.existsSync(INDEX) ? JSON.parse(fs.readFileSync(INDEX, "utf8")) : { versao: 1, eventos: {} };
   const save = () => fs.writeFileSync(INDEX, `${JSON.stringify(index, null, 2)}\n`, "utf8");
@@ -134,7 +96,7 @@ async function main() {
     try {
       const wav = ENGINE === "gemini" ? await geminiWav(line, previous) : piperWav(line);
       const file = `${line.key}_01.mp3`;
-      fs.writeFileSync(path.join(OUT, file), toMp3(wav));
+      fs.writeFileSync(path.join(OUT, file), await wavToMp3(wav));
       index.eventos[line.key] = [{ arquivo: file, texto: line.spoken }];
       save();
       done++;
