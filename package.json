@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "db:migrate": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.json src/server/db/cli.ts",
     "audio:generate": "node --env-file-if-exists=.env.local scripts/generate-audio.js",
+    "voice:verify": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.json scripts/verify-gemini-tts.ts",
     "cap:sync": "cap sync",
     "cap:android": "cap open android"
   },

@@ -77,6 +77,50 @@ const ALLOWED = new Set<string>(Object.keys(VOICE_TAGS));
 /** [tag] com letras minúsculas/espaços (não confunde com texto normal nem com 【títulos】). */
 const TAG_RE = /\[([a-z][a-z ]{1,24})\]/g;
 
+/** Sons e pausas aceitos literalmente pelo Gemini 3.8 TTS. */
+export const GEMINI_SOUND_TAGS = [
+  "laugh",
+  "chuckle",
+  "giggle",
+  "sigh",
+  "exhales",
+  "gasp",
+  "whispers",
+  "short pause",
+  "long pause",
+  "tsk",
+  "pff",
+  "groan",
+  "sob",
+  "cough",
+  "throat-clearing",
+] as const;
+
+export type GeminiSoundTag = (typeof GEMINI_SOUND_TAGS)[number];
+
+const GEMINI_ALLOWED = new Set<string>(GEMINI_SOUND_TAGS);
+const GEMINI_TAG_RE = /<([a-z][a-z -]{1,30})>/gi;
+
+const LEGACY_TO_GEMINI: Partial<Record<VoiceTag, GeminiSoundTag>> = {
+  whispers: "whispers",
+  sighs: "sigh",
+  gasps: "gasp",
+  exhales: "exhales",
+  "clears throat": "throat-clearing",
+  coughs: "cough",
+  groans: "groan",
+  laughs: "laugh",
+  "laughs softly": "laugh",
+  chuckles: "chuckle",
+  "dark laugh": "laugh",
+  "laughs nervously": "laugh",
+  giggles: "giggle",
+  crying: "sob",
+  sobbing: "sob",
+  pause: "short pause",
+  "long pause": "long pause",
+};
+
 export function isVoiceTag(tag: string): tag is VoiceTag {
   return ALLOWED.has(tag);
 }
@@ -85,6 +129,7 @@ export function isVoiceTag(tag: string): tag is VoiceTag {
 export function stripVoiceTags(text: string): string {
   return text
     .replace(TAG_RE, "")
+    .replace(GEMINI_TAG_RE, "")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/ +([,.;:!?…])/g, "$1")
     .replace(/^[ \t]+|[ \t]+$/gm, "")
@@ -94,9 +139,25 @@ export function stripVoiceTags(text: string): string {
 /** Mantém só as tags permitidas — texto para o modelo de voz. */
 export function toVoiceText(text: string): string {
   return text
-    .replace(TAG_RE, (m, tag: string) => (ALLOWED.has(tag) ? m : ""))
+    .replace(TAG_RE, (_m, tag: string) => {
+      if (!ALLOWED.has(tag)) return "";
+      const mapped = LEGACY_TO_GEMINI[tag as VoiceTag];
+      return mapped ? `<${mapped}>` : "";
+    })
+    .replace(GEMINI_TAG_RE, (_m, tag: string) => {
+      const normalized = tag.toLowerCase();
+      return GEMINI_ALLOWED.has(normalized) ? `<${normalized}>` : "";
+    })
     .replace(/[ \t]{2,}/g, " ")
+    .replace(/ +([,.;:!?…])/g, "$1")
     .trim();
+}
+
+/** Tags Gemini presentes no texto, na ordem. */
+export function extractGeminiSoundTags(text: string): GeminiSoundTag[] {
+  return [...text.matchAll(GEMINI_TAG_RE)]
+    .map((match) => match[1].toLowerCase())
+    .filter((tag): tag is GeminiSoundTag => GEMINI_ALLOWED.has(tag));
 }
 
 /** Tags permitidas presentes no texto, na ordem. */

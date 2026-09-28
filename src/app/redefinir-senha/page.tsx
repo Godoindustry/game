@@ -14,9 +14,12 @@ function ResetForm() {
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const passwordValid = password.length >= 8 && /[a-zA-Z]/.test(password) && /[0-9]/.test(password);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (password !== confirm) return setError("As senhas não conferem.");
+    if (!passwordValid) return setError("A senha precisa ter pelo menos 8 caracteres, com letras e números.");
     setBusy(true);
     setError("");
     try {
@@ -51,7 +54,7 @@ function ResetForm() {
         <span className="label">Confirmar senha</span>
         <input className="input" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
       </label>
-      <button className="btn btn-primary btn-block" disabled={busy || password.length < 8}>
+      <button className="btn btn-primary btn-block" disabled={busy || !passwordValid}>
         {busy ? <Spinner /> : "Redefinir"}
       </button>
     </form>

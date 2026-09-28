@@ -223,7 +223,7 @@ export default function PlayPage() {
           offset={offset}
           onAct={act}
           onCancel={cancel}
-          selected={null}
+          selected={panel === "map" ? null : panel}
         />
 
         {/* Painel lateral */}
@@ -257,20 +257,16 @@ export default function PlayPage() {
               <div className="stack">
                 <CampaignDirector state={state} onOpenMap={() => setPanel("map")} />
                 {me && me.alive && !finished && <PowerCard me={me} acts={state.acts} busy={busy || !!state.pending} onAct={act} />}
-                {finished && (
-                  <div className="ok-box">
-                    Campanha encerrada.{" "}
+                {(finished || dead) && (
+                  <div className={finished ? "ok-box" : "error-box"} style={{ textAlign: dead && !finished ? "center" : undefined }}>
+                    {dead && !finished && <div style={{ fontSize: 18, marginBottom: 4 }}>☠</div>}
+                    {dead && !finished
+                      ? <strong>Você morreu{me?.deathCause ? ` — ${me.deathCause}` : ""}</strong>
+                      : "Campanha encerrada."}{" "}
                     <button className="btn btn-sm" onClick={() => setEndClosed(false)}>
                       Ver resultado
                     </button>
-                  </div>
-                )}
-                {dead && !finished && (
-                  <div className="error-box" style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 18, marginBottom: 4 }}>☠</div>
-                    <strong>Você morreu</strong>
-                    <div className="tiny" style={{ marginTop: 4, opacity: 0.75 }}>{me?.deathCause}</div>
-                    <div className="tiny muted" style={{ marginTop: 6 }}>Acompanhe o grupo pelo diário.</div>
+                    {dead && !finished && <div className="tiny muted" style={{ marginTop: 6 }}>Acompanhe o grupo pelo diário.</div>}
                   </div>
                 )}
 

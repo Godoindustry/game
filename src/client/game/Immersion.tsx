@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { GameState } from "./useGame";
-import { narrate, stopNarration } from "./narrator";
+import { narrateSequence, stopNarration, VOICE_STATUS_EVENT, type VoiceStatus } from "./narrator";
 
 type Roll = GameState["lastRoll"];
 
@@ -234,28 +234,55 @@ export function HorrorCinematics({ state }: { state: GameState }) {
 
 export function NarratorVoice({ state }: { state: GameState }) {
   const [enabled, setEnabled] = useState(true);
-  const last = [...state.log].reverse().find((entry) => ["event", "narrative", "npc", "ending", "death"].includes(entry.kind));
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>({ available: true, message: null });
+  const campaign = useRef(state.campaign.id);
   const spoken = useRef<number | null>(null);
+  const lines = state.log.filter((entry) => ["event", "narrative", "npc", "ending", "death"].includes(entry.kind));
+  const lineKey = lines.map((entry) => entry.id).join("|");
 
-  // Voz real do servidor (ElevenLabs v3 com as tags de expressão); sem ela, a do navegador sem tags.
   useEffect(() => {
-    if (!enabled || !last || spoken.current === last.id) return;
-    spoken.current = last.id;
-    void narrate(state.campaign.id, last.id, last.voice || last.text);
+    const onStatus = (event: Event) => setVoiceStatus((event as CustomEvent<VoiceStatus>).detail);
+    window.addEventListener(VOICE_STATUS_EVENT, onStatus);
+    return () => window.removeEventListener(VOICE_STATUS_EVENT, onStatus);
+  }, []);
+
+  // Na primeira carga fala apenas a linha atual. Se chegarem várias juntas, toca em ordem
+  // e o carregador já prepara a próxima enquanto a atual está sendo reproduzida.
+  useEffect(() => {
+    if (campaign.current !== state.campaign.id) {
+      campaign.current = state.campaign.id;
+      spoken.current = null;
+    }
+    if (!lines.length) return;
+    const latestId = lines[lines.length - 1].id;
+    const pending = spoken.current === null
+      ? [lines[lines.length - 1]]
+      : lines.filter((entry) => entry.id > spoken.current!);
+    spoken.current = latestId;
+    if (enabled && pending.length) narrateSequence(state.campaign.id, pending.map((entry) => ({ logId: entry.id })));
     return () => stopNarration();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, last?.id]);
+  }, [enabled, state.campaign.id, lineKey]);
 
   const toggle = () => {
     if (enabled) stopNarration();
+    else spoken.current = null;
     setEnabled((value) => !value);
   };
 
   return (
-    <button className={`hud-icon narrator-toggle ${enabled ? "is-live" : ""}`} onClick={toggle} aria-pressed={enabled} title="Voz dinâmica do narrador">
-      <span aria-hidden="true">◖</span>
-      <span className="hide-mobile">Narrador</span>
-    </button>
+    <div className="narrator-control">
+      <button
+        className={`hud-icon narrator-toggle ${enabled ? "is-live" : ""} ${voiceStatus.available ? "" : "has-error"}`}
+        onClick={toggle}
+        aria-pressed={enabled}
+        title={voiceStatus.message ?? "Voz dinâmica Gemini"}
+      >
+        <span aria-hidden="true">◖</span>
+        <span className="hide-mobile">{voiceStatus.available ? "Narrador" : "Voz indisponível"}</span>
+      </button>
+      {voiceStatus.message && <span className="voice-unavailable" role="status">{voiceStatus.message}</span>}
+    </div>
   );
 }
 
@@ -271,21 +298,34 @@ export function D20Overlay({ roll }: { roll: Roll }) {
     if (!roll || initial.current === roll.id) return;
     initial.current = roll.id;
     setVisible(true);
-    const timer = window.setTimeout(() => setVisible(false), 3600);
+    const timer = window.setTimeout(() => setVisible(false), 5000);
     return () => window.clearTimeout(timer);
   }, [roll]);
 
   if (!visible || !roll) return null;
+
+  const advLabel = roll.advantage ? "VANTAGEM" : roll.disadvantage ? "DESVANTAGEM" : "";
+  const sign = (roll.modifier ?? 0) >= 0 ? "+" : "";
+
   return (
-    <div className={`dice-reveal ${roll.success ? "dice-success" : "dice-failure"}`} role="status" aria-live="polite">
+    <div className={`dice-reveal ${roll.success ? "dice-success" : "dice-failure"} ${roll.crit ? "dice-critical" : ""}`} role="status" aria-live="polite">
       <div className="dice-smoke" />
       <div className="d20-stage">
         <div className="d20-die"><span>{roll.value}</span></div>
       </div>
       <div className="dice-copy">
-        <small>TESTE DE {roll.attribute.replaceAll("_", " ").toUpperCase()}</small>
-        <strong>{roll.value === 20 ? "CRÍTICO!" : roll.value === 1 ? "FALHA CRÍTICA" : roll.success ? "SUCESSO" : "FALHA"}</strong>
-        <span>D20 {roll.value} · precisava de {roll.target}+</span>
+        <small style={{ color: "var(--amber)" }}>TESTE DE {roll.attribute.replaceAll("_", " ").toUpperCase()}</small>
+        {advLabel && <span className="label violet" style={{ margin: "2px auto", display: "inline-block" }}>{advLabel}</span>}
+        <strong style={{ fontSize: 24, marginTop: 4 }}>
+          {roll.crit === "critical_success" ? "SUCESSO CRÍTICO!" : roll.crit === "critical_failure" ? "FALHA CRÍTICA" : roll.success ? "SUCESSO" : "FALHA"}
+        </strong>
+        <span className="mono" style={{ fontSize: 13, marginTop: 2 }}>
+          {roll.modifier !== undefined ? (
+            <>D20 <b>{roll.value}</b> {sign}{roll.modifier} = <b style={{ fontSize: 15, color: "var(--fg)" }}>{roll.finalTotal}</b> vs CD {roll.target}</>
+          ) : (
+            <>D20 {roll.value} · CD {roll.target}</>
+          )}
+        </span>
       </div>
     </div>
   );

@@ -43,6 +43,19 @@ export async function migrate(db: Db, force = false): Promise<void> {
   } catch {
     /* coluna já existe */
   }
+  // v7: interpretação separada do texto visível para vozes Gemini consistentes.
+  for (const statement of [
+    "ALTER TABLE campaign_log ADD COLUMN speaker_key TEXT",
+    "ALTER TABLE campaign_log ADD COLUMN speech_tone TEXT",
+    "ALTER TABLE campaign_log ADD COLUMN speech_voice TEXT",
+    "ALTER TABLE campaign_log ADD COLUMN speech_say TEXT",
+  ]) {
+    try {
+      await db.exec(statement);
+    } catch {
+      /* coluna já existe */
+    }
+  }
   await setMeta(db, "version", String(SCHEMA_VERSION));
 }
 

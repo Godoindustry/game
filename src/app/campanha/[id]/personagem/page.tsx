@@ -71,7 +71,19 @@ function CharacterForm() {
   const num = (k: "age" | "heightCm" | "weightKg", label: string, min: number, max: number, unit: string) => (
     <label className="field">
       <span className="label">{label} <span className="faint">({unit})</span></span>
-      <input className="input mono" type="number" min={min} max={max} value={f[k]} onChange={(e) => setF({ ...f, [k]: Number(e.target.value) })} />
+      <input
+        className="input mono"
+        type="number"
+        min={min}
+        max={max}
+        value={f[k]}
+        onChange={(e) => setF({ ...f, [k]: Number(e.target.value) })}
+        onBlur={(e) => {
+          const v = Number(e.target.value);
+          if (isNaN(v) || e.target.value.trim() === "") setF({ ...f, [k]: min });
+          else setF({ ...f, [k]: Math.min(max, Math.max(min, v)) });
+        }}
+      />
     </label>
   );
   const sel = (k: "bodyType" | "conditioning" | "profession", label: string, options: [string, string][]) => (
@@ -128,7 +140,9 @@ function CharacterForm() {
             <span className="label">Experiência prática (até {opt.maxExperiences})</span>
             <div className="row">
               {opt.experiences.map((e) => (
-                <button type="button" key={e} onClick={() => toggleExp(e)} aria-pressed={f.experiences.includes(e)} className={`btn btn-sm ${f.experiences.includes(e) ? "btn-primary" : ""}`}>
+                <button type="button" key={e} onClick={() => toggleExp(e)} aria-pressed={f.experiences.includes(e)}
+                  disabled={!f.experiences.includes(e) && f.experiences.length >= opt.maxExperiences}
+                  className={`btn btn-sm ${f.experiences.includes(e) ? "btn-primary" : ""}`}>
                   {EXP_LABEL[e] ?? e}
                 </button>
               ))}

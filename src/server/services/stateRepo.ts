@@ -8,6 +8,7 @@ import { ATTRIBUTE_KEYS } from "../engine/types";
 import { newId } from "./ids";
 import { difficultyOf } from "../engine/difficulty";
 import { getScenario } from "../content/valeSilente";
+import type { SpeechPerformance } from "@/shared/speech";
 
 // ---------- Mundo ----------
 export async function loadWorld(campaignId: string): Promise<WorldState> {
@@ -310,9 +311,30 @@ export async function loadActiveEvent(campaignId: string): Promise<ActiveEvent |
   return row ? { instanceId: row.id, eventId: row.event_id, participants: json(row.participants, []) } : null;
 }
 
-export async function addLog(campaignId: string, characterId: string | null, minute: number, kind: string, text: string): Promise<void> {
+export interface LogSpeechMeta extends SpeechPerformance {
+  speakerKey?: string;
+}
+
+export async function addLog(
+  campaignId: string,
+  characterId: string | null,
+  minute: number,
+  kind: string,
+  text: string,
+  speech?: LogSpeechMeta | null,
+): Promise<void> {
   await getDb().run(
-    "INSERT INTO campaign_log(campaign_id,character_id,game_minute,kind,text,created_at) VALUES(?,?,?,?,?,?)",
-    campaignId, characterId, minute, kind, text.slice(0, 2000), nowIso(),
+    `INSERT INTO campaign_log(campaign_id,character_id,game_minute,kind,text,speaker_key,speech_tone,speech_voice,speech_say,created_at)
+     VALUES(?,?,?,?,?,?,?,?,?,?)`,
+    campaignId,
+    characterId,
+    minute,
+    kind,
+    text.slice(0, 2000),
+    speech?.speakerKey ?? null,
+    speech?.tone ?? null,
+    speech?.voice?.slice(0, 180) ?? null,
+    speech?.say?.slice(0, 2400) ?? null,
+    nowIso(),
   );
 }

@@ -72,9 +72,6 @@ export function EventCard({
                   </span>
                 )}
               </span>
-              <span className="mono tiny muted" style={{ flexShrink: 0 }}>
-                {formatMinutes(c.durationMinutes)}
-              </span>
             </button>
           ))}
           {event.participants.length > 1 && (
@@ -185,7 +182,7 @@ export function HereCard({
               title={travelSel.reason ?? undefined}
               onClick={() => onAct("mover", { to: sel.id })}
             >
-              → Seguir até lá · ~{formatMinutes(travelSel.estimatedMinutes)}
+              → Seguir até lá
             </button>
           ) : (
             <span className="tiny muted">Sem caminho direto conhecido daqui.</span>
@@ -228,7 +225,7 @@ export function HereCard({
                 onClick={() => onAct(a.type, a.params)}
               >
                 <span className="t">{a.label}</span>
-                <span className="d">{a.available ? formatMinutes(a.minutes) : a.reason}</span>
+                {!a.available && a.reason && <span className="d">{a.reason}</span>}
               </button>
             ))}
         </div>
@@ -248,7 +245,7 @@ export function HereCard({
               onClick={() => onAct("mover", { to: t.to })}
             >
               <span>→ Seguir para {t.name}</span>
-              <span className="mono tiny muted">~{formatMinutes(t.estimatedMinutes)}</span>
+              {!t.available && t.reason && <span className="mono tiny muted">{t.reason}</span>}
             </button>
           ))}
         </section>

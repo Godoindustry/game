@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/client/api";
 import { AppShell, Spinner } from "@/client/ui";
 import { toastError, useToasts } from "@/client/session";
@@ -27,11 +27,26 @@ function Admin() {
     } catch (err) {
       toastError(err);
     }
-  }, [tab, q]);
+  // q is intentionally NOT in this deps array: search is debounced separately below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  // Load when tab changes.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- busca assíncrona ao montar; o setState ocorre após o await
     void load();
   }, [load]);
+
+  // Debounce search query: wait 400 ms after the user stops typing.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (tab !== "usuarios") return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { void load(); }, 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  // load is stable within a tab; q is the dynamic input.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
 
   async function userAction(id: string, action: string) {
     if (action === "ban" && !confirm("Banir este usuário? As sessões dele serão encerradas.")) return;

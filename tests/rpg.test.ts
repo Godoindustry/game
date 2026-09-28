@@ -155,7 +155,7 @@ describe("Salas e IA das criaturas (API)", () => {
     await a.client.post(`/api/campaigns/${c.body.id}/start`);
     const logId = (await getDb().get<{ id: number }>("SELECT id FROM campaign_log WHERE campaign_id = ? LIMIT 1", c.body.id))!.id;
     expect((await a.client.get(`/api/campaigns/${c.body.id}/log/${logId}/voice`)).status).toBe(503);
-    await freshApp({ ELEVENLABS_API_KEY: "sk_test" });
+    await freshApp({ GEMINI_API_KEY: "gemini_test" });
     const b = await registered("Duda");
     const other = await b.client.post("/api/campaigns", { name: "Outra", mode: "solo" });
     expect((await b.client.get(`/api/campaigns/${other.body.id}/log/999999/voice`)).status).toBe(404);
@@ -171,6 +171,6 @@ describe("Tags de voz", () => {
   });
 
   it("o texto do narrador mantém as tags e tira os marcadores do diário", () => {
-    expect(narrationText("【A noite】 [sighs] O frio chega. 🗺️ [inventada] Fim.")).toBe("A noite [sighs] O frio chega. Fim.");
+    expect(narrationText("【A noite】 [sighs] O frio chega. 🗺️ [inventada] Fim.")).toBe("A noite <sigh> O frio chega. Fim.");
   });
 });

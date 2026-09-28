@@ -35,7 +35,7 @@ describe("Fallback da IA", () => {
   it("erro do provedor → texto predefinido", async () => {
     mock.setMode("error");
     const r = await aiNarrative(ctx, input, FALLBACK);
-    expect(r).toEqual({ text: FALLBACK, source: "fallback" });
+    expect(r).toMatchObject({ text: FALLBACK, source: "fallback", speech: { say: FALLBACK, tone: "worried" } });
     expect((await statuses())[0]).toMatchObject({ status: "error", used_fallback: 1 });
   });
   it("timeout → texto predefinido", async () => {

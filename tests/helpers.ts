@@ -74,8 +74,12 @@ export class Client {
       if (/Max-Age=0/.test(sc)) delete this.cookies[k];
       else this.cookies[k] = v;
     }
-    const text = await res.text();
-    return { status: res.status, body: text ? JSON.parse(text) : null, headers: res.headers };
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const text = await res.text();
+      return { status: res.status, body: text ? JSON.parse(text) : null, headers: res.headers };
+    }
+    return { status: res.status, body: Buffer.from(await res.arrayBuffer()), headers: res.headers };
   }
   get = (p: string) => this.request("GET", p);
   post = (p: string, b?: unknown) => this.request("POST", p, b ?? {});

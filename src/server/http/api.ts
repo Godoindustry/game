@@ -208,4 +208,5 @@ export function resetApiForTests(): void {
   g.__lsBoot = undefined;
   g.__lsRouter = undefined;
   voice.resetVoiceForTests();
+  tts.resetTtsForTests();
 }

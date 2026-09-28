@@ -225,7 +225,16 @@ async function runNightEncounter(campaignId: string, charId: string, userId: str
     if (!result.happened) return;
     await saveCharacter(char);
     await saveWorld(world);
-    if (ai.line) await addLog(campaignId, charId, world.minute, "narrative", ai.line);
+    if (ai.line) {
+      await addLog(
+        campaignId,
+        charId,
+        world.minute,
+        "narrative",
+        ai.line,
+        ai.speech ? { ...ai.speech, speakerKey: `creature:${kind}` } : null,
+      );
+    }
     for (const line of result.lines) await addLog(campaignId, charId, world.minute, "narrative", line);
     if (result.turned) {
       await addLog(campaignId, null, world.minute, "party", `🩸 ${char.name} despertou a linhagem ${LINEAGES[result.turned].label}.`);
@@ -319,7 +328,11 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
   Object.assign(reports, result.reports);
 
   // IA (fora da transação): texto de ambientação e fala do NPC. Fatos vêm do motor.
-  const narratives: Record<string, string> = {};
+  const narratives: Record<string, {
+    text: string;
+    speech: Awaited<ReturnType<typeof aiNarrative>>["speech"];
+    speakerKey: string;
+  }> = {};
   await Promise.all(
     Object.entries(reports).map(async ([actionId, rep]) => {
       const char = byId.get(rep.characterId)!;
@@ -334,7 +347,7 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
             { npcName: npc.name, persona: npc.persona, playerMessage: String(action.params.message ?? ""), intent: npcIntents[actionId] ?? "outro", outcomeFacts: rep.lines.slice(1) },
             `${npc.name} responde em voz baixa, sem tirar os olhos da porta.`,
           );
-          narratives[actionId] = r.text;
+          narratives[actionId] = { text: r.text, speech: r.speech, speakerKey: `npc:${npc.id}` };
         }
       } else if (rep.minutes > 0 && NARRATED.includes(rep.actionType)) {
         const cond = char.alive ? bodyCondition(char) : [];
@@ -352,7 +365,7 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
           },
           conditionLine(cond, world.minute),
         );
-        narratives[actionId] = r.text;
+        narratives[actionId] = { text: r.text, speech: r.speech, speakerKey: "narrator" };
       }
     }),
   );
@@ -381,13 +394,23 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
       await db.run(
         `INSERT INTO action_resolutions(id,action_id,campaign_id,character_id,success,summary,narrative,effects,status_before,status_after,resolved_at_minute,created_at)
          VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
-        newId(), actionId, campaignId, char.id, rep.success === null ? null : +rep.success, rep.summary, narratives[actionId] ?? "",
+        newId(), actionId, campaignId, char.id, rep.success === null ? null : +rep.success, rep.summary, narratives[actionId]?.text ?? "",
         JSON.stringify(rep.effects), "{}", JSON.stringify({ status: char.status, health: char.health }), world.minute, nowStr,
       );
       for (const e of rep.effects) if (e.startsWith("pista: ")) clueFinder[e.slice(7)] = char.id;
       const auto = autoRows.some((r) => r.id === actionId);
       await addLog(campaignId, char.id, world.minute, "result", `${auto ? "⏱ Tempo esgotado — ação automática. " : ""}${rep.lines.join("\n")}`);
-      if (narratives[actionId]) await addLog(campaignId, char.id, world.minute, rep.actionType === "conversar" ? "npc" : "narrative", narratives[actionId]);
+      if (narratives[actionId]) {
+        const line = narratives[actionId];
+        await addLog(
+          campaignId,
+          char.id,
+          world.minute,
+          rep.actionType === "conversar" ? "npc" : "narrative",
+          line.text,
+          { ...line.speech, speakerKey: line.speakerKey },
+        );
+      }
       if (chars.length > 1) await addLog(campaignId, null, world.minute, "party", `${char.name}: ${rep.summary}`);
     }
     for (const n of result.notes) await addLog(campaignId, n.characterId, world.minute, "narrative", n.text);
@@ -504,8 +527,18 @@ export async function getState(user: SessionUser, campaignId: string) {
     campaignId,
   );
   const profiles = new Map(profileRows.map((r) => [r.user_id, r]));
-  const logRows = await db.all<{ id: number; character_id: string | null; game_minute: number; kind: string; text: string }>(
-    `SELECT id, character_id, game_minute, kind, text FROM campaign_log
+  const logRows = await db.all<{
+    id: number;
+    character_id: string | null;
+    game_minute: number;
+    kind: string;
+    text: string;
+    speaker_key: string | null;
+    speech_tone: string | null;
+    speech_voice: string | null;
+    speech_say: string | null;
+  }>(
+    `SELECT id, character_id, game_minute, kind, text, speaker_key, speech_tone, speech_voice, speech_say FROM campaign_log
       WHERE campaign_id = ? AND (character_id IS NULL OR character_id = ?) ORDER BY id DESC LIMIT 60`,
     campaignId, me?.id ?? "",
   );
@@ -517,8 +550,8 @@ export async function getState(user: SessionUser, campaignId: string) {
     : undefined;
   const rollEffect = [...json<string[]>(lastResolution?.effects, [])]
     .reverse()
-    .find((effect) => /\[d20:\d+:\d+\]/.test(effect));
-  const rollMatch = rollEffect?.match(/^teste ([^:]+): (sucesso|falha).*\[d20:(\d+):(\d+)\]/);
+    .find((effect) => /\[d20:\d+:\d+/.test(effect));
+  const rollMatch = rollEffect?.match(/^teste ([^:]+): (sucesso|falha).*\[d20:(\d+):(\d+):(-?\d+):(-?\d+):(\d):(\d):(-?\d)\]/);
   const myPending = me ? actions.find((a) => a.character_id === me.id) : undefined;
   const loc = me ? me.status.locationId : content.startLocation;
   const story = campaignStory(world, content, activeEvent?.eventId ?? null);
@@ -697,6 +730,11 @@ export async function getState(user: SessionUser, campaignId: string) {
           value: Number(rollMatch[3]),
           target: Number(rollMatch[4]),
           success: rollMatch[2] === "sucesso",
+          modifier: Number(rollMatch[5]),
+          finalTotal: Number(rollMatch[6]),
+          advantage: rollMatch[7] === "1",
+          disadvantage: rollMatch[8] === "1",
+          crit: rollMatch[9] === "1" ? "critical_success" : rollMatch[9] === "-1" ? "critical_failure" : null,
         }
       : null,
     clues: world.clues.map((k) => content.clues[k]).filter(Boolean),
@@ -706,11 +744,18 @@ export async function getState(user: SessionUser, campaignId: string) {
         id: Number(l.id),
         kind: l.kind,
         characterId: l.character_id,
-        speaker: l.character_id ? chars.find((c) => c.id === l.character_id)?.name ?? null : null,
+        speaker: l.speaker_key?.startsWith("npc:")
+          ? content.npcs[l.speaker_key.slice(4)]?.name ?? null
+          : l.character_id && l.kind !== "npc"
+            ? chars.find((c) => c.id === l.character_id)?.name ?? null
+            : null,
+        speakerKey: l.speaker_key,
         clock: clockLabel(content, l.game_minute),
         day: dayNumber(content, l.game_minute),
         text: stripVoiceTags(l.text),
-        voice: toVoiceText(l.text),
+        voice: toVoiceText(l.speech_say ?? l.text),
+        tone: l.speech_tone,
+        voiceDirection: l.speech_voice,
       })),
     ending:
       camp.status === "finished"

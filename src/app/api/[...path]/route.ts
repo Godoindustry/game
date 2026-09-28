@@ -6,8 +6,8 @@ import { handleApi } from "@/server/http/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Na Vercel: resolver uma rodada pode chamar a IA (timeout de ~6 s por provedor na cadeia).
-export const maxDuration = 30;
+// TTS pode percorrer modelos Gemini e gerar mais de um trecho; o áudio continua cacheado depois.
+export const maxDuration = 300;
 
 const handler = (req: Request) => handleApi(req);
 

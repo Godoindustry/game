@@ -35,7 +35,7 @@ import {
   removeItem,
 } from "./inventory";
 import { type Activity, isNight, isSheltered, fireActive, passTime, clamp, computePain } from "./physiology";
-import { applyEffects, linkKey, meetsRequirements, revealLocation, rollCheck, type EffectContext } from "./effects";
+import { applyEffects, linkKey, meetsRequirements, revealLocation, rollCheck, applyRollLog, type EffectContext } from "./effects";
 import { choiceById, eventById } from "./events";
 import { hasExperience } from "./character";
 
@@ -326,8 +326,8 @@ export function resolveAction(
       loot.forEach((entry, idx) => {
         if (found >= 2 || !locState || (locState.loot[idx] ?? 0) <= 0) return;
         if (entry.requiresExamined && !locState.examined) return;
-        const r = rollCheck(char, { attr: "percepcao", base: entry.base }, ctx.rng, ctx.minute);
-        ctx.applied.push(`teste percepcao: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
+        const r = rollCheck(char, { attr: "percepcao", base: entry.base }, ctx.rng, ctx.minute, content);
+        applyRollLog(ctx, "percepcao", r);
         if (!r.success) return;
         const qty = Math.min(entry.qty, locState.loot[idx]);
         locState.loot[idx] -= qty;
@@ -357,8 +357,8 @@ export function resolveAction(
       const risky = night ? (light ? link.risk > 0 : true) : link.risk > 1;
       if (risky) {
         const base = (night && !light ? 70 : 85) - link.risk * 10;
-        const r = rollCheck(char, { attr: "agilidade", base }, ctx.rng, ctx.minute);
-        ctx.applied.push(`teste agilidade: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
+        const r = rollCheck(char, { attr: "agilidade", base }, ctx.rng, ctx.minute, content);
+        applyRollLog(ctx, "agilidade", r);
         if (!r.success) {
           const part = ctx.rng() < 0.5 ? "perna_esq" : "perna_dir";
           applyEffects(char, [{ op: "wound", part, type: night && !light ? "entorse" : "contusao", severity: 1 }], ctx);
@@ -404,8 +404,8 @@ export function resolveAction(
     case "alimentar_se": {
       pass(minutes, "walk");
       const vampire = lineageOf(char) === "vampire";
-      const r = rollCheck(char, { attr: vampire ? "furtividade" : "percepcao", base: 50 }, ctx.rng, ctx.minute);
-      ctx.applied.push(`teste ${vampire ? "furtividade" : "percepcao"}: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
+      const r = rollCheck(char, { attr: vampire ? "furtividade" : "percepcao", base: 50 }, ctx.rng, ctx.minute, content);
+      applyRollLog(ctx, vampire ? "furtividade" : "percepcao", r);
       const pw = powerOf(char);
       if (r.success) {
         // Corte da Crista (Paladar de Rei): sangue de bicho sacia menos.
@@ -506,8 +506,8 @@ export function resolveAction(
       }
       if (useBandage) {
         removeItem(char, "atadura", 1);
-        const r = rollCheck(char, { attr: "medicina", base: 55, experience: ["medicina"] }, ctx.rng, ctx.minute);
-        ctx.applied.push(`teste medicina: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
+        const r = rollCheck(char, { attr: "medicina", base: 55, experience: ["medicina"] }, ctx.rng, ctx.minute, content);
+        applyRollLog(ctx, "medicina", r);
         if (r.success) {
           w.bleedingRate = 0;
           w.bandaged = true;
@@ -536,8 +536,8 @@ export function resolveAction(
     case "montar_abrigo": {
       pass(minutes, "heavy");
       if (!char.alive) break;
-      const r = rollCheck(char, { attr: "improviso", base: 50, experience: ["sobrevivencia"], itemBonus: { corda: 15, manta_termica: 10 } }, ctx.rng, ctx.minute);
-      ctx.applied.push(`teste improviso: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
+      const r = rollCheck(char, { attr: "improviso", base: 50, experience: ["sobrevivencia"], itemBonus: { corda: 15, manta_termica: 10 } }, ctx.rng, ctx.minute, content);
+      applyRollLog(ctx, "improviso", r);
       if (r.success && locState) {
         locState.shelterBuilt = true;
         ctx.lines.push("Galhos, folhas e o que você tinha à mão: um abrigo baixo, mas que corta o vento.");
@@ -564,8 +564,8 @@ export function resolveAction(
       }
       const woodPenalty = wood.wetness > 50 ? -30 : 0;
       const wetPenalty = char.status.wetness > 60 ? -10 : 0;
-      const r = rollCheck(char, { attr: "improviso", base: 55 + woodPenalty + wetPenalty, experience: ["sobrevivencia"] }, ctx.rng, ctx.minute);
-      ctx.applied.push(`teste improviso: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
+      const r = rollCheck(char, { attr: "improviso", base: 55 + woodPenalty + wetPenalty, experience: ["sobrevivencia"] }, ctx.rng, ctx.minute, content);
+      applyRollLog(ctx, "improviso", r);
       if (igniter.durability !== null) applyEffects(char, [{ op: "itemDurability", item: igniter.itemId, delta: -1 }], ctx);
       else applyEffects(char, [{ op: "useCharge", item: igniter.itemId }], ctx);
       if (r.success) {
@@ -683,9 +683,9 @@ export function resolveAction(
           ctx.lines.push(rule.text);
           applyEffects(char, rule.effects, ctx);
           if (rule.check) {
-            const r = rollCheck(char, rule.check, ctx.rng, ctx.minute);
+            const r = rollCheck(char, rule.check, ctx.rng, ctx.minute, content);
             const b = r.success ? rule.success : rule.failure;
-            ctx.applied.push(`teste ${rule.check.attr}: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
+            applyRollLog(ctx, rule.check.attr, r);
             if (b) {
               ctx.lines.push(b.text);
               applyEffects(char, b.effects, ctx);

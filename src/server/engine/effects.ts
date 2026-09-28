@@ -12,7 +12,7 @@ import type {
 } from "./types";
 import type { Rng } from "./rng";
 import { hasExperience } from "./character";
-import { addItem, countItem, hasItem, itemDef, removeItem } from "./inventory";
+import { addItem, countItem, hasItem, itemDef, removeItem, loadRatio } from "./inventory";
 import { clamp, clothingWaterResistance, initialBleeding, isSheltered, kill, passTime } from "./physiology";
 import { applyBite, applyHaunt, applyLycanthropy, cureDisease } from "./vampire";
 import { LINEAGES, lineageCheckModifier, lineageOf } from "./lineage";
@@ -33,40 +33,69 @@ export interface EffectContext {
 }
 
 // ---------- Testes ----------
-export function checkChance(char: CharacterState, check: CheckDef, worldMinute: number): number {
-  const attr = char.attrs[check.attr];
-  let chance = check.base + (attr - 3) * 9;
-  if (check.experience && hasExperience(char, check.experience)) chance += 15;
-  for (const [item, bonus] of Object.entries(check.itemBonus ?? {})) {
-    if (hasItem(char, item)) chance += bonus;
-  }
-  chance -= char.status.pain / 5;
-  chance -= Math.max(0, char.status.stress - 60) / 2;
-  if (char.status.energy < 20) chance -= 10;
-  if (char.status.fatigue > 85) chance -= 8;
-  // Linhagem (vampiro, lobisomem, assombrado) e dificuldade da sala.
-  const night = char.rules ? isNightAt(char.rules.startMinuteOfDay, worldMinute) : undefined;
-  chance += lineageCheckModifier(char, check.attr, night);
-  // Classe: disciplina passiva, perdição e poderes ativos em curso.
-  chance += classCheckModifier(char, check.attr, worldMinute);
-  chance -= rulesFor(char.rules?.difficulty).dcShift * 5;
-  return Math.round(clamp(chance, 5, 95));
+export function checkChance(char: CharacterState, check: CheckDef, worldMinute: number, content?: GameContent): number {
+  const r = rollCheck(char, check, () => 0, worldMinute, content);
+  return r.chance;
 }
 
 export type Crit = "critical_success" | "critical_failure" | null;
 
-export function rollCheck(char: CharacterState, check: CheckDef, rng: Rng, worldMinute: number) {
-  const chance = checkChance(char, check, worldMinute);
-  // D20 real: a chance percentual da ficha vira uma dificuldade (CD) em passos de 5%.
-  // 20 natural sempre passa; 1 natural sempre falha (no INSANO, 1 e 2).
-  // Inverte a amostra para preservar a sequência determinística das campanhas
-  // antigas (nelas, números baixos do RNG já representavam bons resultados).
-  const roll = 20 - Math.floor(rng() * 20);
-  const target = 21 - Math.ceil(chance / 5);
+export function rollCheck(char: CharacterState, check: CheckDef, rng: Rng, worldMinute: number, content?: GameContent) {
+  const attr = char.attrs[check.attr];
+  let modifier = attr - 3;
+  const advantage = false;
+  let disadvantage = false;
+
+  if (check.experience && hasExperience(char, check.experience)) modifier += 3;
+
+  for (const [item, bonus] of Object.entries(check.itemBonus ?? {})) {
+    if (hasItem(char, item)) modifier += Math.round(bonus / 5);
+  }
+
+  modifier -= Math.floor(char.status.pain / 25);
+  modifier -= Math.floor(Math.max(0, char.status.stress - 60) / 10);
+
+  if (char.status.energy < 20) modifier -= 2;
+  if (char.status.fatigue > 85) { modifier -= 2; disadvantage = true; }
+  if (char.status.bodyTemp >= 38.5) { modifier -= 5; disadvantage = true; }
+  else if (char.status.bodyTemp >= 37.5) { modifier -= 2; }
+
+  if (content) {
+    // loadRatio is expensive, we only calculate it if content is passed
+    // If not passed, we skip load penalty
+    const ratio = loadRatio(char, content);
+    if (ratio > 0.25) modifier -= 4;
+    else if (ratio > 0.10) modifier -= 2;
+  }
+
+  const night = char.rules ? isNightAt(char.rules.startMinuteOfDay, worldMinute) : undefined;
+  modifier += Math.round(lineageCheckModifier(char, check.attr, night) / 5);
+  modifier += Math.round(classCheckModifier(char, check.attr, worldMinute) / 5);
+
+  const difficultyMod = rulesFor(char.rules?.difficulty).dcShift;
+  const target = 21 - Math.ceil(check.base / 5) + difficultyMod;
+
+  const roll1 = 20 - Math.floor(rng() * 20);
+  const roll2 = 20 - Math.floor(rng() * 20);
+  let roll = roll1;
+  const rolls = advantage || disadvantage ? [roll1, roll2] : [roll1];
+
+  if (advantage && !disadvantage) roll = Math.max(roll1, roll2);
+  else if (disadvantage && !advantage) roll = Math.min(roll1, roll2);
+
+  const finalTotal = roll + modifier;
   const critFailMax = rulesFor(char.rules?.difficulty).critFailMax;
   const crit: Crit = roll === 20 ? "critical_success" : roll <= critFailMax ? "critical_failure" : null;
-  const success = crit === "critical_success" || (crit !== "critical_failure" && roll >= target);
-  return { success, chance, roll, target, crit };
+  const success = crit === "critical_success" || (crit !== "critical_failure" && finalTotal >= target);
+
+  const chance = Math.round(clamp((21 - target + modifier) * 5, 5, 95));
+
+  return { success, chance, roll, target, crit, modifier, rolls, finalTotal, advantage, disadvantage };
+}
+
+export function applyRollLog(ctx: EffectContext, attr: string, r: ReturnType<typeof rollCheck>) {
+  const c = r.crit === "critical_success" ? 1 : r.crit === "critical_failure" ? -1 : 0;
+  ctx.applied.push(`teste ${attr}: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}:${r.modifier}:${r.finalTotal}:${r.advantage?1:0}:${r.disadvantage?1:0}:${c}]`);
 }
 
 function isNightAt(startMinuteOfDay: number, worldMinute: number): boolean {
@@ -249,7 +278,7 @@ function applyEffect(char: CharacterState, e: Effect, ctx: EffectContext): void 
     case "disease": {
       if (char.health.diseases.some((d) => d.key === e.key)) break;
       let catches = true;
-      if (e.chanceAttr) catches = !rollCheck(char, { attr: e.chanceAttr, base: e.base ?? 50 }, ctx.rng, ctx.minute).success;
+      if (e.chanceAttr) catches = !rollCheck(char, { attr: e.chanceAttr, base: e.base ?? 50 }, ctx.rng, ctx.minute, content).success;
       if (catches) {
         char.health.diseases.push({ key: e.key, startedAt: ctx.minute, until: ctx.minute + 24 * 60 });
         ctx.lines.push(e.key === "gastroenterite" ? "Horas depois, cólicas fortes: a água não estava boa." : "Você está com febre.");

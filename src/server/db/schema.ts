@@ -10,7 +10,7 @@
  *  - Itens do catálogo são RESTRICT (não se apaga item em uso).
  *  - Logs administrativos e de IA → SET NULL (o log sobrevive ao alvo).
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export const SCHEMA_SQL = /* sql */ `
 
@@ -286,6 +286,10 @@ CREATE TABLE IF NOT EXISTS campaign_log (                -- feed de mensagens da
   game_minute INTEGER NOT NULL,
   kind TEXT NOT NULL,
   text TEXT NOT NULL,
+  speaker_key TEXT,                                    -- voz fixa: narrator, npc:piloto, creature:mae...
+  speech_tone TEXT,                                    -- emoção controlada do ator virtual
+  speech_voice TEXT,                                   -- direção de interpretação, nunca é falada
+  speech_say TEXT,                                     -- texto literal + tags sonoras Gemini
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_clog_campaign ON campaign_log(campaign_id, id);

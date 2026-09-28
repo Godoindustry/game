@@ -57,6 +57,11 @@ const schema = z.object({
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_MODEL: z.string().default("meta-llama/llama-3.3-70b-instruct:free"),
   GEMINI_API_KEY: z.string().optional(),
+  GEMINI_API_KEY2: z.string().optional(),
+  GEMINI_API_KEY3: z.string().optional(),
+  GEMINI_API_KEY4: z.string().optional(),
+  GEMINI_API_KEY5: z.string().optional(),
+  GEMINI_API_KEY6: z.string().optional(),
   GEMINI_MODEL: z.string().default("gemini-3.1-flash-lite"),
   AI_BASE_URL: z.string().optional(),
   AI_API_KEY: z.string().optional(),
@@ -71,13 +76,16 @@ const schema = z.object({
   AI_USER_DAILY_REQUESTS: z.coerce.number().int().nonnegative().default(40),
   AI_PREMIUM_DAILY_REQUESTS: z.coerce.number().int().nonnegative().default(400),
 
-  // Narrador de voz (ElevenLabs). Sem chave: o jogo usa a voz do navegador.
+  // Voz dinâmica: Gemini TTS no servidor. Nunca há fallback para a voz do navegador.
+  GEMINI_TTS_MODELS: z.string().default("gemini-3.8-flash-tts,gemini-3.8-flash-lite-tts,gemini-3.1-flash-tts-preview"),
+  TTS_SPEECH_LEVEL: z.enum(["beginner", "advanced"]).default("advanced"),
+  // Mantidos apenas para o gerador legado de áudios fixos em public/audio.
   ELEVENLABS_API_KEY: z.string().optional(),
   ELEVENLABS_MODEL: z.string().default("eleven_v3"), // v3 entende as tags [sighs], [laughs]…
   ELEVENLABS_VOICE_NARRADOR: z.string().default("JBFqnCBsd6RMkjVDRZzb"),
   ELEVENLABS_VOICE_NPC: z.string().default("N2lVS1w4EtoT3dr4eOWO"),
   ELEVENLABS_VOICE_MORTE: z.string().default("nPczCjzI2devNBz1zQrb"),
-  TTS_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
+  TTS_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   TTS_USER_DAILY_REQUESTS: z.coerce.number().int().nonnegative().default(80),
   TTS_DAILY_CHAR_BUDGET: z.coerce.number().int().nonnegative().default(40000),
   TTS_CACHE_DAYS: z.coerce.number().positive().default(30),

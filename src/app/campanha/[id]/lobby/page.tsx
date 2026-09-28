@@ -135,10 +135,16 @@ function LobbyView() {
                     <input className="input mono small" readOnly value={invite.code} onFocus={(e) => e.target.select()} />
                   </div>
                   <div className="row" style={{ gap: 8 }}>
-                    <button className="btn" onClick={() => navigator.clipboard.writeText(invite.url).then(() => push("ok", "Link copiado!"))}>
+                    <button className="btn" onClick={async () => {
+                      try { await navigator.clipboard.writeText(invite.url); push("ok", "Link copiado!"); }
+                      catch { push("info", `Link: ${invite.url}`); }
+                    }}>
                       Copiar link
                     </button>
-                    <button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(invite.code).then(() => push("ok", "Código copiado!"))}>
+                    <button className="btn btn-sm" onClick={async () => {
+                      try { await navigator.clipboard.writeText(invite.code); push("ok", "Código copiado!"); }
+                      catch { push("info", `Código: ${invite.code}`); }
+                    }}>
                       Copiar código
                     </button>
                   </div>

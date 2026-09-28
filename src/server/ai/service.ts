@@ -13,7 +13,8 @@ import { MockProvider } from "./providers/mock";
 import { OpenAICompatibleProvider } from "./providers/openaiCompatible";
 import { AnthropicProvider } from "./providers/anthropic";
 import { ChainProvider } from "./providers/chain";
-import { stripVoiceTags, toVoiceText } from "@/shared/voiceTags";
+import { stripVoiceTags } from "@/shared/voiceTags";
+import { normalizeSpeechPerformance, SPEECH_TONES, type SpeechPerformance } from "@/shared/speech";
 
 export type AISource = "ai" | "cache" | "fallback";
 export interface AIContext {
@@ -227,14 +228,19 @@ async function run<I, O>(ctx: AIContext, spec: RunSpec<I, O>): Promise<{ value: 
   }
 }
 
-const textSchema = z.object({ text: z.string().min(1).max(2000) });
-const replySchema = z.object({ reply: z.string().min(1).max(2000) });
+const performanceFields = {
+  tone: z.enum(SPEECH_TONES).optional(),
+  voice: z.string().min(1).max(180).optional(),
+  say: z.string().min(1).max(2400).optional(),
+};
+const textSchema = z.object({ text: z.string().min(1).max(2000), ...performanceFields });
+const replySchema = z.object({ reply: z.string().min(1).max(2000), ...performanceFields });
 const intentSchema = z.object({ intent: z.string().max(40), confidence: z.number().min(0).max(1).optional() });
 
 const maxTokens = () => getConfig().AI_MAX_OUTPUT_TOKENS;
 
 // ---------- API pública ----------
-export async function aiNarrative(ctx: AIContext, input: NarrativeInput, fallback: string): Promise<{ text: string; source: AISource }> {
+export async function aiNarrative(ctx: AIContext, input: NarrativeInput, fallback: string): Promise<{ text: string; speech: SpeechPerformance; source: AISource }> {
   const trimmed = { ...input, facts: input.facts.slice(0, 8).map((f) => stripVoiceTags(f).slice(0, 200)), ...(input.condition ? { condition: input.condition.slice(0, 4) } : {}) };
   const r = await run(ctx, {
     purpose: "narrative",
@@ -250,10 +256,15 @@ export async function aiNarrative(ctx: AIContext, input: NarrativeInput, fallbac
     cacheable: true,
   });
   // Mantém só tags de expressão permitidas (a tela as remove; a voz as usa).
-  return r.value ? { text: toVoiceText(sanitizeText(r.value.text, 400)), source: r.source } : { text: fallback, source: "fallback" };
+  const text = r.value ? sanitizeText(stripVoiceTags(r.value.text), 400) : stripVoiceTags(fallback);
+  return {
+    text,
+    speech: normalizeSpeechPerformance(text, r.value, input.isNight ? "worried" : "neutral"),
+    source: r.value ? r.source : "fallback",
+  };
 }
 
-export async function aiNpcReply(ctx: AIContext, input: NpcInput, fallback: string): Promise<{ text: string; source: AISource }> {
+export async function aiNpcReply(ctx: AIContext, input: NpcInput, fallback: string): Promise<{ text: string; speech: SpeechPerformance; source: AISource }> {
   const r = await run(ctx, {
     purpose: "npc",
     input: { ...input, playerMessage: input.playerMessage.slice(0, 300), outcomeFacts: input.outcomeFacts.slice(0, 5).map(stripVoiceTags) },
@@ -265,7 +276,12 @@ export async function aiNpcReply(ctx: AIContext, input: NpcInput, fallback: stri
     },
     cacheable: false,
   });
-  return r.value ? { text: toVoiceText(sanitizeText(r.value.reply, 320)), source: r.source } : { text: fallback, source: "fallback" };
+  const text = r.value ? sanitizeText(stripVoiceTags(r.value.reply), 320) : stripVoiceTags(fallback);
+  return {
+    text,
+    speech: normalizeSpeechPerformance(text, r.value, "hesitant"),
+    source: r.value ? r.source : "fallback",
+  };
 }
 
 export async function aiClueDescription(ctx: AIContext, input: ClueInput): Promise<{ text: string; source: AISource }> {
@@ -280,7 +296,7 @@ export async function aiClueDescription(ctx: AIContext, input: ClueInput): Promi
   return r.value ? { text: sanitizeText(r.value.text, 300), source: r.source } : { text: input.clueText, source: "fallback" };
 }
 
-const creatureSchema = z.object({ attitude: z.string().max(40), line: z.string().min(1).max(600) });
+const creatureSchema = z.object({ attitude: z.string().max(40), line: z.string().min(1).max(600), ...performanceFields });
 
 /**
  * Atitude de uma criatura/NPC hostil. A IA só escolhe dentro de `allowedAttitudes`;
@@ -290,7 +306,7 @@ export async function aiCreatureAttitude(
   ctx: AIContext,
   input: CreatureInput,
   fallback: string,
-): Promise<{ attitude: string; line: string | null; source: AISource }> {
+): Promise<{ attitude: string; line: string | null; speech: SpeechPerformance | null; source: AISource }> {
   const r = await run(ctx, {
     purpose: "creature",
     input,
@@ -303,9 +319,14 @@ export async function aiCreatureAttitude(
     },
     cacheable: false,
   });
-  return r.value
-    ? { attitude: r.value.attitude, line: toVoiceText(sanitizeText(r.value.line, 300)), source: r.source }
-    : { attitude: fallback, line: null, source: "fallback" };
+  if (!r.value) return { attitude: fallback, line: null, speech: null, source: "fallback" };
+  const line = sanitizeText(stripVoiceTags(r.value.line), 300);
+  return {
+    attitude: r.value.attitude,
+    line,
+    speech: normalizeSpeechPerformance(line, r.value, "whispering"),
+    source: r.source,
+  };
 }
 
 /** Classificador por palavras-chave: fallback determinístico e primeira linha de defesa. */

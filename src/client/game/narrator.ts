@@ -1,96 +1,146 @@
 "use client";
-/**
- * Voz do narrador. Primeiro tenta a voz real do servidor (ElevenLabs v3, que interpreta
- * [sighs], [laughs], [whispers]…); se não houver chave, a cota acabar ou a rede falhar,
- * usa a voz do navegador — com as tags REMOVIDAS (senão ela leria "sighs" em voz alta)
- * e com pausas nos lugares de [pause]/[long pause].
- *
- * Toda fala passa pelo diretor de áudio: uma de cada vez, e o resto abaixa enquanto ela dura.
- */
-import { stripVoiceTags } from "@/shared/voiceTags";
+
 import { mixVolume } from "../audioMixer";
 import { audioDirector } from "./audioDirector";
+import { cachedVoice, storeVoice } from "./voiceCache";
 
-let serverOff = false; // servidor respondeu "sem narrador": não insiste nesta sessão
+export const VOICE_STATUS_EVENT = "vale-silente:voice-status";
+
+export interface VoiceStatus {
+  available: boolean;
+  message: string | null;
+}
+
+export interface NarrationItem {
+  logId: number;
+}
+
+interface LoadedVoice {
+  blob: Blob;
+}
+
+const requests = new Map<string, Promise<LoadedVoice>>();
+
+function announce(status: VoiceStatus): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<VoiceStatus>(VOICE_STATUS_EVENT, { detail: status }));
+}
+
+function requestKey(campaignId: string, logId: number): string {
+  return `${campaignId}:${logId}`;
+}
+
+async function errorMessage(response: Response): Promise<string> {
+  try {
+    const body = await response.json() as { error?: unknown };
+    if (typeof body.error === "string") return body.error;
+  } catch {
+    // Resposta sem JSON: usa mensagem estável abaixo.
+  }
+  return response.status === 429
+    ? "As vozes atingiram a cota temporária. A conversa continua em texto."
+    : "A voz da cena está indisponível. A conversa continua em texto.";
+}
+
+async function fetchVoice(campaignId: string, logId: number): Promise<LoadedVoice> {
+  const key = requestKey(campaignId, logId);
+  const cached = await cachedVoice(key);
+  if (cached) return { blob: cached };
+
+  const response = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}/log/${logId}/voice`, {
+    credentials: "same-origin",
+  });
+  if (!response.ok) throw new Error(await errorMessage(response));
+  const blob = await response.blob();
+  if (!blob.size || !/audio\/(?:wav|wave|x-wav)/i.test(blob.type || response.headers.get("content-type") || "")) {
+    throw new Error("O servidor devolveu uma fala inválida. A conversa continua em texto.");
+  }
+  const audioKey = response.headers.get("x-voice-cache-key") || key;
+  await storeVoice(key, audioKey, blob);
+  return { blob };
+}
+
+export function preloadNarration(campaignId: string, logId: number): Promise<LoadedVoice> {
+  const key = requestKey(campaignId, logId);
+  const active = requests.get(key);
+  if (active) return active;
+  const pending = fetchVoice(campaignId, logId);
+  requests.set(key, pending);
+  void pending.finally(() => {
+    if (requests.get(key) === pending) requests.delete(key);
+  }).catch(() => undefined);
+  return pending;
+}
+
+function settledVoice(campaignId: string, logId: number) {
+  return preloadNarration(campaignId, logId).then(
+    (voice) => ({ voice, error: null as Error | null }),
+    (error: unknown) => ({ voice: null, error: error instanceof Error ? error : new Error(String(error)) }),
+  );
+}
 
 export function stopNarration(): void {
   audioDirector().stopVoices();
-  if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
 }
 
-/** Narra uma linha do diário. Uma linha nova interrompe a anterior (a história andou). */
-export function narrate(campaignId: string, logId: number, text: string, volume = 1): void {
-  let el: HTMLAudioElement | null = null;
-  let url: string | null = null;
+/**
+ * Toca em ordem. Enquanto a fala atual está sendo reproduzida, a seguinte já
+ * está sendo buscada ou lida do IndexedDB, evitando silêncio entre personagens.
+ */
+export function narrateSequence(campaignId: string, items: NarrationItem[], volume = 1): void {
+  if (!items.length) return;
+  let currentAudio: HTMLAudioElement | null = null;
+  let currentUrl: string | null = null;
   let cancelled = false;
-  const releaseUrl = () => {
-    if (!url) return;
-    URL.revokeObjectURL(url);
-    url = null;
+
+  const release = () => {
+    currentAudio?.pause();
+    currentAudio = null;
+    if (currentUrl) URL.revokeObjectURL(currentUrl);
+    currentUrl = null;
   };
+
   audioDirector().interruptWith({
     priority: "narracao",
     stop: () => {
       cancelled = true;
-      el?.pause();
-      releaseUrl();
-      if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+      release();
     },
     run: async () => {
-      if (!serverOff) {
-        try {
-          const res = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}/log/${logId}/voice`, { credentials: "same-origin" });
-          if (cancelled) return;
-          if (res.ok) {
-            url = URL.createObjectURL(await res.blob());
-            if (cancelled) {
-              releaseUrl();
-              return;
-            }
-            el = new Audio(url);
-            el.volume = mixVolume("narracao", volume);
-            await new Promise<void>((resolve) => {
-              el!.onended = () => resolve();
-              el!.onerror = () => resolve();
-              void el!.play().catch(() => resolve());
-            });
-            releaseUrl();
-            return;
-          }
-          if (res.status === 503) serverOff = true;
-        } catch {
-          /* rede ou autoplay bloqueado: voz do navegador */
+      let next = settledVoice(campaignId, items[0].logId);
+      for (let index = 0; index < items.length && !cancelled; index++) {
+        const loaded = await next;
+        // Pré-carrega a próxima antes de começar a reprodução da atual.
+        if (index + 1 < items.length) next = settledVoice(campaignId, items[index + 1].logId);
+        if (loaded.error || !loaded.voice) {
+          announce({ available: false, message: loaded.error?.message ?? "Voz indisponível." });
+          continue;
         }
+        announce({ available: true, message: null });
+        currentUrl = URL.createObjectURL(loaded.voice.blob);
+        currentAudio = new Audio(currentUrl);
+        currentAudio.volume = mixVolume("narracao", volume);
+        await new Promise<void>((resolve) => {
+          if (!currentAudio) return resolve();
+          currentAudio.onended = () => resolve();
+          currentAudio.onerror = () => {
+            announce({ available: false, message: "Não foi possível reproduzir a voz. A fala permanece em texto." });
+            resolve();
+          };
+          void currentAudio.play().catch(() => {
+            announce({ available: false, message: "O celular bloqueou a reprodução automática. Toque em Narrador para tentar novamente." });
+            resolve();
+          });
+        });
+        release();
       }
-      if (!cancelled) await browserVoice(text, volume);
     },
     setVolume: () => {
-      if (el) el.volume = mixVolume("narracao", volume);
+      if (currentAudio) currentAudio.volume = mixVolume("narracao", volume);
     },
   });
 }
 
-function browserVoice(text: string, volume: number): Promise<void> {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return Promise.resolve();
-  const synth = window.speechSynthesis;
-  const voices = synth.getVoices();
-  const voice = voices.find((v) => v.lang.toLowerCase() === "pt-br") ?? voices.find((v) => v.lang.toLowerCase().startsWith("pt")) ?? null;
-  // Cada [pause]/[long pause] vira um corte: frases separadas soam como pausa.
-  const parts = text.split(/\[(?:long )?pause\]/i).map(stripVoiceTags).map((s) => s.replace(/[【】]/g, "").trim()).filter(Boolean);
-  if (!parts.length) return Promise.resolve();
-  return new Promise((resolve) => {
-    parts.forEach((p, i) => {
-      const u = new SpeechSynthesisUtterance(p);
-      u.voice = voice;
-      u.lang = "pt-BR";
-      u.rate = 0.86;
-      u.pitch = 0.7; // grave, sombrio
-      u.volume = mixVolume("narracao", volume);
-      if (i === parts.length - 1) {
-        u.onend = () => resolve();
-        u.onerror = () => resolve();
-      }
-      synth.speak(u);
-    });
-  });
+export function narrate(campaignId: string, logId: number, volume = 1): void {
+  narrateSequence(campaignId, [{ logId }], volume);
 }
