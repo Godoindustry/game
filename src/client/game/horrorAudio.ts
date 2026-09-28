@@ -14,6 +14,7 @@ import { useEffect, useRef } from "react";
 import type { GameState } from "./useGame";
 import type { AudioCategory } from "../audioMixer";
 import { audioDirector } from "./audioDirector";
+import { EVENT_WANTED, playCue } from "./choiceSfx";
 
 /** Sons de cada pessoa/criatura e do cenário (caminho sem .mp3). */
 export const HORROR = {
@@ -134,17 +135,17 @@ export function useHorrorAudio(state: GameState | null, enabled: boolean) {
   const delayed = useRef<number[]>([]);
 
   // Tudo passa pelo diretor: intervalo entre efeitos, um fundo só, e voz sempre por cima.
-  const play = (sound: string) => {
+  const play = (sound: string, base?: number) => {
     if (!enabled) return;
-    audioDirector().sting(sound, QUIETER[sound] ?? 1, {
+    audioDirector().sting(sound, base ?? QUIETER[sound] ?? 1, {
       important: IMPORTANT.has(sound),
       // O rosnado original é longo: some em fade depois de alguns segundos.
       fadeOutAfterMs: sound === HORROR.lobo.rosnado ? 8000 : undefined,
     });
   };
   const cue = (c: Cue) => {
-    play(pick(c.sound));
-    if (c.then) delayed.current.push(window.setTimeout(() => play(c.then!.sound), c.then.afterMs));
+    play(pick(c.sound), c.vol);
+    if (c.then) delayed.current.push(window.setTimeout(() => play(c.then!.sound, c.then!.vol), c.then.afterMs));
   };
 
   // Estalos: reagem a MUDANÇAS (nunca ao estado já existente quando a tela abre).
@@ -171,6 +172,7 @@ export function useHorrorAudio(state: GameState | null, enabled: boolean) {
     if (now.event && now.event !== prev.event) {
       const hit = EVENT_CUE.find(([re]) => re.test(now.event!));
       if (hit) cue(hit[1]);
+      else if (enabled) playCue(EVENT_WANTED[now.event]);
     }
     if (prev.alive && now.alive === false) play(HORROR.jogador.gritoMorte);
     else if (now.bitten > prev.bitten) play(HORROR.jogador.gritoMordida);
@@ -235,12 +237,18 @@ export function useHorrorAudio(state: GameState | null, enabled: boolean) {
     return () => window.clearTimeout(timer);
   }, [enabled, playing, state?.campaign.night]);
 
-  // Sai da tela: para tudo.
+  // Sai da tela: para tudo. Adiado para a remontagem imediata do React (StrictMode) não
+  // calar a primeira narração.
+  const mounted = useRef(false);
   useEffect(() => {
+    mounted.current = true;
     return () => {
+      mounted.current = false;
       delayed.current.forEach(window.clearTimeout);
       delayed.current = [];
-      audioDirector().stopAll();
+      window.setTimeout(() => {
+        if (!mounted.current) audioDirector().stopAll();
+      }, 0);
     };
   }, []);
 }

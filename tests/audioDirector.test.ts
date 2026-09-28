@@ -60,4 +60,18 @@ describe("Diretor de áudio", () => {
 
     expect(FakeAudio.instances.map((audio) => audio.src)).toEqual(["/narrador.mp3"]);
   });
+
+  it("encerra a voz atual antes de aceitar uma nova narração", async () => {
+    const director = new AudioDirector();
+    director.voiceFile("/antiga.mp3");
+    const antiga = FakeAudio.instances[0];
+
+    director.stopVoices();
+    expect(antiga.paused).toBe(true);
+    expect(useMixer.getState().voiceActive).toBe(false);
+
+    director.voiceFile("/nova.mp3");
+    expect(FakeAudio.instances.map((audio) => audio.src)).toEqual(["/antiga.mp3", "/nova.mp3"]);
+    await Promise.resolve();
+  });
 });

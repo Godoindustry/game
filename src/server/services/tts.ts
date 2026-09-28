@@ -11,6 +11,8 @@ import { newId, sha256 } from "./ids";
 import { notFound } from "./errors";
 import type { SessionUser } from "./auth";
 import { requireMember } from "./campaigns";
+import { narrationForLog } from "./narrationPack";
+import { getScenario } from "../content/valeSilente";
 import { stripVoiceTags, toVoiceText } from "@/shared/voiceTags";
 import { normalizeSpeechPerformance, speechStyle, splitSpeech, type SpeechTone } from "@/shared/speech";
 import { concatWav, geminiKeys, resolveVoiceProfile, synthesizeGeminiSpeech } from "./geminiTts";
@@ -37,8 +39,10 @@ function recordedVariant(seed: string, choices: readonly string[]): string {
 /**
  * Vozes e interpretações humanas já gravadas no projeto. É o modo padrão quando
  * não existe chave externa e também a reserva para cota/indisponibilidade da IA.
+ * Devolve null quando nenhuma gravação corresponde à cena: uma fala genérica que
+ * diz outra coisa do que está escrito na tela é pior do que o silêncio.
  */
-export function recordedVoiceAsset(row: RecordedVoiceRow): string {
+export function recordedVoiceAsset(row: RecordedVoiceRow): string | null {
   const source = row.text.toLocaleLowerCase("pt-BR");
   const speaker = row.speaker_key ?? "";
 
@@ -48,6 +52,8 @@ export function recordedVoiceAsset(row: RecordedVoiceRow): string {
     if (/sangr|ferimento|lacera|fratura/.test(source)) return "/audio/voz-da-morte/death-ferimento.mp3";
     return "/audio/voz-da-morte/death-1.mp3";
   }
+  // Resultado de escolha é específico demais para um clipe genérico: só a narração gerada serve.
+  if (row.kind === "result") return null;
   if (row.kind === "ending") {
     return /rádio|radio|frequência|transmit|sinal/.test(source)
       ? "/audio/narrador/victory-radio.mp3"
@@ -64,28 +70,23 @@ export function recordedVoiceAsset(row: RecordedVoiceRow): string {
   if (speaker === "creature:mae") return "/audio/mae-das-asas/grito-aparicao.mp3";
   if (speaker === "creature:ambar") return "/audio/lobo-de-ambar/rosnado.mp3";
   if (speaker.startsWith("creature:")) return "/audio/almas/sussurro-arrepiante.mp3";
-  if (row.kind === "npc" || speaker.startsWith("npc:")) {
-    return recordedVariant(`${speaker}|${source}`, [
-      "/audio/desconhecido/npc-desconhecido-1.mp3",
-      "/audio/desconhecido/npc-desconhecido-2.mp3",
-    ]);
-  }
+  // As duas falas gravadas do desconhecido não servem para Anselmo, Tavares etc.
+  if (row.kind === "npc" || speaker.startsWith("npc:")) return null;
 
   if (/rádio|radio|frequência|transmiss|chiado|sinal/.test(source)) return "/audio/narrador/event-radio.mp3";
   if (/fogueira|chama|fogo|crepita/.test(source)) return "/audio/narrador/event-fogueira.mp3";
-  if (/abrigo|cabana|dorm|descans/.test(source)) return "/audio/narrador/event-abrigo.mp3";
+  if (/descans|dorm|sono|fecha.+olhos/.test(source)) return "/audio/narrador/action-descansando.mp3";
+  if (/abrigo|cabana/.test(source)) return "/audio/narrador/event-abrigo.mp3";
   if (/rastro|pegada|lama|carcaça|passos/.test(source)) return "/audio/narrador/event-rastros.mp3";
   if (/ferimento|atadura|sangr|curativo/.test(source)) return "/audio/narrador/action-tratando.mp3";
   if (/colet|vasculh|procur|examinar/.test(source)) return "/audio/narrador/action-coletando.mp3";
-  return recordedVariant(source, [
-    "/audio/narrador/event-noite.mp3",
-    "/audio/narrador/intro-quote-2.mp3",
-    "/audio/narrador/intro-quote-4.mp3",
-  ]);
+  return null;
 }
 
 function recordedVoiceResponse(row: RecordedVoiceRow): Response {
   const asset = recordedVoiceAsset(row);
+  // 204: o cliente mantém a cena só em texto, sem aviso de erro.
+  if (!asset) return new Response(null, { status: 204, headers: { "X-Voice-Source": "none" } });
   return new Response(null, {
     status: 307,
     headers: {
@@ -255,7 +256,7 @@ function audioResponse(audio: Buffer, meta: { cacheKey: string; source: string; 
 
 export async function logVoice(user: SessionUser, campaignId: string, logId: string): Promise<Response> {
   const config = getConfig();
-  await requireMember(user, campaignId);
+  const camp = await requireMember(user, campaignId);
   const db = getDb();
   const id = Number(logId);
   if (!Number.isInteger(id) || id <= 0) throw notFound("Mensagem não encontrada.");
@@ -271,8 +272,24 @@ export async function logVoice(user: SessionUser, campaignId: string, logId: str
     const mine = await db.get("SELECT 1 FROM characters WHERE id = ? AND user_id = ?", row.character_id, user.id);
     if (!mine) throw notFound("Mensagem não encontrada.");
   }
-  // Sem chave, usa imediatamente as interpretações humanas que já acompanham o jogo.
-  if (!geminiKeys(config).length) return recordedVoiceResponse(row);
+  // 1º: narração pré-gerada da própria fala (Chatterbox). Mais de um trecho → lista para o
+  // cliente tocar em sequência, com pré-carregamento.
+  const generated = row.kind === "death" ? [] : narrationForLog(getScenario(camp.scenario_id), row.text);
+  if (generated.length === 1) {
+    return new Response(null, {
+      status: 307,
+      headers: { Location: generated[0], "Cache-Control": "private, max-age=31536000, immutable", "X-Voice-Source": "narracao" },
+    });
+  }
+  if (generated.length > 1) {
+    return new Response(JSON.stringify({ parts: generated }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Cache-Control": "private, max-age=3600", "X-Voice-Source": "narracao" },
+    });
+  }
+  // Produção usa as interpretações já gravadas. Gemini só é consultado com opt-in
+  // explícito e chave válida, evitando espera/erro por uma credencial antiga no ambiente.
+  if (config.TTS_PROVIDER !== "gemini" || !geminiKeys(config).length) return recordedVoiceResponse(row);
 
   const visibleText = stripVoiceTags(row.text).replace(/[【】]/g, "").trim();
   if (!visibleText) throw notFound("Nada para narrar.");

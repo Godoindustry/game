@@ -37,7 +37,7 @@ import { powerView } from "../engine/powers";
 import { CLASS_BY_ID } from "../engine/classes";
 import { campaignStory } from "../engine/story";
 
-/** Ações que recebem uma linha de ambientação (IA ou texto de reserva sobre o corpo). */
+/** Ações que recebem uma linha de ambientação (IA ou o próprio desfecho escrito da história). */
 const NARRATED: ActionInput["type"][] = ["mover", "examinar", "procurar", "escolha_evento", "dormir", "descansar", "coletar_lenha", "montar_abrigo"];
 
 const submitSchema = z.strictObject({
@@ -351,6 +351,11 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
         }
       } else if (rep.minutes > 0 && NARRATED.includes(rep.actionType)) {
         const cond = char.alive ? bodyCondition(char) : [];
+        const condition = conditionLine(cond, world.minute);
+        const storyFallback = [...rep.lines.filter((line) => line.trim()), condition]
+          .filter(Boolean)
+          .join(" ")
+          .slice(0, 1_600);
         const r = await aiNarrative(
           ctx,
           {
@@ -363,7 +368,7 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
             characterAlive: char.alive,
             ...(cond.length ? { condition: conditionWords(cond) } : {}),
           },
-          conditionLine(cond, world.minute),
+          storyFallback || rep.summary,
         );
         narratives[actionId] = { text: r.text, speech: r.speech, speakerKey: "narrator" };
       }
@@ -627,7 +632,7 @@ export async function getState(user: SessionUser, campaignId: string) {
         id: region.id,
         title: region.title,
         subtitle: region.subtitle,
-        art: "/art/vale-silente/phase-atlas.png",
+        art: "/art/vale-silente/phase-atlas.webp",
         artPosition: region.artPosition,
         unlocked:
           region.unlockAct <= (story.phase?.index ?? 1)

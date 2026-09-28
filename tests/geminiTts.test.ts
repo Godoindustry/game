@@ -10,6 +10,7 @@ const WAV = pcmToWav(Buffer.alloc(960, 7));
 
 beforeEach(async () => {
   await freshApp({
+    TTS_PROVIDER: "gemini",
     GEMINI_API_KEY: "key-one",
     GEMINI_API_KEY2: "key-two",
     GEMINI_TTS_MODELS: "gemini-test-tts",

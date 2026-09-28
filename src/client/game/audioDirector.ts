@@ -52,6 +52,8 @@ export class AudioDirector {
   private currentSting: { el: HTMLAudioElement; base: number } | null = null;
   private lastSting = 0;
   private enabled = true;
+  /** Sons que deram 404 nesta aba: não pede de novo, vai direto para a reserva. */
+  private missing = new Set<string>();
 
   constructor() {
     // Qualquer mudança no mixer (slider, ducking de voz) reajusta o fundo na hora, com rampa curta.
@@ -81,17 +83,28 @@ export class AudioDirector {
   /** Fala de um arquivo (narração gravada, alerta do sistema). */
   voiceFile(url: string, base = 1, priority: VoicePriority = "narracao") {
     let el: HTMLAudioElement | null = null;
+    let finish: (() => void) | null = null;
     const job: VoiceJob = {
       priority,
       run: () =>
         new Promise<void>((resolve) => {
+          let settled = false;
+          finish = () => {
+            if (settled) return;
+            settled = true;
+            finish = null;
+            resolve();
+          };
           el = new Audio(url);
           el.volume = mixVolume("narracao", base);
-          el.onended = () => resolve();
-          el.onerror = () => resolve();
-          void el.play().catch(() => resolve());
-      }),
-      stop: () => el?.pause(),
+          el.onended = () => finish?.();
+          el.onerror = () => finish?.();
+          void el.play().catch(() => finish?.());
+        }),
+      stop: () => {
+        el?.pause();
+        finish?.();
+      },
       setVolume: () => {
         if (el) el.volume = mixVolume("narracao", base);
       },
@@ -178,9 +191,16 @@ export class AudioDirector {
   }
 
   // ── Efeitos ────────────────────────────────────────────────────────────────
-  /** Efeito curto. `important` fura o intervalo (chefe, morte, transformação). */
-  sting(sound: string, base = 1, opts: { important?: boolean; fadeOutAfterMs?: number } = {}) {
+  /**
+   * Efeito curto. `important` fura o intervalo (chefe, morte, transformação, escolha do jogador).
+   * `fallback` toca se o arquivo principal ainda não existir (som planejado e não baixado).
+   */
+  sting(sound: string, base = 1, opts: { important?: boolean; fadeOutAfterMs?: number; fallback?: string } = {}) {
     if (!this.enabled) return;
+    if (this.missing.has(sound)) {
+      if (opts.fallback) this.sting(opts.fallback, base, { ...opts, fallback: undefined });
+      return;
+    }
     const now = performance.now();
     if (!opts.important && now - this.lastSting < STING_GAP_MS) return;
     if (!opts.important && this.currentSting && !this.currentSting.el.paused) return;
@@ -194,7 +214,11 @@ export class AudioDirector {
         if (this.currentSting?.el === el) this.currentSting = null;
       };
       el.onended = clear;
-      el.onerror = clear;
+      el.onerror = () => {
+        clear();
+        this.missing.add(sound);
+        if (opts.fallback) this.sting(opts.fallback, base, { ...opts, fallback: undefined, important: true });
+      };
       void el.play().catch(clear);
       if (opts.fadeOutAfterMs) setTimeout(() => fade(el, 0, 1500, () => { el.pause(); clear(); }), opts.fadeOutAfterMs);
     } catch {

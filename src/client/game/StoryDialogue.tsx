@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GameState } from "./useGame";
 import { SurvivorPortrait } from "./Portrait";
+import { D20_REVEAL_MS } from "./Immersion";
 
 type LogLine = GameState["log"][number];
 type SpeakerKind = "narrator" | "player" | "npc" | "creature" | "spirit";
@@ -42,14 +43,8 @@ function speakerFor(state: GameState, line: LogLine): SpeakerView {
   if (/lobo de âmbar|lua cheia|garras a três metros/.test(source)) return { name: "Lobo de Âmbar", role: "O GUARDIÃO DA CRISTA", kind: "creature", portrait: "ambar" };
   if (line.kind === "npc" && state.here.npc) return { name: state.here.npc.name, role: "INTERLOCUTOR", kind: "npc", portrait: "stranger" };
   if (line.kind === "npc") return { name: "Desconhecido", role: "VOZ NA ESCURIDÃO", kind: "npc", portrait: "stranger" };
-  if (line.characterId) {
-    return {
-      name: line.speaker ?? state.party.find((member) => member.characterId === line.characterId)?.name ?? "Sobrevivente",
-      role: "SOBREVIVENTE",
-      kind: "player",
-      characterId: line.characterId,
-    };
-  }
+  // characterId é o DESTINATÁRIO de uma linha privada, não quem fala: o resto é do narrador
+  // (e o narrador não abre cena falada — o texto já está no palco).
   return { name: "Narrador", role: "O VALE OBSERVA", kind: "narrator" };
 }
 
@@ -57,7 +52,7 @@ function artworkFor(state: GameState, line: LogLine) {
   const boss = state.story.boss;
   if (boss?.active && boss.id !== "tavares") {
     return {
-      backgroundImage: 'url("/art/vale-silente/boss-atlas.png")',
+      backgroundImage: 'url("/art/vale-silente/boss-atlas.webp")',
       backgroundPosition: boss.artPosition,
       backgroundSize: "300% 100%",
     };
@@ -72,7 +67,7 @@ function artworkFor(state: GameState, line: LogLine) {
         ? SCENE_POSITION.tracks
         : SCENE_POSITION.night;
   return {
-    backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.png")',
+    backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.webp")',
     backgroundPosition: position,
     backgroundSize: "200% 200%",
   };
@@ -95,10 +90,19 @@ export function SpokenScene({ state }: { state: GameState }) {
   const latestRef = useRef(latest);
   const campaignId = state.campaign.id;
   const bossActive = !!state.story.boss?.active;
+  const rollId = state.lastRoll?.id ?? null;
+  const seenRoll = useRef<string | null | undefined>(undefined);
+  const rolledAt = useRef(0);
 
   useEffect(() => {
     latestRef.current = latest;
   }, [latest]);
+
+  // Declarado antes do efeito da cena: roda primeiro quando o D20 e a fala chegam juntos.
+  useEffect(() => {
+    if (seenRoll.current !== undefined && rollId !== null && rollId !== seenRoll.current) rolledAt.current = Date.now();
+    seenRoll.current = rollId;
+  }, [rollId]);
 
   useEffect(() => {
     const latestLine = latestRef.current;
@@ -107,8 +111,9 @@ export function SpokenScene({ state }: { state: GameState }) {
     if (window.sessionStorage.getItem(storageKey)) return;
     window.sessionStorage.setItem(storageKey, "shown");
     const duration = Math.min(11_000, Math.max(5_800, latestLine.text.length * 42));
-    // A revelação do chefe ocupa 5,2 s; a fala entra depois, sem cobrir as duas artes.
-    const delay = bossActive ? 5_400 : 80;
+    // A revelação do chefe ocupa 5,2 s e a do D20, D20_REVEAL_MS; a fala entra depois, sem cobrir o resultado.
+    const afterRoll = D20_REVEAL_MS + 100 - (Date.now() - rolledAt.current);
+    const delay = Math.max(bossActive ? 5_400 : 80, afterRoll);
     const showTimer = window.setTimeout(() => {
       setActive(latestLine);
       hideTimer.current = window.setTimeout(() => setActive(null), duration);
@@ -127,7 +132,12 @@ export function SpokenScene({ state }: { state: GameState }) {
   const bossPosition = speaker.portrait === "mae" ? "0% 50%" : "50% 50%";
 
   return (
-    <section className={`spoken-scene spoken-${speaker.kind}`} role="dialog" aria-label={`Cena falada por ${speaker.name}`}>
+    <section
+      className={`spoken-scene spoken-${speaker.kind}`}
+      role="dialog"
+      aria-label={`Cena falada por ${speaker.name}`}
+      onClick={() => setActive(null)}
+    >
       <div className="spoken-scene-art" style={artworkFor(state, active)} aria-hidden="true" />
       <div className="spoken-scene-rain" aria-hidden="true" />
       <div className="spoken-scene-shade" aria-hidden="true" />

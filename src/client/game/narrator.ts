@@ -15,11 +15,23 @@ export interface NarrationItem {
   logId: number;
 }
 
+/** Uma fala pode vir em partes (narração gerada divide textos longos): tocam em sequência. */
 interface LoadedVoice {
-  blob: Blob;
+  blobs: Blob[];
 }
 
-const requests = new Map<string, Promise<LoadedVoice>>();
+const AUDIO_TYPE = /audio\/(?:wav|wave|x-wav|mpeg|mp3)/i;
+
+async function audioBlob(response: Response): Promise<Blob> {
+  const blob = await response.blob();
+  if (!blob.size || !AUDIO_TYPE.test(blob.type || response.headers.get("content-type") || "")) {
+    throw new Error("O servidor devolveu um áudio de voz inválido. A conversa continua em texto.");
+  }
+  return blob;
+}
+
+/** null = a cena não tem voz (fica só em texto, sem aviso). */
+const requests = new Map<string, Promise<LoadedVoice | null>>();
 
 function announce(status: VoiceStatus): void {
   if (typeof window === "undefined") return;
@@ -42,25 +54,34 @@ async function errorMessage(response: Response): Promise<string> {
     : "A voz da cena está indisponível. A conversa continua em texto.";
 }
 
-async function fetchVoice(campaignId: string, logId: number): Promise<LoadedVoice> {
+async function fetchVoice(campaignId: string, logId: number): Promise<LoadedVoice | null> {
   const key = requestKey(campaignId, logId);
   const cached = await cachedVoice(key);
-  if (cached) return { blob: cached };
+  if (cached) return { blobs: [cached] };
 
   const response = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}/log/${logId}/voice`, {
     credentials: "same-origin",
   });
+  if (response.status === 204) return null;
   if (!response.ok) throw new Error(await errorMessage(response));
-  const blob = await response.blob();
-  if (!blob.size || !/audio\/(?:wav|wave|x-wav|mpeg|mp3)/i.test(blob.type || response.headers.get("content-type") || "")) {
-    throw new Error("O servidor devolveu um áudio de voz inválido. A conversa continua em texto.");
+  if (/json/i.test(response.headers.get("content-type") ?? "")) {
+    const { parts } = await response.json() as { parts?: string[] };
+    if (!parts?.length) return null;
+    const blobs = await Promise.all(parts.map(async (url) => {
+      const part = await fetch(url);
+      if (!part.ok) throw new Error("A voz da cena está indisponível. A conversa continua em texto.");
+      return audioBlob(part);
+    }));
+    return { blobs };
   }
-  const audioKey = response.headers.get("x-voice-cache-key") || key;
-  await storeVoice(key, audioKey, blob);
-  return { blob };
+  const blob = await audioBlob(response);
+  // Só a voz sintetizada (Gemini) vai para o IndexedDB; arquivos estáticos já ficam no cache HTTP.
+  const audioKey = response.headers.get("x-voice-cache-key");
+  if (audioKey) await storeVoice(key, audioKey, blob);
+  return { blobs: [blob] };
 }
 
-export function preloadNarration(campaignId: string, logId: number): Promise<LoadedVoice> {
+export function preloadNarration(campaignId: string, logId: number): Promise<LoadedVoice | null> {
   const key = requestKey(campaignId, logId);
   const active = requests.get(key);
   if (active) return active;
@@ -91,14 +112,51 @@ export function narrateSequence(campaignId: string, items: NarrationItem[], volu
   if (!items.length) return;
   let currentAudio: HTMLAudioElement | null = null;
   let currentUrl: string | null = null;
+  let finishPlayback: (() => void) | null = null;
   let cancelled = false;
 
   const release = () => {
     currentAudio?.pause();
+    finishPlayback?.();
+    finishPlayback = null;
     currentAudio = null;
     if (currentUrl) URL.revokeObjectURL(currentUrl);
     currentUrl = null;
   };
+
+  const playBlob = (blob: Blob) => new Promise<void>((resolve) => {
+    currentUrl = URL.createObjectURL(blob);
+    const audio = new Audio(currentUrl);
+    currentAudio = audio;
+    audio.volume = mixVolume("narracao", volume);
+    // Celular bloqueia som antes do primeiro toque: a fala espera o próximo toque
+    // na tela e toca dentro dele, em vez de mostrar um erro sobre a cena.
+    const retryOnGesture = () => {
+      window.removeEventListener("pointerdown", retryOnGesture, true);
+      window.removeEventListener("keydown", retryOnGesture, true);
+      void audio.play().catch(() => finish());
+    };
+    const finish = () => {
+      window.removeEventListener("pointerdown", retryOnGesture, true);
+      window.removeEventListener("keydown", retryOnGesture, true);
+      finishPlayback = null;
+      resolve();
+    };
+    finishPlayback = finish;
+    audio.onended = finish;
+    audio.onerror = () => {
+      announce({ available: false, message: "Não foi possível reproduzir a voz. A fala permanece em texto." });
+      finish();
+    };
+    void audio.play().catch((error: unknown) => {
+      if (error instanceof DOMException && error.name === "NotAllowedError") {
+        window.addEventListener("pointerdown", retryOnGesture, true);
+        window.addEventListener("keydown", retryOnGesture, true);
+      } else {
+        finish();
+      }
+    });
+  });
 
   audioDirector().interruptWith({
     priority: "narracao",
@@ -112,27 +170,19 @@ export function narrateSequence(campaignId: string, items: NarrationItem[], volu
         const loaded = await next;
         // Pré-carrega a próxima antes de começar a reprodução da atual.
         if (index + 1 < items.length) next = settledVoice(campaignId, items[index + 1].logId);
-        if (loaded.error || !loaded.voice) {
-          announce({ available: false, message: loaded.error?.message ?? "Voz indisponível." });
+        if (loaded.error) {
+          announce({ available: false, message: loaded.error.message });
           continue;
         }
+        if (!loaded.voice) continue; // cena sem gravação correspondente: só texto
+
         announce({ available: true, message: null });
-        currentUrl = URL.createObjectURL(loaded.voice.blob);
-        currentAudio = new Audio(currentUrl);
-        currentAudio.volume = mixVolume("narracao", volume);
-        await new Promise<void>((resolve) => {
-          if (!currentAudio) return resolve();
-          currentAudio.onended = () => resolve();
-          currentAudio.onerror = () => {
-            announce({ available: false, message: "Não foi possível reproduzir a voz. A fala permanece em texto." });
-            resolve();
-          };
-          void currentAudio.play().catch(() => {
-            announce({ available: false, message: "O celular bloqueou a reprodução automática. Toque em Narrador para tentar novamente." });
-            resolve();
-          });
-        });
-        release();
+        // Partes da mesma fala tocam emendadas, sem a pausa entre falas do diretor.
+        for (const blob of loaded.voice.blobs) {
+          if (cancelled) break;
+          await playBlob(blob);
+          release();
+        }
       }
     },
     setVolume: () => {

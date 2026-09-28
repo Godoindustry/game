@@ -3,9 +3,9 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { formatMinutes, Spinner } from "../ui";
 import { ACTION_LABEL, useNow, type GameState } from "./useGame";
-import { useAudio, deathAudioId, SFX } from "./useAudio";
 import { LocationScene, Typewriter, dayPhase, sceneProps } from "./Scene";
 import { SurvivorPortrait } from "./Portrait";
+import { DICE, playChoice, playCue } from "./choiceSfx";
 
 type Act = (type: string, params?: Record<string, unknown>) => void;
 
@@ -63,7 +63,10 @@ export function EventCard({
               <button
                 className={`d20-throw ${busy ? "is-rolling" : ""}`}
                 disabled={busy || !armedChoice.available}
-                onClick={() => onAct("escolha_evento", { choiceId: armedChoice.id })}
+                onClick={() => {
+                  playCue(DICE.rolling);
+                  onAct("escolha_evento", { choiceId: armedChoice.id });
+                }}
               >
                 <span className="d20-throw-die" aria-hidden="true"><b>{busy ? "?" : "20"}</b></span>
                 <strong>{busy ? "ROLANDO..." : "ROLAR D20"}</strong>
@@ -81,9 +84,11 @@ export function EventCard({
                 className={`choice ${event.myChoiceId === c.id ? "selected" : ""}`}
                 style={{ animationDelay: `${0.15 + i * 0.08}s` }}
                 disabled={busy || !c.available}
-                onClick={() => c.roll
-                  ? setArmedRoll({ eventInstanceId: event.instanceId, choiceId: c.id })
-                  : onAct("escolha_evento", { choiceId: c.id })}
+                onClick={() => {
+                  if (c.roll) return setArmedRoll({ eventInstanceId: event.instanceId, choiceId: c.id });
+                  playChoice(c.label);
+                  onAct("escolha_evento", { choiceId: c.id });
+                }}
                 title={c.reason ?? undefined}
               >
                 <span className="choice-key" aria-hidden="true">{String.fromCharCode(65 + i)}</span>
@@ -477,18 +482,6 @@ export function EndScreen({
   const victory = e?.type === "victory" && !died;
   const title   = e ? (died ? "Você morreu" : e.title) : "Você morreu";
 
-  const { play } = useAudio(0.6);
-
-  useEffect(() => {
-    // Voz expresiva ElevenLabs — escolhe baseado na causa da morte
-    if (victory) {
-      play(SFX.VICTORY, { vol: 0.6 });
-    } else {
-      play(deathAudioId(me?.deathCause ?? undefined), { vol: 0.6 });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
     <div
       className={`end-screen ${victory ? "end-victory" : "end-defeat"}`}
@@ -499,7 +492,7 @@ export function EndScreen({
       <div
         className="end-bg"
         aria-hidden="true"
-        style={{ backgroundImage: 'url("/art/vale-silente/story-chapel.png")' }}
+        style={{ backgroundImage: 'url("/art/vale-silente/story-chapel.webp")' }}
       />
       <div className="end-card stack-lg">
         {/* Subtítulo */}

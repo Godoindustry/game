@@ -87,7 +87,7 @@ export function useHealthAudio(
   me: {
     alive: boolean;
     health: { health: number };
-    status: { thirst: number; bodyTemp: number };
+    status: { hunger: number; thirst: number; bodyTemp: number };
     wounds: { bleedingRate: number }[];
   } | null | undefined
 ) {
@@ -101,7 +101,7 @@ export function useHealthAudio(
     if (me.wounds.some((w) => w.bleedingRate > 0)) alert = SFX.ALERT_SANGUE;
     else if (me.status.bodyTemp < 35)               alert = SFX.ALERT_HIPOTERMIA;
     else if (me.status.thirst > 85)                 alert = SFX.ALERT_SEDE;
-    else if (me.health.health < 20)                 alert = SFX.ALERT_FOME;
+    else if (me.status.hunger > 85)                 alert = SFX.ALERT_FOME;
 
     // Alerta não interrompe ninguém: se alguém já está falando, ele é descartado.
     if (alert && alert !== prevAlert.current) play(alert, { alert: true });

@@ -82,7 +82,10 @@ export const ACT_EVENTS: EventDef[] = [
       }),
       c("ch_despertar", "uivo", {
         label: "Responder ao uivo (Lobisomem)", durationMinutes: 10,
-        outcome: { text: "", effects: [{ op: "awaken", lineage: "werewolf" }] },
+        outcome: {
+          text: "[growls] Você responde. O uivo volta de dentro do seu peito. Seus dentes afundam na gengiva, a coluna se dobra e cada osso encontra uma forma nova sob a pele. [breathing heavily] Quando consegue ficar de pé, a mata inteira tem cheiro — medo, sangue e uma matilha esperando pelo seu nome.",
+          effects: [{ op: "awaken", lineage: "werewolf" }],
+        },
       }),
       c("ch_despertar", "nevoa", {
         label: "Deixar a névoa entrar (Assombrado)", durationMinutes: 10,

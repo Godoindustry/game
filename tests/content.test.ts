@@ -27,6 +27,14 @@ describe("Integridade do conteúdo — Vale Silente", () => {
     for (const k of r?.cluesAny ?? []) need(!!content.clues[k], `${where}: pista exigida ${k}`);
   };
   const outcome = (o: Outcome, where: string) => {
+    need(
+      !!o.text?.trim() || !!o.success?.text.trim() || !!o.failure?.text.trim(),
+      `${where}: escolha sem desfecho narrativo`,
+    );
+    if (o.check) {
+      need(!!o.success?.text.trim(), `${where}: sucesso sem texto`);
+      need(!!o.failure?.text.trim(), `${where}: falha sem texto`);
+    }
     effects(o.effects, where);
     for (const b of [o.success, o.failure] as (OutcomeBranch | undefined)[]) effects(b?.effects, where);
     if (o.check) for (const i of Object.keys(o.check.itemBonus ?? {})) item(i, where);

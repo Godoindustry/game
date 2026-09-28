@@ -1,0 +1,395 @@
+# Gerado por `npm run narration:export` a partir do conteúdo do jogo. Não edite as chaves:
+# o jogo encontra cada áudio pelo nome. Para mudar um texto, mude no jogo e exporte de novo.
+intro_destrocos | calmo | Você acorda preso ao assento do bimotor. Os outros passageiros não estão aqui. Nenhum corpo, nenhum sangue, só cintos soltos e o rádio chiando.
+intro_mata | calmo | Você acorda de bruços na mata, a quilômetros do avião, com folhas na boca e as roupas rasgadas. Não lembra de ter andado. Lembra de ter sido carregado.
+intro_lago | calmo | Você acorda na beira do poço escuro, encharcado até o peito, como se alguém tivesse tirado você da água. Na lama, marcas de mãos pequenas. Muitas.
+intro_trilha | calmo | Você acorda na trilha da crista, sob um céu de estrelas duras, com um laço de arame preso no tornozelo. Alguém armou isso para você. E soltou.
+vs_despertar_cena_p1 | tenso | O zumbido nos ouvidos é a primeira coisa que volta. Depois, o cheiro de combustível. Você está preso ao assento de um bimotor tombado entre as árvores. A cabine está aberta e vazia. O cinto do piloto não se rompeu: foi cortado.
+vs_despertar_cena_p2 | tenso | No painel, entre chiados, uma voz de mulher repete números, devagar: sete… quatro… zero…
+vs_despertar_examinar_texto | normal | Você solta o cinto e tateia o chão da cabine.
+vs_despertar_examinar_sucesso | normal | Uma lanterna rolou para baixo do banco. E no painel, o transmissor de emergência (ELT) está na posição OFF. Não quebrou, alguém desligou.
+vs_despertar_examinar_falha | tenso | Você acha uma lanterna rolando sob o banco, mas ao se soltar abre o antebraço numa borda de metal.
+vs_despertar_sair_texto | normal | Você se joga contra a janela lateral quebrada.
+vs_despertar_sair_sucesso | normal | Você cai na lama do lado de fora. Está vivo. O avião não pega fogo.
+vs_despertar_sair_falha | tenso | Um pedaço de fuselagem rasga sua perna ao passar pela janela.
+vs_despertar_gritar_texto | normal | Sua voz some entre as árvores. Por alguns segundos, a mata inteira se cala, insetos, sapos, tudo. Depois, bem longe, alguém grita de volta. Não dá para saber se é resposta ou eco.
+vs_bagageiro_cena | tenso | A porta do bagageiro está amassada e emperrada. Pela fresta dá para ver uma mala, uma jaqueta e uma caixa com o símbolo de bateria: a fonte de emergência do avião.
+vs_bagageiro_forcar_texto | normal | Você apoia o pé na fuselagem e puxa.
+vs_bagageiro_forcar_sucesso | normal | O metal cede com um estalo. Você puxa a bateria (pesada! ), uma jaqueta impermeável e um kit de primeiros socorros.
+vs_bagageiro_forcar_falha | tenso | A porta não se move. Seu ombro estala de um jeito ruim.
+vs_bagageiro_alavanca_texto | normal | Você encaixa uma haste de alumínio da asa na fresta.
+vs_bagageiro_alavanca_sucesso | normal | Com paciência, a trava cede. Bateria, jaqueta e um kit de primeiros socorros.
+vs_bagageiro_alavanca_falha | tenso | A haste entorta. Você perde tempo e fôlego.
+vs_bagageiro_depois_texto | normal | Você se afasta do bagageiro. Ele não vai a lugar nenhum.
+vs_vozes_cena | tenso | Entre os troncos, uma voz chama o seu nome. O nome completo, pronunciado devagar, como quem lê de um documento.
+vs_vozes_seguir_texto | normal | Você segue o som, desviando de raízes.
+vs_vozes_seguir_sucesso | normal | A voz para. Numa árvore marcada com tinta laranja, pendurada num galho: a jaqueta de um uniforme de piloto. No bolso, um caderno de voo.
+vs_vozes_seguir_falha | tenso | A voz parece mudar de lugar. Quando você enfim para, não reconhece mais nada. Leva quase uma hora para achar o caminho de volta, e você cai duas vezes.
+vs_vozes_ignorar_texto | normal | Você não para. A voz não insiste. Isso é pior.
+vs_vozes_observar_texto | normal | Você se agacha atrás de uma raiz e prende a respiração.
+vs_vozes_observar_sucesso | normal | Um facho de lanterna se move entre as árvores, subindo pela crista norte. Quem quer que seja, não está perdido: anda como quem conhece o caminho até a antena.
+vs_vozes_observar_falha | tenso | Você não vê nada. Mas escuta passos se afastando, sem pressa.
+vs_uivo_cena | tenso | O mato se abre sem vento. Dois olhos cor de âmbar observam você de uma altura impossível. A criatura não rosna. Ela inclina a cabeça, como se esperasse que você se lembrasse dela.
+vs_uivo_encarar_texto | normal | Você dá um passo para dentro do círculo de luar.
+vs_uivo_encarar_sucesso | normal | A fera recua. Preso num espinho, você encontra um medalhão antigo marcado por uma lua partida.
+vs_uivo_encarar_falha | tenso | Ela é rápida demais. Há dentes, o cheiro de terra molhada e uma dor branca no ombro. Quando você acorda, a ferida já está fechando.
+vs_uivo_aceitar_texto | normal | O som sai da sua garganta antes que você decida fazê-lo. A criatura salta, não para matar, mas para marcar.
+vs_uivo_fogo_texto | normal | O uivo acompanha você até a última faixa de luar. Quando olha de novo, só existem árvores.
+vs_acampamento_cena | tenso | Sob a lona, caixas de madeira e uma fogueira fria. Na estaca principal, marcas de contagem: trinta e sete riscos, agrupados de cinco em cinco. Abaixo, gravado a canivete: IARA.
+vs_acampamento_caixas_texto | normal | Você abre as caixas uma a uma.
+vs_acampamento_caixas_sucesso | normal | Uma lata de sardinha e, no fundo falso de uma caixa, fósforos embrulhados em plástico, secos.
+vs_acampamento_caixas_falha | tenso | Só uma lata de sardinha. O resto é pano podre.
+vs_acampamento_descansar_texto | normal | Pela primeira vez desde a queda, o vento não chega até você.
+vs_acampamento_marcas_texto | normal | Os últimos riscos são tortos, como se feitos no escuro. A madeira ao redor do nome foi alisada por mãos, alguém tocou ali muitas vezes.
+vs_chuva_cena | tenso | O vento muda e a chuva chega de uma vez, fria, atravessando as copas. Em minutos, tudo pinga.
+vs_chuva_abrigar_texto | normal | Você procura um ponto seco no escuro.
+vs_chuva_abrigar_sucesso | normal | Uma laje de pedra inclinada segura o pior da chuva.
+vs_chuva_abrigar_falha | tenso | Nada serve. Você fica encharcado procurando.
+vs_chuva_seguir_texto | normal | Você encolhe os ombros e espera. A água escorre pelas costas.
+vs_ponte_cena | tenso | Na margem, sob a ponte, peixes mortos boiam de barriga para cima, presos entre as pedras. A água corre limpa e gelada, aparentemente.
+vs_ponte_examinar_texto | normal | Você se agacha na margem.
+vs_ponte_examinar_sucesso | normal | Há um brilho oleoso nas pedras e cheiro de diesel. Vem de cima, da direção da antena: algum tanque velho vazando. Essa água precisa ser tratada.
+vs_ponte_examinar_falha | tenso | Talvez seja só o frio. Ou não.
+vs_ponte_beber_texto | normal | A água gelada dói nos dentes. Você bebe muito.
+vs_ponte_seguir_texto | normal | Você atravessa a ponte sem olhar para baixo.
+vs_estacao_portao_cena | tenso | Pela janela da casa, luz amarela: um lampião a querosene, aceso. O portão está preso por corrente e cadeado novo.
+vs_estacao_portao_pular_texto | normal | Você escala o alambrado.
+vs_estacao_portao_pular_sucesso | normal | Você cai do outro lado sem barulho.
+vs_estacao_portao_pular_falha | tenso | O arame no topo rasga seu braço. Você desce de volta, sangrando.
+vs_estacao_portao_rodear_texto | normal | Você contorna a cerca devagar.
+vs_estacao_portao_rodear_sucesso | normal | Nos fundos, a tela foi cortada e remendada com arame, alguém entra e sai por ali.
+vs_estacao_portao_rodear_falha | tenso | Você dá a volta completa e não encontra nada.
+vs_estacao_portao_chamar_texto | normal | A luz do lampião se apaga na mesma hora.
+vs_estacao_interior_cena | tenso | Cheiro de querosene e remédio. Uma cama de campanha desfeita, tiras de camisa sujas de sangue, um rádio de bancada antigo sem energia. Na parede, um mapa topográfico com alfinetes. Alguém esteve aqui há poucas horas.
+vs_estacao_interior_diario_texto | normal | Iara Menezes, hidróloga, 1998: O sinal volta toda noite às vinte e três e quarenta. Sete, quatro, zero. Não são aleatórios. As últimas páginas estão em branco, exceto a última, com a data de ontem, noutra letra: ela ainda transmite.
+vs_estacao_interior_mapa_texto | normal | Três alfinetes: a estação, a ravina e um rochedo a sudeste, com 740, caixa escrito à mão.
+vs_estacao_interior_esperar_texto | normal | Você se encolhe atrás de um armário e espera.
+vs_estacao_interior_esperar_sucesso | normal | Um homem mancando entra, com uniforme de piloto rasgado e uma chave de roda na mão. Ele não vê você.
+vs_estacao_interior_esperar_falha | tenso | Ninguém entra. Mas quando você sai, a porta dos fundos está aberta, e não foi você quem abriu.
+vs_piloto_cena | tenso | O homem tem a perna enfaixada com tiras de camisa e segura uma chave de roda como arma. Você não devia ter saído do avião, ele diz. Eles vêm buscar a carga. Não a gente.
+vs_piloto_conversar_texto | normal | Você mostra as mãos vazias.
+vs_piloto_conversar_sucesso | normal | Ele abaixa a chave de roda, devagar. Brandão. Comandante Brandão. Dá para conversar com ele agora.
+vs_piloto_conversar_falha | tenso | Ele não abaixa a arma, mas também não ataca. Fica olhando para a porta.
+vs_piloto_oferecer_texto | normal | Ele come com as mãos tremendo. Depois tira do bolso um sinalizador e coloca na sua mão. Se o helicóptero vier, não erra.
+vs_piloto_tomar_texto | normal | Você avança.
+vs_piloto_tomar_sucesso | normal | Você arranca a chave da mão dele. Ele recua, some pela porta dos fundos e não volta.
+vs_piloto_tomar_falha | tenso | A chave de roda acerta sua cabeça de raspão. Quando sua visão volta, ele já sumiu.
+vs_radio_cena | tenso | O rádio é antigo, mas os fios parecem inteiros. A bateria de emergência do avião tem terminais compatíveis, talvez.
+vs_radio_ligar_texto | normal | Você descasca os fios e conecta os terminais.
+vs_radio_ligar_sucesso | normal | O painel acende. Estática, e então uma voz real, cansada, de uma torre de controle regional. Você repete as coordenadas do mapa. Recebido. Aguentem firme.
+vs_radio_ligar_falha | tenso | Faísca. Cheiro de plástico queimado. O rádio chia e morre de novo. A bateria esquentou.
+vs_radio_denunciar_texto | normal | Brandão segura a lanterna enquanto você emenda os fios. Ele sabe qual fio é qual.
+vs_radio_denunciar_sucesso | normal | O painel acende. Brandão pega o microfone, respira fundo e fala tudo: o rumo zero sete quatro, a pista de terra, os nomes, os voos de 1998. Do outro lado, depois de um longo silêncio: Gravando. Continue, comandante.
+vs_radio_denunciar_falha | tenso | Faísca. O rádio morre de novo. Brandão xinga baixinho e começa a desencapar outro fio.
+vs_radio_sintonizar_texto | normal | Com a bateria, o receptor capta a voz: sete… quatro… zero. O sinal é fortíssimo, não vem de longe. Vem de um ponto do próprio vale, a sudeste.
+vs_radio_depois_texto | normal | Você se afasta do rádio.
+vs_penhasco_cena | tenso | No último poste do guarda-corpo, amarrada com arame, uma lanterna acesa aponta para a névoa. Ela pisca: longa, curta, longa. Lá embaixo, algo laranja brilha entre as rochas.
+vs_penhasco_corda_texto | normal | Você amarra a corda no poste mais firme e desce de costas.
+vs_penhasco_corda_sucesso | normal | No fundo: caixas lacradas com o mesmo adesivo laranja do bagageiro do avião. Carga que nunca deveria existir. E pegadas indo para sudeste.
+vs_penhasco_corda_falha | tenso | A pedra cede sob seu pé. A corda segura você, mas não antes de sua perna bater na rocha com um estalo seco.
+vs_penhasco_semcorda_texto | normal | Você procura apoios na rocha molhada.
+vs_penhasco_semcorda_sucesso | normal | Contra qualquer lógica, você chega ao fundo. Caixas lacradas com adesivo laranja. Pegadas indo para sudeste.
+vs_penhasco_semcorda_falha | tenso | A rocha escorrega sob seus dedos. A névoa engole o som da queda.
+vs_penhasco_lanterna_texto | normal | A lanterna é igual à sua. O padrão de piscadas não é aleatório, alguém sinalizava para baixo.
+vs_nevoa_cena | tenso | Da névoa da ravina, a mesma voz que respondeu ao seu grito chama baixo, paciente, pelo seu nome.
+vs_nevoa_ir_texto | normal | Você dá um passo. Depois outro.
+vs_nevoa_ir_sucesso | normal | Você para. Seu pé esquerdo está no ar, além da borda. Não há ninguém ali. Nunca houve.
+vs_nevoa_ir_falha | tenso | A voz fica cada vez mais perto e mais gentil. Depois, não há mais chão.
+vs_nevoa_afastar_texto | normal | Você recua até sentir o guarda-corpo nas costas. A voz continua, mais baixa.
+vs_nevoa_responder_texto | normal | A voz para. Então repete exatamente o que você disse, com a sua entonação.
+vs_rochedo_cena | tenso | No topo, junto ao marco geodésico, uma caixa metálica com cadeado de combinação de três dígitos. Daqui se vê o vale inteiro, e qualquer coisa no céu veria você.
+vs_rochedo_740_texto | normal | Clique. Dentro: dois sinalizadores, embalados em plástico, e uma foto antiga de uma mulher de capa de chuva segurando uma prancheta.
+vs_rochedo_forcar_texto | normal | Você bate no cadeado com uma pedra.
+vs_rochedo_forcar_sucesso | normal | A haste cede. Dentro: um sinalizador.
+vs_rochedo_forcar_falha | tenso | A pedra escorrega e esmaga seus dedos.
+vs_rochedo_deixar_texto | normal | Você deixa a caixa onde está.
+vs_helicoptero_cena | tenso | Um som grave e ritmado cresce do sul. Um helicóptero cruza o vale baixo, seguindo o rio, e some atrás da crista. Estão procurando. Vão voltar, e precisam ver você de um lugar aberto.
+vs_helicoptero_acenar_texto | normal | Ele já foi. Mas vai voltar.
+vs_helicoptero_memorizar_texto | normal | Ele circula sobre o rochedo a sudeste antes de voltar. É ali que ele vai passar de novo.
+vs_resgate_cena | tenso | Daqui você tem visão limpa do céu. Se o helicóptero voltar, é agora ou nunca.
+vs_resgate_sinalizador_texto | normal | Você espera o som do rotor e puxa o cordão. Fumaça vermelha sobe, densa.
+vs_resgate_sinalizador_sucesso | normal | O helicóptero faz uma curva fechada e vem na sua direção.
+vs_resgate_sinalizador_falha | tenso | Cedo demais. O helicóptero estava longe e não vê a fumaça.
+vs_resgate_fogueira_texto | normal | Você empilha os galhos e joga folhas verdes por cima para fazer fumaça.
+vs_resgate_fogueira_sucesso | normal | Uma coluna de fumaça branca sobe reta no ar parado. Minutos depois, o rotor.
+vs_resgate_fogueira_falha | tenso | O fogo não pega a tempo. A fumaça sai rala.
+vs_resgate_esperar_texto | normal | Nada no céu além de urubus.
+vs_poco_cena | tenso | A água do poço é tão parada que parece vidro. Então você vê: lá no fundo, presa entre duas pedras, uma luz fraca e verde pisca devagar. Como se alguém, lá embaixo, ainda estivesse esperando.
+vs_poco_mergulhar_texto | normal | Você enche o peito de ar e afunda na água gelada.
+vs_poco_mergulhar_sucesso | normal | Seus dedos encontram uma bolsa estanque, de lona laranja. A luz é de um chaveiro fosforescente. Dentro, embrulhado em plástico, um crachá: IARA MENEZES, HIDROLOGIA, 1998.
+vs_poco_mergulhar_falha | tenso | O frio fecha seu peito como um punho. Você sobe engasgado, sem nada nas mãos. Quando olha de novo, a luz apagou.
+vs_poco_galho_texto | normal | Você acha um galho longo e firme e sonda o fundo, deitado na pedra.
+vs_poco_galho_sucesso | normal | A ponta prende numa alça. Sobe uma bolsa estanque laranja, pingando. Dentro: um crachá plastificado. IARA MENEZES, HIDROLOGIA, 1998.
+vs_poco_galho_falha | tenso | O galho quebra. A luz lá embaixo continua piscando, paciente.
+vs_poco_deixar_texto | normal | Você se afasta da borda. Por um bom tempo, sente a luz verde nas costas.
+vs_trilha_cena | tenso | Nas folhas largas da trilha, manchas escuras, ainda pegajosas: sangue, em gotas regulares, de quem anda mancando. Meio metro adiante, rente ao chão, um laço de arame armado entre duas raízes.
+vs_trilha_seguir_texto | normal | Você segue as gotas, passo a passo, contornando o laço.
+vs_trilha_seguir_sucesso | normal | O rastro sobe a crista e segue para leste, pela linha das marcas laranjas. Quem sangra aqui sabe exatamente para onde vai: a antena.
+vs_trilha_seguir_falha | tenso | As gotas somem num trecho de pedra. Você volta ao ponto de partida com as pernas pesadas.
+vs_trilha_laco_texto | normal | Você se agacha junto à armadilha.
+vs_trilha_laco_sucesso | normal | Arame galvanizado novo, nó de quem faz isso há anos. Não é para bicho pequeno. Alguém mora neste vale, e não quer visitas.
+vs_trilha_laco_falha | tenso | O arame salta e morde seu tornozelo antes que você tire a mão.
+vs_trilha_passar_texto | normal | Você pula o laço e não olha para as manchas. Elas continuam no canto do seu olho.
+vs_queixadas_cena | tenso | Os pássaros param todos ao mesmo tempo. Um cheiro forte, azedo, sobe do chão. Depois, o som: dezenas de dentes batendo, cascos, galhos quebrando. Um bando de queixadas vem pela mata, na sua direção.
+vs_queixadas_arvore_texto | normal | Você agarra o primeiro galho baixo e se puxa para cima.
+vs_queixadas_arvore_sucesso | normal | Lá de cima, você vê o bando passar como um rio escuro. Quarenta, cinquenta bichos. Depois, silêncio de novo.
+vs_queixadas_arvore_falha | tenso | O galho racha. Você cai no meio do bando e um dente abre sua perna antes de eles seguirem.
+vs_queixadas_imovel_texto | normal | Você cola as costas num tronco e prende a respiração.
+vs_queixadas_imovel_sucesso | normal | Eles passam a um metro de você. Um para, fareja o ar, bate os dentes, e segue.
+vs_queixadas_imovel_falha | tenso | Seu corpo se mexe antes de você decidir. O bando se vira. Você corre, tropeça e rola por uma encosta.
+vs_queixadas_recuar_texto | normal | Você volta de costas, passo a passo, até o som ficar para trás.
+vs_celular_cena | tenso | No seu bolso, o celular acende sozinho. Sem sinal, sem rede, sem chamada. Do alto-falante, abafada, vem a voz de mulher: sete… quatro… zero… E depois, pela primeira vez, uma palavra a mais. O seu nome.
+vs_celular_ouvir_texto | normal | Você segura o aparelho com as duas mãos.
+vs_celular_ouvir_sucesso | normal | Na terceira repetição, você percebe: o mesmo chiado, na mesma sílaba, a mesma respiração antes do zero. Não é alguém falando. É uma gravação. Mas o seu nome não estava nela da primeira vez.
+vs_celular_ouvir_falha | tenso | A voz fica mais perto do microfone. Você larga o celular no chão e ele se apaga. Suas mãos não param de tremer.
+vs_celular_responder_texto | normal | Quem é? Sua voz sai rouca.
+vs_celular_responder_sucesso | normal | A caixa, diz a voz. Não deixa eles levarem a caixa. A tela mostra, por um segundo, um ponto a sudeste do vale.
+vs_celular_responder_falha | tenso | Silêncio. Depois, muito baixo, alguém respira do outro lado.
+vs_celular_desligar_texto | normal | Você segura o botão até a tela apagar. Por um instante, jura ter ouvido a voz terminar a frase.
+vs_brandao_ferida_cena | tenso | Brandão está sentado no chão, suando frio. A atadura improvisada na perna escureceu e cheira mal. Não vou sair daqui andando, ele diz, sem olhar para você. Mas você ainda pode.
+vs_brandao_ferida_tratar_texto | normal | Você corta as tiras velhas e lava o ferimento como dá.
+vs_brandao_ferida_tratar_sucesso_p1 | normal | Quando você termina, ele fica um tempo calado. Zero-sete-quatro não é código. É o rumo de pouso. Você voa em cima do rio, liga o rádio, e a voz te guia até a pista de terra. Quem pousa aqui segue a voz da mulher. Se esse rádio ligar, eu conto tudo.
+vs_brandao_ferida_tratar_sucesso_p2 | normal | Para quem quiser ouvir.
+vs_brandao_ferida_tratar_falha | tenso | O ferimento é mais fundo do que parecia. Ele morde a manga da camisa para não gritar. Pelo menos agora está limpo.
+vs_brandao_ferida_iara_texto | normal | Quem era Iara Menezes?
+vs_brandao_ferida_iara_sucesso | normal | Ele demora. Todo piloto dessa rota conhece a história. Ela media o rio. Viu os aviões pousando à noite e anotou os números. Um dia, sumiu. O inquérito disse que se perdeu na mata. Ninguém se perde com um rádio na mão.
+vs_brandao_ferida_iara_falha | tenso | Não fala dela aqui dentro, ele diz, olhando para o rádio. E não fala mais nada.
+vs_brandao_ferida_descansar_texto | normal | Ele fecha os olhos. Pela respiração, não está dormindo.
+vs_donos_carga_cena | tenso | Um motor de dois tempos sobe o vale, abafado pela mata. Um quadriciclo para do outro lado da ponte. Dois homens de botas de borracha descem. Um deles carrega uma espingarda com naturalidade, como quem carrega um guarda-chuva.
+vs_donos_carga_esconder_texto | normal | Você desce pela margem e se encolhe entre as pedras, com água até a cintura.
+vs_donos_carga_esconder_sucesso | normal | Passos nas tábuas, bem em cima de você. O Brandão não pousou onde devia. Então a gente pega a carga na ravina e acha ele depois. E quem mais tiver no avião. O motor se afasta rumo ao penhasco.
+vs_donos_carga_esconder_falha | tenso | Uma pedra rola sob seu pé. Os passos param. Um facho de lanterna varre a margem por um minuto inteiro, e então, sem pressa, eles vão embora.
+vs_donos_carga_pedir_texto | normal | Você levanta os braços e atravessa a clareira.
+vs_donos_carga_pedir_sucesso | normal | Um deles sorri demais. Claro, vem com a gente. O outro olha para o seu rosto como quem decora. Você diz que vai buscar alguém ferido, e some na mata antes que respondam.
+vs_donos_carga_pedir_falha | tenso | Cadê a carga? A coronha da espingarda acerta suas costelas antes de você entender a pergunta. Você foge pela mata, sem ar.
+vs_donos_carga_imovel_texto | normal | Você não respira direito até o som do motor sumir para os lados do penhasco. Eles não estavam procurando ajuda. Estavam procurando alguém.
+vs_cacada_cena | tenso | Um farol varre os troncos, devagar, de um lado para o outro. O motor está desligado; alguém empurra o quadriciclo para não fazer barulho. Eles estão procurando você.
+vs_cacada_esconder_texto | normal | Você se deita entre as raízes e cobre o rosto com folhas.
+vs_cacada_esconder_sucesso | normal | O facho passa por cima de você duas vezes. Na terceira, eles desistem. Uma voz, perto demais: Amanhã a gente acha.
+vs_cacada_esconder_falha | tenso | Um estampido. Chumbo arranca a casca da árvore ao seu lado e rasga seu ombro. Você corre no escuro até não ouvir mais nada.
+vs_cacada_correr_texto | normal | Você dispara mata adentro.
+vs_cacada_correr_sucesso | normal | Galhos cortam seu rosto, mas o farol fica para trás.
+vs_cacada_correr_falha | tenso | Uma raiz prende seu pé. O tornozelo vira com um estalo.
+vs_cacada_deitar_texto | normal | Você fica colado à terra fria por meia hora. O farol acaba indo embora.
+vs_asas_cena | tenso | Um bater de asas de couro, pesado demais para um morcego comum. Entre os galhos, dois pontos vermelhos se acendem, depois quatro. Elas não têm pressa. Estão esperando você ficar sozinho no escuro.
+vs_asas_lanterna_texto | normal | O facho acerta os olhos vermelhos. Um guincho agudo, e as asas se dispersam na mata. A luz as fere.
+vs_asas_chama_texto | normal | A chama treme no vento. As criaturas recuam, sibilando, e desaparecem além do alcance do fogo.
+vs_asas_imovel_texto | normal | Você não mexe um músculo.
+vs_asas_imovel_sucesso | normal | Uma delas pousa a um palmo do seu rosto, fareja, e vai embora. Você só volta a respirar minutos depois.
+vs_asas_imovel_falha | tenso | O cheiro do seu sangue entrega você.
+vs_asas_correr_texto | normal | Você dispara pela mata.
+vs_asas_correr_sucesso | normal | As asas batem atrás de você por um tempo, e param de repente, como se tivessem perdido o interesse.
+vs_asas_correr_falha | tenso | Algo cai nas suas costas. Dentes. Você rola no chão até se soltar.
+vs_tumulo_cena | tenso | No meio da mata, um cemitério esquecido: cruzes tortas, uma lamparina apagada. Uma das covas está aberta. A terra não foi cavada de cima para baixo. Foi empurrada de dentro para fora.
+vs_tumulo_ler_texto | normal | Você esfrega o musgo com a manga.
+vs_tumulo_ler_sucesso | normal | IARA MENEZES, 1971–1998. A hidróloga do rádio. Dentro da cova, só a prancheta, e marcas de unha na madeira do caixão.
+vs_tumulo_ler_falha | tenso | As letras estão gastas demais. Mas você tem certeza de que ouviu alguém respirar atrás de você.
+vs_tumulo_cobrir_texto | normal | Você empilha pedras até as mãos sangrarem. Não sabe bem por quê, só sabe que se sente melhor.
+vs_tumulo_sair_texto | normal | Você se afasta rápido. A lamparina, que estava apagada, agora está acesa.
+vs_febre_cena | tenso | Seu corpo queima e treme ao mesmo tempo. Na borda da luz, uma mulher de capa de chuva observa você. Ela segura uma prancheta.
+vs_febre_remedio_texto | normal | Você engole o comprimido a seco. Quando olha de novo, não há ninguém.
+vs_febre_perguntar_texto | normal | Quem é você?
+vs_febre_perguntar_sucesso | normal | Trinta e sete dias, ela diz. E some quando você pisca.
+vs_febre_perguntar_falha | tenso | Ela não responde. Fica. Você passa horas sem conseguir fechar os olhos.
+vs_febre_ignorar_texto | normal | Quando você abre os olhos, ela não está mais lá.
+vs_sede_cena | tenso | Sua língua gruda no céu da boca. Numa depressão entre as raízes, uma poça de água escura, com folhas no fundo.
+vs_sede_beber_texto | normal | Tem gosto de terra e ferro.
+vs_sede_resistir_texto | normal | Você passa por ela sem olhar.
+vs_frio_cena | tenso | Os tremores vêm em ondas. Seus dedos não fecham direito. Se isso continuar, você vai parar de tremer, e isso será pior.
+vs_frio_encolher_texto | normal | Joelhos no peito, costas contra uma pedra.
+vs_frio_mover_texto | normal | Você pula, esfrega os braços, anda em círculos.
+fs_portao_cena | tenso | Entre duas figueiras, correntes enferrujadas balançam sem vento. Atrás delas, cruzes tortas seguem pela neblina até uma capela quase enterrada.
+fs_portao_abrir_texto | normal | O metal geme. O caminho dos mortos se abre.
+fs_portao_marcar_texto | normal | Você amarra um pedaço de tecido na árvore. Quando olha de novo, ele já está molhado como se tivesse chovido por horas.
+fs_cemiterio_cena | tenso | A porta da capela está presa por raízes grossas como braços. Do outro lado, água pinga no ritmo de uma transmissão em código.
+fs_cemiterio_cortar_texto | normal | Você abre espaço centímetro por centímetro.
+fs_cemiterio_cortar_sucesso | normal | A porta cede. O ar lá dentro tem cheiro de igreja inundada e fio queimado.
+fs_cemiterio_cortar_falha | tenso | Uma raiz rompe de volta como um chicote, mas a passagem fica aberta.
+fs_cemiterio_rezar_texto | normal | Sete passos, quatro cruzes, nenhuma oração. Uma abertura lateral leva à capela.
+fs_capela_cena | tenso | O altar está preso sobre trilhos. Atrás dele, uma escada industrial desce para água e ferrugem. Nas paredes, marcas de garras sobem, nenhuma desce.
+fs_capela_descer_texto | normal | A escada termina num corredor de turbinas abandonadas.
+fs_capela_corda_texto | normal | A corda fica presa ao altar. Agora existe um caminho de volta, se alguma coisa não a cortar.
+fs_capela_voltar_texto | normal | O altar volta ao lugar. A vibração continua sob seus pés.
+fs_turbinas_cena | tenso | A turbina principal pulsa mesmo sem energia. Cabos sobem para a estação; outros desaparecem na água, na direção do Poço Escuro. Algo respira do outro lado do concreto.
+fs_turbinas_mapear_texto | normal | Você marca cada derivação na parede.
+fs_turbinas_mapear_sucesso | normal | O sistema inteiro amplifica um sinal que nasce sob o poço. E uma criatura enorme dorme junto dele.
+fs_turbinas_mapear_falha | tenso | A turbina acorda por um segundo. A onda de choque joga você dentro da água negra.
+fs_turbinas_recuar_texto | normal | Você arranca duas chaves. O pulso enfraquece, mas não para. Agora ele sabe que você está aqui.
+fs_observatorio_cena | tenso | A parabólica no cume gira pela primeira vez em décadas. No mapa de Iara, uma estrada técnica sobe até ela. O rádio comum nunca atravessará a tempestade sem aquele transmissor.
+fs_observatorio_subir_texto | normal | Você força o cadeado e encontra a trilha de manutenção.
+fs_observatorio_preparar_texto | normal | Você copia a rota no braço. O cume continuará chamando.
+fs_alinhar_cena | tenso | Três relés gigantes tremem sob a tempestade. O primeiro pede sete voltas. O segundo, quatro. O último está travado no zero, e alguma coisa bate dentro da caixa metálica.
+fs_alinhar_reles_texto | normal | Você prende o corpo ao painel e gira cada volante contra o vento.
+fs_alinhar_reles_sucesso | normal | A parabólica trava no rumo. Pela primeira vez, a estática se abre como uma porta. O rádio da estação agora pode alcançar o mundo.
+fs_alinhar_reles_falha | tenso | Um arco elétrico atravessa o painel. Dois relés ficam no lugar; o terceiro precisa ser tentado outra vez.
+fs_alinhar_tempestade_texto | normal | Ela não cede. A cada trovão, a voz no metal conta mais perto do seu ouvido.
+ch_ninho_cena | tenso | As marcas no seu pescoço latejam no ritmo de outro coração, um coração enorme, lento, que não é o seu. Quando você fecha os olhos, vê água parada e uma luz verde lá no fundo. Alguma coisa no poço escuro sabe o seu gosto.
+ch_ninho_ouvir_texto | normal | Você para de resistir e escuta.
+ch_ninho_ouvir_sucesso | normal | Por um instante você enxerga pelo olhar dela: uma caverna sob o poço, asas dobradas como um manto, dezenas de corpos pequenos pendurados no teto. Ela é a mãe de todas. E está com fome.
+ch_ninho_ouvir_falha | tenso | Você volta a si de joelhos, com terra na boca, dez passos longe de onde estava. Não lembra de ter andado.
+ch_ninho_resistir_texto | normal | O gosto de sangue traz você de volta. Lá longe, algo parece achar graça.
+ch_mae_cena_p1 | tenso | A água do poço escuro sobe um palmo sem nenhuma chuva. Das pedras, desdobra-se algo do tamanho de um homem alto, envolto nas próprias asas como numa capa de viúva. O rosto é quase humano. Quase.
+ch_mae_cena_p2 | tenso | Ela sorri com dentes demais e diz, numa voz de muitas vozes: Você voltou para a mãe.
+ch_mae_luz_texto | normal | Você levanta a lanterna como quem ergue uma faca.
+ch_mae_luz_sucesso | normal | O facho acerta em cheio. O grito dela estoura os seus ouvidos e as asas se rasgam contra as pedras. Ela recua para dentro do poço, cega e ferida, mas não morta.
+ch_mae_luz_falha | tenso | A luz treme na sua mão. Ela está atrás de você antes que o facho a encontre.
+ch_mae_fogo_texto | normal | Você acende o feixe. As chamas lambem seus dedos.
+ch_mae_fogo_sucesso | normal | As asas dela pegam fogo como papel velho. O cheiro é de couro e de coisa muito antiga queimando. Ela mergulha no poço, soltando vapor, ferida de verdade.
+ch_mae_fogo_falha | tenso | Um golpe de asa apaga o fogo e joga brasas no seu rosto.
+ch_mae_ajoelhar_texto | normal | Você se ajoelha na lama e expõe o pulso.
+ch_mae_ajoelhar_sucesso | normal | Ela bebe devagar, como quem prova vinho. Filho meu. O vale inteiro é seu quando a lua cair. Os homens da carga, a mulher do rádio, o piloto medroso, todos seus.
+ch_mae_ajoelhar_falha | tenso | Ela bebe mais do que devia. O mundo gira. Ainda fraco… mas meu.
+ch_mae_fugir_texto | normal | Você dá as costas para ela e corre.
+ch_mae_fugir_sucesso | normal | Asas batem logo atrás, e param na primeira faixa de luar. Amanhã, então.
+ch_mae_fugir_falha | tenso | Garras fecham no seu ombro e soltam só depois de provar você.
+ch_mae_furia_cena | tenso | O poço ferve. Ela sai da água de uma vez, meio queimada, meio cega, e já não sorri. As filhas descem das árvores como folhas pretas. É agora: ela ou você.
+ch_mae_furia_golpe_texto | normal | Você finca os pés na lama e espera.
+ch_mae_furia_golpe_sucesso | normal | Ela vem. Você não recua. Quando acaba, a coisa no chão é pequena, seca, quase frágil. As filhas se dispersam em silêncio. As marcas no seu pescoço param de latejar pela primeira vez.
+ch_mae_furia_golpe_falha | tenso | O bote é rápido demais. Dentes, garras, água gelada, você só se solta porque ela se engasga com a luz de algum relâmpago.
+ch_mae_furia_armadilha_texto | normal | Você pendura a lanterna num galho e se esconde no escuro.
+ch_mae_furia_armadilha_sucesso | normal | As filhas cercam a luz, confusas. A Mãe fica sozinha na margem, e não vê você chegando. Quando termina, o poço fica em silêncio. A sede escura vai embora do seu corpo.
+ch_mae_furia_armadilha_falha | tenso | Um galho estala sob seu pé. Ela vira a cabeça, e sorri de novo.
+ch_mae_furia_recuar_texto | normal | Você sai de perto do poço de costas, sem piscar. Ela não segue, está lambendo as feridas.
+ch_trono_cena | tenso | As filhas da Mãe pousam em volta de você em círculo, asas dobradas, cabeças baixas. Ela espera na água, e estende a mão ossuda. A lua caiu. O vale é seu, se você quiser. Nunca mais frio. Nunca mais fome. Nunca mais resgate.
+ch_trono_aceitar_texto | normal | Você pega a mão dela. O frio vai embora para sempre.
+ch_trono_recusar_texto | normal | Ela recolhe a mão sem raiva. Humanos sempre querem voltar. Eu espero.
+ch_carcaca_cena | tenso | Uma queixada adulta, aberta do pescoço à barriga, pendurada num galho como se alguém guardasse comida. No tronco, marcas de garras, a três metros do chão. E, perto da raiz, um laço de arame igual ao da trilha, cortado por dentes.
+ch_carcaca_rastrear_texto | normal | Você segue as árvores marcadas, uma a uma.
+ch_carcaca_rastrear_sucesso | normal | As marcas sobem até a Trilha da crista e terminam numa toca sob as pedras. Lá dentro: uma caneca de lata, um cobertor, uma foto de família desbotada. A fera tem uma casa.
+ch_carcaca_rastrear_falha | tenso | As marcas somem. Você passa o resto da tarde com a sensação de estar sendo seguido pelo mesmo caminho que você fez.
+ch_carcaca_sair_texto | normal | Você se afasta rápido. Na volta, um uivo longo, em plena luz do dia.
+ch_ambar_cena_p1 | tenso | Ele desce da crista sobre quatro patas e se levanta sobre duas. Mais alto que qualquer homem, pelo cinza-escuro, olhos de âmbar líquido. Traz no pescoço um pedaço de arame enferrujado, como uma coleira que ele mesmo não conseguiu tirar. Ele não ataca ainda.
+ch_ambar_cena_p2 | tenso | Ele quer ver o que você vai fazer.
+ch_ambar_uivar_texto | normal | O uivo rasga a sua garganta. Os dois avançam ao mesmo tempo.
+ch_ambar_uivar_sucesso | normal | Você o derruba na pedra e fecha os dentes no pescoço dele, e para. Ele baixa as orelhas. A matilha agora é sua.
+ch_ambar_uivar_falha | tenso | Ele é mais velho e mais forte. Joga você contra uma árvore e vai embora, sem pressa, dessa vez.
+ch_ambar_medalhao_texto | normal | Você ergue o medalhão (ou a lembrança da foto na toca) e fala baixo.
+ch_ambar_medalhao_sucesso | normal | O corpo dele encolhe, dobra, geme. No lugar da fera, um velho nu, magro, chorando no chão frio. Anselmo, ele diz. Eu era o mateiro. Eu vi quando enterraram a moça do rádio viva.
+ch_ambar_medalhao_falha | tenso | Ele olha para o medalhão com ódio e o arranca da sua mão com uma unha. Você não sabe se o ódio é de você ou de si mesmo.
+ch_ambar_fogo_texto | normal | Você acende o que tem e avança gritando.
+ch_ambar_fogo_sucesso | normal | O pelo dele pega fogo no ombro. Ele uiva de dor e some pela crista, deixando um rastro de sangue escuro. Ferido. Furioso.
+ch_ambar_fogo_falha | tenso | Uma patada apaga a chama e abre o seu braço até o osso.
+ch_ambar_baixar_texto | normal | Você não encara. Não corre.
+ch_ambar_baixar_sucesso | normal | Ele fareja o ar por um longo tempo, e vira as costas. Você foi julgado. Por hoje, absolvido.
+ch_ambar_baixar_falha | tenso | Seu corpo tremia demais. Ele cheirou o medo. Os dentes marcam o seu ombro, não para matar, para lembrar.
+ch_ambar_final_cena | tenso | O rastro de sangue termina em você. Ele está ali, encostado na pedra, respirando rápido, o ombro queimado ainda fumegando. Os olhos de âmbar já não têm fúria. Têm cansaço. Como se ele esperasse por isso há vinte e oito anos.
+ch_ambar_final_acabar_texto | normal | Você se aproxima.
+ch_ambar_final_acabar_sucesso | normal | Ele não se defende. No fim, o corpo no chão é de um velho magro, com uma coleira de arame no pescoço. No bolso da calça rasgada, um bilhete: Tavares enterrou a moça do rádio viva. Eu vi. Eu não fiz nada.
+ch_ambar_final_acabar_falha | tenso | Ainda ferido, ele é mais rápido que você. Deixa você no chão com três cortes paralelos e desaparece.
+ch_ambar_final_poupar_sucesso | normal | Anselmo. A fera encolhe até virar um velho. Eu vi o Tavares enterrar a moça do rádio. Viva. E a lua me pegou naquela mesma noite, como castigo. Ele aponta uma estrada de serviço que ninguém conhece.
+ch_ambar_final_poupar_falha | tenso | Ele rosna e se arrasta para longe. Não confia em ninguém, ainda.
+ch_ambar_final_recuar_texto | normal | Você vira as costas. Atrás de você, um uivo baixo, quase um agradecimento. Ou uma promessa.
+ch_lua_cheia_cena | tenso | A matilha espera na crista, olhos acesos no escuro. Lá embaixo, bem longe, o som de um helicóptero procurando alguém que já não existe. O vento traz o cheiro de tudo o que está vivo no vale. Tudo isso pode ser seu território.
+ch_lua_cheia_ficar_texto | normal | Você uiva. A matilha responde. O helicóptero vai embora.
+ch_lua_cheia_voltar_texto | normal | Você desce da crista. A matilha espera. Ela sabe esperar.
+ch_tavares_cena_p1 | tenso | Ele está sentado na mureta da ponte, fumando, como se esperasse um ônibus. Uns sessenta anos, chapéu de couro, a espingarda atravessada no colo. O capanga das botas de borracha está atrás de você, você nem ouviu ele chegar. Tavares, ele se apresenta.
+ch_tavares_cena_p2 | tenso | Você tem uma coisa que é minha. E eu tenho a única estrada que sai daqui.
+ch_tavares_negociar_texto | normal | Você fala devagar, sem olhar para a espingarda.
+ch_tavares_negociar_sucesso | normal | Ele ri. Gente da cidade negocia bonito. Mas escuta. E, distraído, fala demais: A moça do rádio também quis negociar, em 98. Ele percebe o que disse. O sorriso fica. Os olhos, não.
+ch_tavares_negociar_falha | tenso | Chega de conversa. A coronha acerta seu estômago. Você cai de joelhos na ponte. Pensa melhor. Eu espero aqui.
+ch_tavares_emboscada_texto | normal | Você gira e se joga contra o homem das botas.
+ch_tavares_emboscada_sucesso | normal | Os dois caem da ponte para dentro do córrego gelado. Quando você sobe, a espingarda está na sua mão e Tavares está de mãos para cima, pela primeira vez sem sorrir.
+ch_tavares_emboscada_falha | tenso | Um tiro para o alto, depois um para baixo. Chumbo rasga a sua coxa. Você cai no córrego e a correnteza leva você para longe da ponte.
+ch_tavares_dentes_texto | normal | Você sorri. E deixa o sorriso crescer.
+ch_tavares_dentes_sucesso | normal | O cigarro cai da boca dele. O capanga corre pela estrada sem olhar para trás. Tavares fica, paralisado, mãos tremendo sobre a espingarda que ele não consegue levantar. Eu sabia… eu sabia que o vale ia cobrar.
+ch_tavares_dentes_falha | tenso | Ele atira antes de pensar. O chumbo arde, mas você continua de pé. Ele foge, e você deixa.
+ch_tavares_iara_fala_texto | normal | O frio sobe pela sua garganta. A voz que sai não é a sua. Sete… quatro… zero, Tavares.
+ch_tavares_recuar_texto | normal | Vai, vai. O vale é pequeno. Ele acende outro cigarro. Você sente o olhar dele nas costas até a mata fechar.
+ch_iara_sinal_cena_p1 | tenso | Todos os sons do vale param ao mesmo tempo. Grilos, vento, água. Seu relógio marca vinte e três e quarenta. Ao longe, na direção da antena, a lâmpada vermelha acende sozinha, e começa a piscar em três tempos. Sete. Quatro. Zero.
+ch_iara_sinal_cena_p2 | tenso | Ela está chamando você para a estação.
+ch_iara_sinal_ir_texto | normal | Você não sabe por quê, mas diz em voz alta: Estou indo. A lâmpada para de piscar.
+ch_iara_sinal_calar_texto | normal | Os grilos voltam, um a um. Mas a lâmpada continua acesa até o amanhecer.
+ch_iara_cena_p1 | tenso | O lampião apaga. A névoa entra por baixo da porta e sobe até o teto. O rádio liga sozinho, sem bateria, e a voz de mulher conta: sete… quatro… zero… Então ela está ali, atrás da bancada. Capa de chuva encharcada, prancheta na mão, terra sob as unhas.
+ch_iara_cena_p2 | tenso | Ela olha para você e pergunta, com a sua própria voz: Você veio me tirar daqui… ou me calar?
+ch_iara_prometer_texto | normal | Você conta tudo o que sabe. O rumo zero sete quatro. A carga. O nome de quem a enterrou.
+ch_iara_prometer_sucesso | normal | A névoa fica imóvel. Ela abaixa a prancheta. Vinte e oito anos contando para ninguém. Liga o rádio. Eu dou a frequência certa, a da polícia, não a deles. E some, deixando na bancada uma fita cassete escrita à mão: PROVAS.
+ch_iara_prometer_falha | tenso | Sua voz falha no meio. Ela inclina a cabeça, decepcionada. Todo mundo promete. O frio atravessa você e ela se desfaz, por enquanto.
+ch_iara_ouvir_texto | normal | Você não pergunta nada. Só abre espaço dentro de você para ela entrar.
+ch_iara_ouvir_sucesso | normal | Você vê a noite de 1998 pelos olhos dela: o avião pousando sem luzes, Tavares com a pá, Anselmo escondido entre as árvores sem coragem de gritar. Quando acaba, ela sorri pela primeira vez. Obrigada por me ouvir até o fim.
+ch_iara_ouvir_falha | tenso | As imagens vêm rápidas demais. Você entende o essencial, e ela, pelo menos, descansa.
+ch_iara_desligar_texto | normal | Você agarra o feixe de fios e puxa com toda a força.
+ch_iara_desligar_sucesso | normal | Faíscas. Silêncio. A névoa sai pela porta como quem vai embora ofendida. Lá fora, muito longe, alguém grita, um grito de homem. Ela foi procurar outro ouvinte: quem a enterrou.
+ch_iara_desligar_falha | tenso | Os fios estão frios como gelo. Suas mãos grudam neles. A voz entra pelos seus dedos e sobe até a sua boca. Você começa a contar junto com ela.
+ch_iara_fugir_texto | normal | Você corre. A voz corre junto, sempre um passo atrás, contando até você não aguentar mais ouvir.
+ch_iara_furia_cena | tenso | O quadriciclo está tombado no meio da ponte, o farol ainda aceso apontando para a água. A espingarda boia no córrego. Não há ninguém. Só pegadas de botas indo até a beira, e nenhuma voltando. Na mureta, escrito com o dedo na lama: 740.
+ch_iara_furia_revistar_texto | normal | No baú: a chave de uma porteira, um mapa da estrada de serviço e um maço de dinheiro que ninguém vai vir buscar.
+ch_iara_furia_sair_texto | normal | Você passa longe da água. Ela está calma demais.
+ch_despertar_cena_p1 | tenso | Às 2h40 o vale inteiro prende a respiração. Quatro coisas vêm buscar você ao mesmo tempo: asas que batem no escuro, um uivo que sobe da crista, uma névoa fria que chama o seu nome, e, no fundo do peito, uma teimosia velha que diz não.
+ch_despertar_cena_p2 | tenso | Você só pode deixar entrar uma.
+ch_despertar_asas_texto | normal | Dentes. Frio. O coração para, e volta diferente. A noite agora tem o seu gosto.
+ch_despertar_uivo_texto | normal | Você responde. O uivo volta de dentro do seu peito. Seus dentes afundam na gengiva, a coluna se dobra e cada osso encontra uma forma nova sob a pele. Quando consegue ficar de pé, a mata inteira tem cheiro, medo, sangue e uma matilha esperando pelo seu nome.
+ch_despertar_nevoa_texto | normal | A névoa entra pela boca e pelos olhos. Quando sai, deixa vozes. Os mortos do vale agora falam com você.
+ch_despertar_resistir_texto | normal | Você finca os pés no chão e diz não, para as asas, para a lua, para os mortos. Elas recuam. Você continua humano. Mas agora enxerga cada uma delas.
+ch_classe_vampire_cena | tenso | O sangue da Mãe corre em você, mas não do mesmo jeito que corre nos outros. Na água parada do poço, reflexos que não são o seu mostram quatro caminhos. Cada clã é uma família antiga, com dons e maldições que passam pelo sangue.
+ch_classe_vampire_filhos_do_poco_texto_p1 | normal | Os primeiros que a Mãe das Asas bebeu e devolveu. Herdaram o silêncio da água parada: movem-se sem som, curam-se com o próprio sangue e enxergam no escuro como quem olha o fundo de um poço. Disciplinas: Véu da Névoa (passiva), Sangue que Fecha e Olhar de Poço.
+ch_classe_vampire_filhos_do_poco_texto_p2 | normal | Perdição, Sede de Água Parada: O sangue da Mãe puxa você para a água. −10% em orientação: todo caminho parece levar ao poço. Compulsão, Mergulho: Com a Fome no máximo, você precisa submergir. (Fome sobe ao usar poderes. )
+ch_classe_vampire_corte_da_crista_texto_p1 | normal | Aristocratas do sangue. Acreditam que o vale inteiro, homens, feras e mortos, deveria se ajoelhar. Sua voz dobra vontades e sua pele endurece como pedra da crista. Disciplinas: Voz de Comando (passiva), Presença Fria e Pele de Mármore.
+ch_classe_vampire_corte_da_crista_texto_p2 | normal | Perdição, Paladar de Rei: Só o sangue certo sacia. Caçar bichos alivia menos a Fome, e o desprezo por trabalho braçal pesa: −10% em improviso. Compulsão, Domínio: Com a Fome no máximo, você precisa mandar em alguém ou em algo. (Fome sobe ao usar poderes. )
+ch_classe_vampire_rasgados_texto_p1 | normal | O sangue da Mãe não os aceitou inteiros: saíram tortos, marcados, com rostos que assustam os vivos. Vivem nas frestas, sabem de tudo e somem quando querem. Disciplinas: Olhos de Rato (passiva), Sumir e Força do Túmulo.
+ch_classe_vampire_rasgados_texto_p2 | normal | Perdição, Rosto Partido: A transformação deformou você. −20% em comunicação: os vivos desviam o olhar. Compulsão, Fome de Segredos: Com a Fome no máximo, você precisa saber o que ninguém sabe. (Fome sobe ao usar poderes. )
+ch_classe_vampire_febris_texto_p1 | normal | O sangue da Mãe chegou a eles junto com uma febre que nunca passou. Veem o que foi e o que vai ser, e às vezes o que nunca existiu. Dizem que são loucos. Às vezes estão certos. Disciplinas: Segunda Visão (passiva), Presságio e Sussurro na Mente.
+ch_classe_vampire_febris_texto_p2 | normal | Perdição, Mente Rachada: A febre nunca passa. −15% em controle emocional. Compulsão, Delírio: Com a Fome no máximo, a febre mostra coisas. (Fome sobe ao usar poderes. )
+ch_classe_werewolf_cena | tenso | Uivos vêm de três direções da crista. Cada um é uma tribo, com a sua lei e o seu modo de caçar. A lua espera que você responda a um deles.
+ch_classe_werewolf_uivo_da_crista_texto_p1 | normal | Guardam o vale como quem guarda a própria casa. Sentem cada passo na mata pelo chão e pelo vento, e não perdoam quem traz o mal para dentro dele. Disciplinas: Faro (passiva), Pele Grossa e Garra. Perdição, Lua no Sangue: A fera fala primeiro.
+ch_classe_werewolf_uivo_da_crista_texto_p2 | normal | −10% em comunicação. Compulsão, Território: Com a Fúria no máximo, você precisa marcar e defender. (Fúria sobe ao usar poderes. )
+ch_classe_werewolf_dentes_de_ferro_texto_p1 | normal | A tribo que odeia o que o homem fez ao vale: o diesel no córrego, os aviões sem luz, as covas na mata. Rasgam metal com os dentes e correm mais que o vento. Disciplinas: Cheiro de Diesel (passiva), Rasgar Metal e Correr com o Vento.
+ch_classe_werewolf_dentes_de_ferro_texto_p2 | normal | Perdição, Ódio: Raiva de tudo que é humano. −15% em controle emocional. Compulsão, Fúria Cega: Com a Fúria no máximo, você ataca o que estiver perto. (Fúria sobe ao usar poderes. )
+ch_classe_werewolf_filhos_da_queixada_texto_p1 | normal | A tribo mais antiga e mais prática: sobreviver primeiro, o resto depois. Comem de tudo, aguentam tudo e nunca andam sozinhos. Disciplinas: Estômago de Fera (passiva), Farejar Comida e Chamado do Bando. Perdição, Fome sem Fim: O corpo de fera queima tudo.
+ch_classe_werewolf_filhos_da_queixada_texto_p2 | normal | −10% em inteligência (a fome distrai). Compulsão, Devorar: Com a Fúria no máximo, a fome vira urgência. (Fúria sobe ao usar poderes. )
+ch_classe_haunted_cena | tenso | A névoa se abre em três corredores. Em cada um, os mortos fazem um trabalho diferente: chorar, escutar, atravessar. Eles perguntam qual será o seu.
+ch_classe_haunted_carpideiras_texto_p1 | normal | Choram pelos mortos que ninguém chorou. O choro acalma as almas, e às vezes os vivos. Carregam o luto como quem carrega água. Disciplinas: Lamento (passiva), Chorar pelos Mortos e Ouvir a Cova. Perdição, Luto: O peso de tantos mortos. −10% em agilidade.
+ch_classe_haunted_carpideiras_texto_p2 | normal | Compulsão, Velar: Com o Eco no máximo, você precisa velar um morto. (Eco sobe ao usar poderes. )
+ch_classe_haunted_radio_escutas_texto_p1 | normal | Ouvem os mortos pelo chiado, rádios, celulares sem sinal, fios soltos. Iara fala mais alto com eles. Consertam qualquer aparelho e escutam o que ele ainda guarda. Disciplinas: Frequência (passiva), Sintonizar e Eco do Passado.
+ch_classe_haunted_radio_escutas_texto_p2 | normal | Perdição, Chiado: O ruído nunca para. −10% em comunicação: você responde a vozes que ninguém ouviu. Compulsão, Contagem: Com o Eco no máximo, você precisa contar junto com a voz. (Eco sobe ao usar poderes. )
+ch_classe_haunted_os_frios_texto_p1 | normal | Tocaram a morte e voltaram com metade do corpo do lado de lá. Atravessam paredes de névoa, não fazem sombra e gelam o que tocam. Disciplinas: Corpo Frio (passiva), Atravessar e Toque Gelado. Perdição, Sem Calor: O corpo não se aquece direito.
+ch_classe_haunted_os_frios_texto_p2 | normal | −10% em resistência. Compulsão, Frio do Outro Lado: Com o Eco no máximo, o lado de lá puxa você. (Eco sobe ao usar poderes. )
+ch_classe_hunter_cena | tenso | Você não cedeu. Nem ao sangue, nem à lua, nem à névoa. Mas resistir sozinho não basta: há três jeitos antigos de continuar de pé neste vale.
+ch_classe_hunter_vigias_texto_p1 | normal | Resistiram ao chamado ficando acordados. Aprenderam a ver as criaturas antes que elas vejam você, e a segurar a luz firme quando tudo treme. Disciplinas: Vigília (passiva), Luz Firme e Marcar a Presa. Perdição, Insônia: Dormir é deixar de vigiar.
+ch_classe_hunter_vigias_texto_p2 | normal | −10% em resistência. Compulsão, Não Dormir: Com a Obsessão no máximo, você não consegue fechar os olhos. (Obsessão sobe ao usar poderes. )
+ch_classe_hunter_remendeiros_texto_p1 | normal | A fé deles é de mão: rezas antigas, chá amargo e pano limpo. Não vencem as criaturas, impedem que elas levem os seus. Disciplinas: Mãos Firmes (passiva), Benzedura e Chá Amargo. Perdição, Carrega a Dor dos Outros: Cada cura cobra um pouco. −10% em força.
+ch_classe_hunter_remendeiros_texto_p2 | normal | Compulsão, Cuidar: Com a Obsessão no máximo, você precisa cuidar de alguém. (Obsessão sobe ao usar poderes. )
+ch_classe_hunter_justiceiros_texto_p1 | normal | Resistiram porque alguém precisava contar a verdade. Farejam a mentira e não largam o osso até o culpado pagar, seja homem ou fera. Disciplinas: Faro de Mentira (passiva), Pressionar e Cumprir a Promessa.
+ch_classe_hunter_justiceiros_texto_p2 | normal | Perdição, Teimosia: Nunca se escondem da verdade, nem das balas. −10% em furtividade. Compulsão, Justiça: Com a Obsessão no máximo, você precisa confrontar alguém. (Obsessão sobe ao usar poderes. )
+ch_encontro_cena_p1 | tenso | Sob a lona do acampamento abandonado, vocês se reencontram, mas não são mais as mesmas pessoas que embarcaram no bimotor. Olhos que refletem a luz. Mãos que não param de tremer. Alguém que fala com quem não está ali.
+ch_encontro_cena_p2 | tenso | Na estaca principal, sob os 37 riscos de Iara, alguém gravou um risco novo. Para cada um de vocês.
+ch_encontro_revelar_texto | normal | Você conta tudo: o chamado, o preço, o poder. Ninguém foge. Pela primeira vez desde a queda, vocês são um grupo, um grupo estranho, mas um grupo.
+ch_encontro_esconder_texto | normal | Você sorri, diz que está bem, esconde as marcas. Os outros fazem o mesmo. Todo mundo sabe que todo mundo está mentindo.
+npc_piloto_perguntar_acidente | normal | Você pergunta o que aconteceu com o avião.
+npc_piloto_perguntar_acidente_sucesso | normal | Ele fala baixo: foi pago para pousar no vale, entregar a carga e sumir. O ELT, ele mesmo desligou.
+npc_piloto_perguntar_acidente_falha | tenso | Ele desvia o olhar e não responde.
+npc_piloto_perguntar_caminho | normal | Você pergunta como sair do vale.
+npc_piloto_perguntar_numeros | normal | Você pergunta sobre os números no rádio.
+npc_piloto_pedir_ajuda | normal | Você pede ajuda a ele.
+npc_piloto_oferecer_item | normal | Você oferece algo a ele.
+npc_piloto_acalmar | normal | Você tenta acalmá-lo.
+npc_piloto_acalmar_sucesso | normal | Os ombros dele descem um pouco.
+npc_piloto_acalmar_falha | tenso | Ele fica ainda mais agitado.
+npc_piloto_ameacar | normal | Você o ameaça.
+npc_piloto_outro | normal | Ele escuta, mas não parece entender o que você quer.
+npc_tavares_perguntar_acidente | normal | Você pergunta sobre a carga do avião.
+npc_tavares_perguntar_acidente_sucesso | normal | Ele dá uma tragada longa. Carga é carga. O Brandão sabia o preço. A moça do rádio também sabia, em 98.
+npc_tavares_perguntar_acidente_falha | tenso | Pergunta demais pra quem está perdido.
+npc_tavares_perguntar_numeros | normal | Você diz: sete, quatro, zero.
+npc_tavares_ameacar_sucesso | normal | Ele ri, mas levanta da mureta e se afasta da ponte.
+npc_tavares_ameacar_falha | tenso | A espingarda sobe meio palmo. Você entende o recado.
+npc_tavares_acalmar | normal | Você tenta baixar a tensão.
+npc_tavares_oferecer_item | normal | Você oferece algo.
+npc_tavares_outro | normal | Ele só sorri e fuma.
+npc_anselmo_perguntar_acidente | normal | Você pergunta o que ele viu em 1998.
+npc_anselmo_perguntar_caminho | normal | Você pergunta pela saída.
+npc_anselmo_perguntar_numeros | normal | Você pergunta sobre os números.
+npc_anselmo_pedir_ajuda | normal | Você pede ajuda.
+npc_anselmo_acalmar | normal | Você diz que não é culpa dele.
+npc_anselmo_outro | normal | Ele olha para a lua e não responde.
+npc_iara_perguntar_acidente | normal | Você pergunta o que aconteceu com ela.
+npc_iara_perguntar_caminho | normal | Você pergunta como sair.
+npc_iara_acalmar | normal | Você diz que ela pode descansar.
+npc_iara_outro | normal | Ela olha para o rio e sorri.
+final_resgate_radio | calmo | Horas depois do chamado, faróis sobem a estrada de serviço até a estação. Você sobreviveu ao Vale Silente.
+final_resgate_sinalizador | calmo | O helicóptero pousa no rochedo. Enquanto sobe, você olha para o vale, e por um instante vê uma capa de chuva entre as árvores.
+final_resgate_fogueira | calmo | A fumaça branca guiou o resgate até você. O vale fica para trás, em silêncio.
+final_a_verdade_p1 | calmo | O resgate chega com a polícia federal junto. Brandão desce a estrada algemado e em paz. Semanas depois, mergulhadores tiram do poço escuro o que restava de Iara Menezes.
+final_a_verdade_p2 | calmo | Às vinte e três e quarenta daquela noite, pela primeira vez em vinte e oito anos, o rádio da estação fica em silêncio.
+final_morte | triste | Semanas depois, uma equipe encontra os destroços. O relatório final fala em causas naturais.
+final_senhor_da_noite | calmo | O helicóptero volta três vezes e desiste. O relatório diz sem sobreviventes. No vale, às vinte e três e quarenta, as asas agora respondem a outra voz. A sua.
+final_rei_da_mata | calmo | Anos depois, mateiros da região contam sobre uma fera de olhos de âmbar que guarda a crista do Vale Silente. Dizem que ela nunca ataca os perdidos. Só quem vem buscar a carga.

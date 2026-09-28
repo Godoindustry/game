@@ -39,6 +39,9 @@ describe("Áudios organizados por pessoa e situação", () => {
     }
     const seen = new Map<string, string>();
     for (const f of files) {
+      // Narração gerada tem falas curtas ("Resistir."); as demais passam do limite de truncado.
+      const min = f.includes(`${path.sep}narracao${path.sep}`) ? 1_000 : 8_000;
+      expect(fs.statSync(f).size, `${f} está vazio ou truncado`).toBeGreaterThan(min);
       const h = createHash("md5").update(fs.readFileSync(f)).digest("hex");
       expect(seen.get(h), `${f} repete ${seen.get(h)}`).toBeUndefined();
       seen.set(h, f);

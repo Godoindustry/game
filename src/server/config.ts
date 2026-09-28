@@ -77,6 +77,7 @@ const schema = z.object({
   AI_PREMIUM_DAILY_REQUESTS: z.coerce.number().int().nonnegative().default(400),
 
   // Voz: áudios humanos gravados por padrão; Gemini TTS é opcional. Nunca usa voz do navegador.
+  TTS_PROVIDER: z.enum(["recorded", "gemini"]).default("recorded"),
   GEMINI_TTS_MODELS: z.string().default("gemini-3.8-flash-tts,gemini-3.8-flash-lite-tts,gemini-3.1-flash-tts-preview"),
   TTS_SPEECH_LEVEL: z.enum(["beginner", "advanced"]).default("advanced"),
   // Mantidos apenas para o gerador legado de áudios fixos em public/audio.

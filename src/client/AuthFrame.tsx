@@ -10,7 +10,7 @@ export function AuthFrame({ title, subtitle, children }: { title: string; subtit
       <section className="auth-art" aria-label="Vale Silente durante a tempestade">
         <Image
           className="auth-art-image"
-          src="/art/vale-silente/landing-hero.png"
+          src="/art/vale-silente/landing-hero.webp"
           alt=""
           fill
           priority

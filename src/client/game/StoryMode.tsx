@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { GameState } from "./useGame";
 import { EventCard, HereCard, PendingCard } from "./Panels";
@@ -17,8 +17,42 @@ function narrativeLine(state: GameState) {
   return {
     title: state.event?.title ?? match?.[1] ?? state.here.name,
     text: match?.[2] ?? raw,
-    speaker: latest?.speaker ?? (state.event ? "Narrador" : "O vale"),
+    // `speaker` vem preenchido com o nome do destinatário em linhas privadas; só NPC fala de fato.
+    speaker: latest?.speakerKey?.startsWith("npc:") && latest.speaker ? latest.speaker : state.event ? "Narrador" : "O vale",
   };
+}
+
+/**
+ * O que a última escolha causou: as linhas entre o evento anterior e o atual.
+ * Sem isto a tela pula direto para a próxima cena e o jogador não vê o resultado.
+ */
+function lastOutcome(state: GameState, shownText: string) {
+  const log = state.log;
+  let end = log.length;
+  if (state.event) {
+    for (let i = log.length - 1; i >= 0; i--) if (log[i].kind === "event") { end = i; break; }
+  }
+  let start = -1;
+  for (let i = end - 1; i >= 0; i--) if (log[i].kind === "event") { start = i; break; }
+  return log
+    .slice(start + 1, end)
+    .filter((entry) => ["result", "narrative", "npc"].includes(entry.kind) && entry.text.trim() && !shownText.includes(entry.text.trim()));
+}
+
+/** O D20 que acabou de sair (nesta sessão), associado à linha de resultado que ele gerou. */
+function useFreshRoll(state: GameState) {
+  const rollId = state.lastRoll?.id ?? null;
+  const seen = useRef<string | null | undefined>(undefined);
+  const [fresh, setFresh] = useState<{ rollId: string; logId: number } | null>(null);
+  const lastResult = [...state.log].reverse().find((entry) => entry.kind === "result")?.id ?? 0;
+  useEffect(() => {
+    const before = seen.current;
+    seen.current = rollId;
+    if (before === undefined || !rollId || rollId === before) return;
+    const timer = window.setTimeout(() => setFresh({ rollId, logId: lastResult }), 0);
+    return () => window.clearTimeout(timer);
+  }, [rollId, lastResult]);
+  return fresh && fresh.rollId === rollId ? { roll: state.lastRoll!, logId: fresh.logId } : null;
 }
 
 export function StoryMode({
@@ -37,6 +71,10 @@ export function StoryMode({
   onCancel: () => void;
 }) {
   const line = useMemo(() => narrativeLine(state), [state]);
+  const outcome = useMemo(() => lastOutcome(state, line.text), [state, line.text]);
+  const freshRoll = useFreshRoll(state);
+  const outcomeRoll = freshRoll && outcome.some((entry) => entry.id === freshRoll.logId) ? freshRoll.roll : null;
+  const objective = state.objective;
   const art = sceneArtwork(state) as CSSProperties | undefined;
   const finished = state.campaign.status === "finished";
   const dead = !!state.me && !state.me.alive;
@@ -45,6 +83,16 @@ export function StoryMode({
 
   return (
     <main className={`story-mode ${dangerous ? "story-mode-danger" : ""}`} aria-label="Modo história">
+      {outcome.length > 0 && (
+        <section className={`story-outcome ${outcomeRoll ? (outcomeRoll.success ? "is-success" : "is-failure") : ""}`} aria-label="O que aconteceu">
+          <span className="story-outcome-kicker">
+            O QUE ACONTECEU
+            {outcomeRoll && <b>{outcomeRoll.success ? "SUCESSO" : "FALHA"} NO D20 · TIROU {outcomeRoll.finalTotal ?? outcomeRoll.value}, PRECISAVA {outcomeRoll.target}</b>}
+          </span>
+          {outcome.map((entry) => <p key={entry.id}>{entry.text}</p>)}
+        </section>
+      )}
+
       <section className="story-stage" aria-label={`Cena: ${line.title}`}>
         <div className="story-stage-art" style={art} aria-hidden="true" />
         <div className="story-stage-breathe" aria-hidden="true" />
@@ -78,7 +126,14 @@ export function StoryMode({
             <span>{activeEvent ? "DECISÃO" : state.pending ? "AÇÃO EM CURSO" : "PRÓXIMO PASSO"}</span>
             <strong>{activeEvent ? "O que você faz?" : state.pending ? "O tempo passa no vale" : "Conduza a cena"}</strong>
           </div>
-          <em>Decisões, diálogos e D20 · cada escolha avança a narrativa</em>
+          {objective ? (
+            <em className="story-objective">
+              <b>Objetivo:</b> {objective.label}
+              <small>{objective.hint}</small>
+            </em>
+          ) : (
+            <em>Cada escolha avança a história</em>
+          )}
         </div>
 
         {finished ? (

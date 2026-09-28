@@ -25,7 +25,7 @@ export default function Home() {
       <style>{`body::before,body::after{display:none!important}`}</style>
       <Image
         className={styles.backdrop}
-        src="/art/vale-silente/landing-hero.png"
+        src="/art/vale-silente/landing-hero.webp"
         alt="Destroços de um avião e sobreviventes sob chuva no Vale Silente"
         fill
         priority

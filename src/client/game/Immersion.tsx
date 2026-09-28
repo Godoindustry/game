@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameState } from "./useGame";
 import { narrateSequence, stopNarration, VOICE_STATUS_EVENT, type VoiceStatus } from "./narrator";
+import { DICE, playCue } from "./choiceSfx";
+
+/** Quanto tempo o resultado do D20 fica no topo; a cena falada espera isso. */
+export const D20_REVEAL_MS = 3_400;
 
 type Roll = GameState["lastRoll"];
 
@@ -19,13 +23,13 @@ export function sceneArtwork(state: GameState) {
   if (boss?.active) {
     if (boss.id === "tavares") {
       return {
-        backgroundImage: 'url("/art/vale-silente/phase-atlas.png")',
+        backgroundImage: 'url("/art/vale-silente/phase-atlas.webp")',
         backgroundPosition: "0% 100%",
         backgroundSize: "200% 200%",
       };
     }
     return {
-      backgroundImage: 'url("/art/vale-silente/boss-atlas.png")',
+      backgroundImage: 'url("/art/vale-silente/boss-atlas.webp")',
       backgroundPosition: boss.artPosition,
       backgroundSize: "300% 100%",
     };
@@ -33,35 +37,35 @@ export function sceneArtwork(state: GameState) {
   const sceneSource = `${state.event?.id ?? ""} ${state.event?.title ?? ""} ${state.event?.body ?? ""}`.toLocaleLowerCase("pt-BR");
   if (/rádio|frequência|iara|celular|23h40|sinal|antena/.test(sceneSource)) {
     return {
-      backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.png")',
+      backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.webp")',
       backgroundPosition: "100% 0%",
       backgroundSize: "200% 200%",
     };
   }
   if (/fogueira|abrigo|descans|acampamento/.test(sceneSource)) {
     return {
-      backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.png")',
+      backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.webp")',
       backgroundPosition: "0% 100%",
       backgroundSize: "200% 200%",
     };
   }
   if (/rastro|pegada|carcaça|passos|lama/.test(sceneSource)) {
     return {
-      backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.png")',
+      backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.webp")',
       backgroundPosition: "0% 0%",
       backgroundSize: "200% 200%",
     };
   }
   if (!state.event) {
     return {
-      backgroundImage: 'url("/art/vale-silente/story-chapel.png")',
+      backgroundImage: 'url("/art/vale-silente/story-chapel.webp")',
       backgroundPosition: "center center",
       backgroundSize: "cover",
     };
   }
   if (state.story.phase) {
     return {
-      backgroundImage: 'url("/art/vale-silente/phase-atlas.png")',
+      backgroundImage: 'url("/art/vale-silente/phase-atlas.webp")',
       backgroundPosition: state.story.phase.artPosition,
       backgroundSize: "200% 200%",
     };
@@ -135,7 +139,7 @@ export function CampaignDirector({ state, onOpenMap }: { state: GameState; onOpe
           <div
             className="boss-threat-art"
             style={boss.id === "tavares"
-              ? { backgroundImage: 'url("/art/vale-silente/phase-atlas.png")', backgroundSize: "200% 200%", backgroundPosition: "0% 100%" }
+              ? { backgroundImage: 'url("/art/vale-silente/phase-atlas.webp")', backgroundSize: "200% 200%", backgroundPosition: "0% 100%" }
               : { backgroundPosition: boss.artPosition }}
             aria-hidden="true"
           />
@@ -212,9 +216,9 @@ export function HorrorCinematics({ state }: { state: GameState }) {
   const isBoss = reveal.kind === "boss" && boss;
   const artStyle = isBoss
     ? boss.id === "tavares"
-      ? { backgroundImage: 'url("/art/vale-silente/phase-atlas.png")', backgroundPosition: "0% 100%", backgroundSize: "200% 200%" }
-      : { backgroundImage: 'url("/art/vale-silente/boss-atlas.png")', backgroundPosition: boss.artPosition, backgroundSize: "300% 100%" }
-    : { backgroundImage: 'url("/art/vale-silente/phase-atlas.png")', backgroundPosition: phase?.artPosition ?? "0% 0%", backgroundSize: "200% 200%" };
+      ? { backgroundImage: 'url("/art/vale-silente/phase-atlas.webp")', backgroundPosition: "0% 100%", backgroundSize: "200% 200%" }
+      : { backgroundImage: 'url("/art/vale-silente/boss-atlas.webp")', backgroundPosition: boss.artPosition, backgroundSize: "300% 100%" }
+    : { backgroundImage: 'url("/art/vale-silente/phase-atlas.webp")', backgroundPosition: phase?.artPosition ?? "0% 0%", backgroundSize: "200% 200%" };
 
   return (
     <div className={`horror-cinematic horror-cinematic-${reveal.kind}`} role="status" aria-live="polite">
@@ -237,7 +241,8 @@ export function NarratorVoice({ state }: { state: GameState }) {
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>({ available: true, message: null });
   const campaign = useRef(state.campaign.id);
   const spoken = useRef<number | null>(null);
-  const lines = state.log.filter((entry) => ["event", "narrative", "npc", "ending", "death"].includes(entry.kind));
+  // "result" = o que a escolha do jogador causou; sem ele a história pula da decisão para a próxima cena.
+  const lines = state.log.filter((entry) => ["event", "result", "narrative", "npc", "ending", "death"].includes(entry.kind));
   const lineKey = lines.map((entry) => entry.id).join("|");
 
   useEffect(() => {
@@ -245,6 +250,13 @@ export function NarratorVoice({ state }: { state: GameState }) {
     window.addEventListener(VOICE_STATUS_EVENT, onStatus);
     return () => window.removeEventListener(VOICE_STATUS_EVENT, onStatus);
   }, []);
+
+  // O aviso não fica parado sobre a cena; o botão continua marcado em vermelho.
+  useEffect(() => {
+    if (!voiceStatus.message) return;
+    const timer = window.setTimeout(() => setVoiceStatus((status) => ({ ...status, message: null })), 6000);
+    return () => window.clearTimeout(timer);
+  }, [voiceStatus.message]);
 
   // Na primeira carga fala apenas a linha atual. Se chegarem várias juntas, toca em ordem
   // e o carregador já prepara a próxima enquanto a atual está sendo reproduzida.
@@ -259,10 +271,23 @@ export function NarratorVoice({ state }: { state: GameState }) {
       ? [lines[lines.length - 1]]
       : lines.filter((entry) => entry.id > spoken.current!);
     spoken.current = latestId;
+    // Sem limpeza aqui: a próxima narração já interrompe a anterior (interruptWith). Parar na
+    // limpeza calava a primeira fala (o React refaz o efeito) e cortava frases no meio.
     if (enabled && pending.length) narrateSequence(state.campaign.id, pending.map((entry) => ({ logId: entry.id })));
-    return () => stopNarration();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, state.campaign.id, lineKey]);
+
+  // Sai da tela: cala o narrador. O adiamento deixa a remontagem imediata (StrictMode) cancelar.
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      window.setTimeout(() => {
+        if (!mounted.current) stopNarration();
+      }, 0);
+    };
+  }, []);
 
   const toggle = () => {
     if (enabled) stopNarration();
@@ -286,6 +311,7 @@ export function NarratorVoice({ state }: { state: GameState }) {
   );
 }
 
+/** Cartão curto no topo: mostra o resultado sem cobrir as opções; um toque fecha. */
 export function D20Overlay({ roll }: { roll: Roll }) {
   const initial = useRef<string | null | undefined>(undefined);
   const [visible, setVisible] = useState(false);
@@ -297,8 +323,9 @@ export function D20Overlay({ roll }: { roll: Roll }) {
     }
     if (!roll || initial.current === roll.id) return;
     initial.current = roll.id;
+    playCue(roll.success ? DICE.success : DICE.failure);
     setVisible(true);
-    const timer = window.setTimeout(() => setVisible(false), 5000);
+    const timer = window.setTimeout(() => setVisible(false), D20_REVEAL_MS);
     return () => window.clearTimeout(timer);
   }, [roll]);
 
@@ -308,25 +335,29 @@ export function D20Overlay({ roll }: { roll: Roll }) {
   const sign = (roll.modifier ?? 0) >= 0 ? "+" : "";
 
   return (
-    <div className={`dice-reveal ${roll.success ? "dice-success" : "dice-failure"} ${roll.crit ? "dice-critical" : ""}`} role="status" aria-live="polite">
-      <div className="dice-smoke" />
+    <button
+      type="button"
+      className={`dice-reveal ${roll.success ? "dice-success" : "dice-failure"} ${roll.crit ? "dice-critical" : ""}`}
+      role="status"
+      aria-live="polite"
+      onClick={() => setVisible(false)}
+    >
       <div className="d20-stage">
         <div className="d20-die"><span>{roll.value}</span></div>
       </div>
       <div className="dice-copy">
-        <small style={{ color: "var(--amber)" }}>TESTE DE {roll.attribute.replaceAll("_", " ").toUpperCase()}</small>
-        {advLabel && <span className="label violet" style={{ margin: "2px auto", display: "inline-block" }}>{advLabel}</span>}
-        <strong style={{ fontSize: 24, marginTop: 4 }}>
+        <small>TESTE DE {roll.attribute.replaceAll("_", " ").toUpperCase()}{advLabel && ` · ${advLabel}`}</small>
+        <strong>
           {roll.crit === "critical_success" ? "SUCESSO CRÍTICO!" : roll.crit === "critical_failure" ? "FALHA CRÍTICA" : roll.success ? "SUCESSO" : "FALHA"}
         </strong>
-        <span className="mono" style={{ fontSize: 13, marginTop: 2 }}>
+        <span>
           {roll.modifier !== undefined ? (
-            <>D20 <b>{roll.value}</b> {sign}{roll.modifier} = <b style={{ fontSize: 15, color: "var(--fg)" }}>{roll.finalTotal}</b> vs CD {roll.target}</>
+            <>D20 <b>{roll.value}</b> {sign}{roll.modifier} = <b>{roll.finalTotal}</b> · precisava de {roll.target}</>
           ) : (
-            <>D20 {roll.value} · CD {roll.target}</>
+            <>D20 {roll.value} · precisava de {roll.target}</>
           )}
         </span>
       </div>
-    </div>
+    </button>
   );
 }

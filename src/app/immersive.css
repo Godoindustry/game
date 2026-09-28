@@ -23,7 +23,7 @@
   border-bottom-color: rgba(151, 31, 53, .45);
   background:
     linear-gradient(90deg, rgba(18, 10, 13, .98), rgba(8, 6, 7, .94)),
-    url("/art/vale-silente/valley-cinematic.png") center 42% / cover;
+    url("/art/vale-silente/valley-cinematic.webp") center 42% / cover;
   box-shadow: 0 10px 35px rgba(0, 0, 0, .55);
 }
 
@@ -41,7 +41,7 @@
   border-left-color: #4b2932;
   background:
     linear-gradient(180deg, rgba(16, 10, 13, .94), rgba(8, 6, 7, .98)),
-    url("/art/vale-silente/valley-cinematic.png") 82% center / auto 100%;
+    url("/art/vale-silente/valley-cinematic.webp") 82% center / auto 100%;
   box-shadow: -22px 0 55px rgba(0, 0, 0, .48);
 }
 
@@ -73,7 +73,7 @@
   position: absolute;
   inset: -3%;
   z-index: -4;
-  background: url("/art/vale-silente/story-chapel.png") center / cover no-repeat;
+  background: url("/art/vale-silente/story-chapel.webp") center / cover no-repeat;
   filter: saturate(.67) contrast(1.13) brightness(.72);
   transform: scale(1.035);
   animation: story-camera 32s ease-in-out infinite alternate;
@@ -183,6 +183,30 @@
 .story-decisions .choice { min-height: 54px; margin-bottom: 8px; border-color: rgba(111, 73, 82, .58); background: rgba(7, 6, 8, .68); }
 .story-decisions .choice:hover:not(:disabled) { border-color: #a89067; background: rgba(52, 34, 40, .74); transform: translateX(3px); }
 .story-decisions .action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Resultado da escolha anterior: aparece antes da nova cena para o jogador não se perder. */
+.story-outcome {
+  position: relative;
+  z-index: 3;
+  max-width: 980px;
+  margin: 0 auto 12px;
+  padding: 12px 16px 12px 18px;
+  border: 1px solid rgba(169, 145, 101, .45);
+  border-radius: 2px 12px 2px 2px;
+  background: linear-gradient(110deg, rgba(30, 22, 18, .96), rgba(12, 9, 10, .94));
+  box-shadow: inset 3px 0 #a99165, 0 12px 30px rgba(0, 0, 0, .45);
+  animation: dice-copy .45s ease both;
+}
+.story-outcome.is-success { border-color: rgba(119, 183, 126, .45); box-shadow: inset 3px 0 #77b77e, 0 12px 30px rgba(0, 0, 0, .45); }
+.story-outcome.is-failure { border-color: rgba(185, 55, 75, .55); box-shadow: inset 3px 0 #b9374b, 0 12px 30px rgba(0, 0, 0, .45); }
+.story-outcome-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 6px; color: #b68d62; font: 700 9px var(--font-mono); letter-spacing: .18em; }
+.story-outcome-kicker b { padding: 2px 7px; color: #efe2cd; border: 1px solid rgba(239, 226, 205, .25); font-weight: 700; letter-spacing: .12em; }
+.story-outcome.is-success .story-outcome-kicker b { color: #b7d4b6; border-color: rgba(119, 183, 126, .5); }
+.story-outcome.is-failure .story-outcome-kicker b { color: #f0a3ae; border-color: rgba(185, 55, 75, .6); }
+.story-outcome p { margin: 0; color: #ddd2c3; font: 15px/1.55 Georgia, serif; white-space: pre-line; }
+.story-outcome p + p { margin-top: 6px; color: #b5a99d; font-style: italic; }
+.story-decisions-heading .story-objective { max-width: 380px; color: #c9b58f; font: 12px/1.4 var(--font-body); font-style: normal; text-align: right; }
+.story-objective b { color: #d8c298; font-weight: 700; }
+.story-objective small { display: block; margin-top: 3px; color: #8f8587; font: italic 11px/1.4 Georgia, serif; }
 .story-remote-event { margin: 0 0 14px; padding: 10px 12px; color: #a89a91; border-left: 2px solid #79505a; background: rgba(68, 41, 48, .22); font: italic 12px/1.5 Georgia, serif; }
 
 /* Seletor de destinos em linguagem de história — nenhuma visão de tabuleiro. */
@@ -194,7 +218,7 @@
   padding: clamp(28px, 6vw, 74px) clamp(18px, 8vw, 120px);
   background:
     linear-gradient(90deg, rgba(6, 5, 7, .98) 0%, rgba(6, 5, 7, .82) 48%, rgba(6, 5, 7, .56) 100%),
-    url("/art/vale-silente/story-chapel.png") center / cover fixed;
+    url("/art/vale-silente/story-chapel.webp") center / cover fixed;
 }
 .story-route-content::after { content: ""; position: fixed; inset: 58px 0 0; pointer-events: none; box-shadow: inset 0 0 140px rgba(0, 0, 0, .82); }
 .story-route-content > header, .story-route-list { position: relative; z-index: 1; max-width: 920px; }
@@ -262,7 +286,7 @@
   isolation: isolate;
   border: 1px solid rgba(191, 151, 116, .28);
   border-radius: 2px 16px 2px 2px;
-  background: url("/art/vale-silente/valley-cinematic.png") center 48% / cover;
+  background: url("/art/vale-silente/valley-cinematic.webp") center 48% / cover;
   box-shadow: 0 16px 36px rgba(0, 0, 0, .42), inset 0 0 0 1px rgba(255, 255, 255, .025);
 }
 
@@ -325,7 +349,7 @@
 }
 .campaign-phase-art {
   height: 88px;
-  background-image: linear-gradient(0deg, #0b0809 0%, transparent 72%), url("/art/vale-silente/phase-atlas.png");
+  background-image: linear-gradient(0deg, #0b0809 0%, transparent 72%), url("/art/vale-silente/phase-atlas.webp");
   background-repeat: no-repeat;
   background-size: 200% 200%;
   filter: saturate(.72) contrast(1.08);
@@ -351,7 +375,7 @@
 .campaign-act-track > .act-current { color: #e5c28d; border-color: #986b43; background: rgba(141, 91, 46, .19); box-shadow: inset 0 -2px #b34355; }
 
 .boss-threat { position: relative; display: grid; grid-template-columns: 104px minmax(0, 1fr); min-height: 118px; border-top: 1px solid #5a252f; background: linear-gradient(105deg, #18090d, #0a0809); }
-.boss-threat-art { background-image: linear-gradient(90deg, transparent 58%, #130a0d 100%), url("/art/vale-silente/boss-atlas.png"); background-repeat: no-repeat; background-size: 300% 100%; filter: saturate(.8) contrast(1.12); }
+.boss-threat-art { background-image: linear-gradient(90deg, transparent 58%, #130a0d 100%), url("/art/vale-silente/boss-atlas.webp"); background-repeat: no-repeat; background-size: 300% 100%; filter: saturate(.8) contrast(1.12); }
 .boss-threat-copy { align-self: center; padding: 11px 12px 11px 4px; min-width: 0; }
 .boss-threat-copy > span { display: block; color: #c04e5d; font: 700 8px var(--font-mono); letter-spacing: .15em; }
 .boss-threat-copy > strong { display: block; margin-top: 3px; color: #ead6ba; font: 700 16px/1.05 var(--font-head); text-transform: uppercase; letter-spacing: .055em; }
@@ -387,7 +411,7 @@
   flex: 0 0 36px;
   border: 1px solid rgba(216, 194, 152, .42);
   border-radius: 50%;
-  background-image: url("/art/vale-silente/survivor-atlas.png");
+  background-image: url("/art/vale-silente/survivor-atlas.webp");
   background-repeat: no-repeat;
   background-size: 200% 200%;
   box-shadow: inset 0 0 12px rgba(0, 0, 0, .5), 0 0 12px rgba(151, 31, 53, .12);
@@ -445,7 +469,7 @@
 }
 
 .character-lineage-art {
-  background-image: linear-gradient(0deg, rgba(8, 5, 6, .2), transparent), url("/art/vale-silente/archetype-atlas.png");
+  background-image: linear-gradient(0deg, rgba(8, 5, 6, .2), transparent), url("/art/vale-silente/archetype-atlas.webp");
   background-size: 200% 200%;
   background-position: 50% center;
   filter: grayscale(.75) brightness(.48);
@@ -453,7 +477,7 @@
 
 .character-lineage-vampire .character-lineage-art,
 .character-lineage-werewolf .character-lineage-art {
-  background-image: linear-gradient(0deg, rgba(8, 5, 6, .18), transparent), url("/art/vale-silente/lineage-atlas.png");
+  background-image: linear-gradient(0deg, rgba(8, 5, 6, .18), transparent), url("/art/vale-silente/lineage-atlas.webp");
   background-size: 200% 100%;
   filter: saturate(.82) contrast(1.12) brightness(.76);
 }
@@ -547,7 +571,7 @@
   position: absolute;
   inset: -8% 0;
   z-index: -3;
-  background: url("/art/vale-silente/archetype-atlas.png") 0% 0% / 200% 200% no-repeat;
+  background: url("/art/vale-silente/archetype-atlas.webp") 0% 0% / 200% 200% no-repeat;
   filter: saturate(.75) contrast(1.08) brightness(.74);
   transform: scale(1.02);
   transition: transform 5s ease;
@@ -555,7 +579,7 @@
 .power-card:hover .power-hero-art { transform: scale(1.075); }
 .power-vampire .power-hero-art,
 .power-werewolf .power-hero-art {
-  background-image: url("/art/vale-silente/lineage-atlas.png");
+  background-image: url("/art/vale-silente/lineage-atlas.webp");
   background-size: 200% 100%;
 }
 .power-vampire .power-hero-art { background-position: 0% center; }
@@ -704,20 +728,30 @@
 .d20-choice-back { padding: 4px 7px; color: #8f8587; border: 0; border-bottom: 1px solid rgba(143, 133, 135, .3); background: none; cursor: pointer; font: 9px var(--font-mono); }
 .d20-choice-back:hover:not(:disabled) { color: #e4d3bc; border-color: #a97b60; }
 
-/* Revelação do D20 — o número vem do motor do servidor */
+/* Revelação do D20 — cartão curto no topo; as opções continuam visíveis e um toque fecha. */
 .dice-reveal {
   position: fixed;
   z-index: 200;
-  inset: 0;
+  top: calc(76px + env(safe-area-inset-top));
+  left: 50%;
   display: grid;
-  place-content: center;
-  place-items: center;
-  pointer-events: none;
-  background: radial-gradient(circle, rgba(22, 10, 14, .5), transparent 43%);
-  animation: dice-overlay 4.8s ease both;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  width: min(400px, calc(100vw - 20px));
+  padding: 10px 16px 10px 12px;
+  color: inherit;
+  text-align: left;
+  border: 1px solid rgba(213, 187, 139, .55);
+  border-radius: 2px 14px 2px 2px;
+  background: linear-gradient(110deg, rgba(34, 17, 22, .97), rgba(10, 8, 10, .96));
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .6), inset 3px 0 #b18a50;
+  cursor: pointer;
+  transform: translateX(-50%);
+  animation: dice-toast 3.4s ease both;
 }
-.dice-smoke { position: absolute; width: 420px; height: 280px; border-radius: 50%; background: radial-gradient(ellipse, rgba(151, 31, 53, .2), transparent 65%); filter: blur(24px); animation: dice-smoke 2.2s ease-out both; }
-.d20-stage { width: 154px; height: 154px; perspective: 700px; filter: drop-shadow(0 22px 24px rgba(0, 0, 0, .72)); }
+.dice-failure { border-color: rgba(185, 55, 75, .6); box-shadow: 0 18px 44px rgba(0, 0, 0, .6), inset 3px 0 #a52d42; }
+.d20-stage { width: 58px; height: 58px; perspective: 400px; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .7)); }
 .d20-die {
   position: relative;
   display: grid;
@@ -730,17 +764,14 @@
     linear-gradient(150deg, transparent 49%, rgba(231, 202, 155, .33) 50%, transparent 51%),
     linear-gradient(30deg, transparent 49%, rgba(231, 202, 155, .2) 50%, transparent 51%),
     radial-gradient(circle at 45% 35%, #8f2b3d, #350e19 65%, #16080d);
-  border: 1px solid #d5bb8b;
-  animation: d20-roll 1.45s cubic-bezier(.12, .7, .17, 1) both;
-  transform-style: preserve-3d;
+  animation: d20-roll .8s cubic-bezier(.12, .7, .17, 1) both;
 }
-.d20-die::before, .d20-die::after { content: ""; position: absolute; inset: 20%; border: 1px solid rgba(232, 204, 160, .35); transform: rotate(45deg); }
-.d20-die::after { inset: 30%; transform: rotate(-45deg); }
-.d20-die span { position: relative; z-index: 2; color: #fff0d4; font: 700 46px Georgia, serif; text-shadow: 0 2px 2px #000, 0 0 18px rgba(255, 225, 173, .4); }
-.dice-copy { position: relative; margin-top: 14px; text-align: center; text-transform: uppercase; animation: dice-copy .5s 1.05s both; }
-.dice-copy small { display: block; color: #b49f8d; font: 600 10px var(--font-mono); letter-spacing: .2em; }
-.dice-copy strong { display: block; margin: 5px 0 2px; color: #e6c99a; font: 700 27px var(--font-head); letter-spacing: .15em; }
-.dice-copy span { color: #9c8b83; font: 11px var(--font-mono); }
+.d20-die span { position: relative; z-index: 2; color: #fff0d4; font: 700 24px Georgia, serif; text-shadow: 0 2px 2px #000, 0 0 12px rgba(255, 225, 173, .4); }
+.dice-copy { min-width: 0; text-transform: uppercase; animation: dice-copy .35s .55s both; }
+.dice-copy small { display: block; color: #b49f8d; font: 600 9px var(--font-mono); letter-spacing: .16em; }
+.dice-copy strong { display: block; margin: 3px 0 2px; color: #e6c99a; font: 700 22px/1 var(--font-head); letter-spacing: .12em; }
+.dice-copy span { color: #9c8b83; font: 11px var(--font-mono); text-transform: none; }
+.dice-copy span b { color: #efe2cd; }
 .dice-failure .d20-die { background: radial-gradient(circle at 45% 35%, #55242c, #250d13 65%, #100609); }
 .dice-failure .dice-copy strong { color: #d15467; }
 .narrator-control { position: relative; }
@@ -760,24 +791,27 @@
   font: 9px/1.45 var(--font-mono);
 }
 @keyframes d20-roll {
-  0% { opacity: 0; transform: translateY(-180px) rotateX(20deg) rotateY(0) rotateZ(0) scale(.55); }
-  45% { opacity: 1; transform: translateY(20px) rotateX(580deg) rotateY(430deg) rotateZ(210deg) scale(1.05); }
-  70% { transform: translateY(-9px) rotateX(704deg) rotateY(710deg) rotateZ(350deg) scale(.98); }
-  100% { transform: translateY(0) rotateX(720deg) rotateY(720deg) rotateZ(360deg) scale(1); }
+  0% { opacity: 0; transform: rotate(-200deg) scale(.4); }
+  60% { opacity: 1; transform: rotate(18deg) scale(1.08); }
+  100% { transform: rotate(0) scale(1); }
 }
 @keyframes d20-ready-roll { to { transform: rotate(360deg) scale(.92); } }
 @keyframes dice-copy { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes dice-smoke { from { opacity: 0; transform: scale(.5); } 50% { opacity: 1; } to { opacity: .3; transform: scale(1.4); } }
-@keyframes dice-overlay { 0%, 88% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes dice-toast { 0% { opacity: 0; transform: translate(-50%, -14px); } 8%, 88% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -8px); } }
 
 /* Cenas faladas: a arte acompanha os novos áudios e identifica quem está falando. */
+/* Painel na parte de baixo: a mesa continua visível acima; um toque em qualquer ponto fecha. */
 .spoken-scene {
   position: fixed;
   z-index: 175;
-  inset: 68px 0 0;
+  inset: auto 0 0;
+  height: min(600px, 66dvh);
   overflow: hidden;
   isolation: isolate;
+  cursor: pointer;
   background: #030304;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 96px);
+  mask-image: linear-gradient(180deg, transparent 0, #000 96px);
   animation: spoken-scene-enter .72s cubic-bezier(.18, .8, .22, 1) both;
 }
 .spoken-scene-art {
@@ -810,7 +844,7 @@
 }
 .spoken-scene-close {
   position: absolute;
-  top: 16px;
+  top: 104px;
   right: 19px;
   z-index: 2;
   padding: 7px 10px;
@@ -863,8 +897,8 @@
   filter: saturate(.72) contrast(1.08) brightness(.82);
   transform: scale(1.025);
 }
-.spoken-portrait-npc { background-image: url("/art/vale-silente/voice-character-atlas.png"); background-size: 200% 200%; }
-.spoken-portrait-boss { background-image: url("/art/vale-silente/boss-atlas.png"); background-size: 300% 100%; }
+.spoken-portrait-npc { background-image: url("/art/vale-silente/voice-character-atlas.webp"); background-size: 200% 200%; }
+.spoken-portrait-boss { background-image: url("/art/vale-silente/boss-atlas.webp"); background-size: 300% 100%; }
 .spoken-portrait-radio {
   display: grid;
   place-items: center;
@@ -940,24 +974,39 @@
 }
 
 @media (max-width: 900px) {
-  .game-immersive .game-body { grid-template-columns: 1fr; }
+  .game-immersive .game-body { grid-template-columns: minmax(0, 1fr); }
   .game-immersive .hud { height: 60px; min-height: 60px; }
   .game-immersive .game-side { border-left: 0; border-top: 1px solid #4b2932; }
   .story-mode { overflow: visible; }
   .story-mode .story-stage { min-height: clamp(430px, 68vh, 620px); }
   .voice-popover { position: fixed; top: 68px; right: 10px; width: min(340px, calc(100vw - 20px)); }
-  .spoken-scene { top: 60px; }
   .spoken-scene-dialogue { grid-template-columns: clamp(92px, 19vw, 140px) minmax(0, 1fr); }
 }
 
 @media (max-width: 560px) {
+  /* HUD de celular: relógio, objetivo, som e personagem cabem em 360 px. */
+  .game-immersive .hud { gap: 6px; padding: 6px 8px; padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+  .game-immersive .hud > * { flex-shrink: 0; }
+  .game-immersive .hud > .spacer { flex: 1 1 0; min-width: 0; }
+  .game-immersive .hud .compass-wrap { flex: 0 1 auto; min-width: 0; }
+  .game-immersive .hud .compass { max-width: 100%; }
+  .game-immersive .hud-clock { font-size: 16px; }
+  .game-immersive .hud-block .tiny { display: none !important; }
+  .game-immersive .hud .lineage-badge { display: none; }
+  .game-immersive .avatar-btn { width: 42px; height: 42px; }
+  .voice-unavailable { position: fixed; top: 66px; left: 10px; right: 10px; width: auto; }
   .story-mode { padding: 8px; }
   .story-mode .story-stage { min-height: 530px; border-radius: 2px 13px 2px 2px; }
   .story-stage-topline { gap: 8px; padding: 12px; font-size: 7px; }
   .story-stage-topline span:nth-child(2) { display: none; }
   .story-stage-copy { left: 17px; right: 17px; bottom: 42px; }
   .story-stage-copy h1 { font-size: clamp(34px, 12vw, 51px); }
-  .story-stage-copy p { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 7; -webkit-box-orient: vertical; font-size: 14px; }
+  /* Celular: o texto empurra a altura da cena em vez de ser cortado. */
+  .story-mode .story-stage { display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; padding-top: 170px; }
+  .story-stage-copy { position: relative; left: auto; right: auto; bottom: auto; margin: 0 17px 34px; }
+  .story-stage-copy p { font-size: 15px; line-height: 1.55; }
+  .story-decisions-heading .story-objective { max-width: none; text-align: left; }
+  .story-outcome { margin: 0 0 10px; padding: 11px 13px 11px 15px; }
   .story-decisions { width: calc(100% - 12px); padding: 15px 12px; }
   .story-decisions-heading { align-items: flex-start; flex-direction: column; }
   .story-decisions-heading em { text-align: left; }
@@ -979,7 +1028,7 @@
   .awakening-ring i { transform-origin: 0 26px; }
   .horror-cinematic-copy { padding-left: 9px; }
   .horror-cinematic-copy > small { font-size: 9px; }
-  .spoken-scene { inset: 60px 0 0; }
+  .spoken-scene { height: min(430px, 56dvh); }
   .spoken-scene-dialogue { left: 13px; right: 13px; bottom: 22px; grid-template-columns: 78px minmax(0, 1fr); gap: 11px; }
   .spoken-portrait { border-radius: 2px 11px 2px 2px; }
   .spoken-copy { padding-bottom: 0; }
@@ -988,12 +1037,12 @@
   .spoken-copy > em { margin-top: 5px; font-size: 8px; }
   .spoken-copy blockquote { margin-top: 8px; font-size: 13px; line-height: 1.38; display: -webkit-box; overflow: hidden; -webkit-line-clamp: 7; -webkit-box-orient: vertical; }
   .spoken-progress { margin-top: 11px; }
-  .spoken-scene-close { top: 10px; right: 10px; }
+  .spoken-scene-close { top: 100px; right: 10px; }
   .participant-transition { top: 70px; right: 8px; left: 8px; min-width: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .d20-die, .dice-reveal, .dice-copy, .dice-smoke, .voice-pulse,
+  .d20-die, .dice-reveal, .dice-copy, .voice-pulse,
   .scene-card-noise, .scene-card-boss::after, .power-danger .power-resource,
   .power-act-warning i, .awakening-ring, .horror-cinematic,
   .horror-cinematic-art, .horror-cinematic-rain, .horror-cinematic-copy,

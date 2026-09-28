@@ -507,7 +507,8 @@ img { max-width: 100%; display: block; }
 .msg-new { animation: msg-appear 0.3s ease forwards; }
 
 /* ── HUD do Jogo ─────────────────────────────────────────────────────────── */
-.game { height: 100dvh; display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+/* minmax(0, 1fr): a coluna nunca cresce além da tela por causa do conteúdo do HUD. */
+.game { height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; overflow: hidden; }
 .hud {
   display: flex; align-items: center; gap: 12px; padding: 8px 16px; height: 60px;
   background: rgba(8,11,9,0.95); backdrop-filter: blur(8px);
@@ -620,8 +621,8 @@ img { max-width: 100%; display: block; }
 .side-scroll::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 2px; }
 
 @media (max-width: 900px) {
-  .game { height: auto; min-height: 100dvh; overflow: visible; }
-  .game-body { grid-template-columns: 1fr; }
+  .game { height: auto; min-height: 100dvh; overflow: visible; overflow-x: clip; }
+  .game-body { grid-template-columns: minmax(0, 1fr); }
   .game-side { border-left: 0; border-top: 1px solid var(--line); }
   .side-scroll { overflow: visible; }
   .hud { position: sticky; top: 0; padding: 6px 10px; gap: 8px; }

@@ -13,6 +13,8 @@
     "db:migrate": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.json src/server/db/cli.ts",
     "audio:generate": "node --env-file-if-exists=.env.local scripts/generate-audio.js",
     "voice:verify": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.json scripts/verify-gemini-tts.ts",
+    "narration:export": "tsx --tsconfig tsconfig.json scripts/export-narration.ts",
+    "narration:import": "node scripts/import-narration.mjs",
     "cap:sync": "cap sync",
     "cap:android": "cap open android"
   },
