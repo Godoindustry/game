@@ -31,6 +31,7 @@ export async function freshApp(overrides: Partial<AppConfig> = {}, file = ":memo
     ADMIN_PASSWORD: "Master12345",
     FIXED_SEED: "seed-teste",
     AI_PROVIDER: "mock",
+    AI_LIVE_GAMEPLAY: true,
     ...overrides,
   });
   let db: Db;

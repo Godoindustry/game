@@ -68,6 +68,17 @@ export const SOURCES = [
   ["dragon-studio-grass-being-rustled-511323.mp3", "cenario/mato-grama", 8],
   ["dragon-studio-dry-field-grass-rustling-482893.mp3", "cenario/mato-campo-seco", 8],
   ["sspsurvival-the-sound-of-grass-in-the-forest-footsteps-248351.mp3", "cenario/passos-floresta", 5],
+  ["dragon-studio-footsteps-on-the-nature-trail-419017.mp3", "cenario/passos-trilha", 6],
+  ["freesound_community-passos-101430.mp3", "cenario/passos-terra", 5],
+  ["freesound_community-passos-30798.mp3", "cenario/passos-caminhada", 6],
+  ["freesound_community-concrete-footsteps-1-6265.mp3", "cenario/passos-concreto", 5],
+  ["dragon-studio-winter-wind-402331.mp3", "cenario/vento-inverno"],
+  ["dragon-studio-harsh-wind-515272.mp3", "cenario/vento-forte"],
+  ["daub_audio-brain-damage-148577.mp3", "cenario/zumbido", 9],
+  // iara, almas e mãe das asas (lote 2)
+  ["freesound_community-passos-de-salto-70753.mp3", "iara/passos-salto", 7],
+  ["misfit_melomaniac-hello-whisper-533246.mp3", "almas/sussurro-ola"],
+  ["alesiadavina-female-vampire-calculating-gaze-508989.mp3", "mae-das-asas/vampira-olhar"],
 ];
 
 const BR = { 1: [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320], 2: [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160] };

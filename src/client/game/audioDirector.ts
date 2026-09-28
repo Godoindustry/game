@@ -51,7 +51,9 @@ export class AudioDirector {
   private nextVoiceTimer: ReturnType<typeof setTimeout> | null = null;
   private bed: { sound: string; el: HTMLAudioElement; base: number; cat: AudioCategory; fading: boolean } | null = null;
   private currentSting: { el: HTMLAudioElement; base: number } | null = null;
-  private lastSting = 0;
+  // -Infinity: com 0, o intervalo mínimo engolia todo efeito do primeiro 1,5 s da página
+  // (performance.now() começa em zero) — inclusive o zumbido da abertura.
+  private lastSting = -Infinity;
   private enabled = true;
   /** Sons que deram 404 nesta aba: não pede de novo, vai direto para a reserva. */
   private missing = new Set<string>();

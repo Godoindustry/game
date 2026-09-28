@@ -2,23 +2,35 @@
  * Cadeia de provedores: tenta cada um na ordem; erro, limite de uso (429) ou
  * resposta vazia passam para o próximo. Se todos falharem, o AIService usa o
  * texto predefinido. O resultado informa qual provedor respondeu (para custo/log).
+ *
+ * Com `rotate`, vira um rodízio de chaves do MESMO provedor: cada chamada começa pela
+ * próxima chave (espalha o uso entre as cotas gratuitas) e, se ela falhar ou bater no
+ * limite (429), tenta as outras antes de desistir.
  */
 import type { AIProvider, ProviderCall, ProviderResult } from "../types";
 
 type Method = "generateNarrative" | "generateNpcResponse" | "generateClueDescription" | "classifyPlayerIntent" | "decideCreatureAttitude";
 
 export class ChainProvider implements AIProvider {
-  readonly name = "chain";
+  readonly name: string;
   readonly model: string;
+  private cursor = 0;
 
-  constructor(private readonly providers: AIProvider[]) {
+  constructor(private readonly providers: AIProvider[], private readonly opts: { name?: string; rotate?: boolean } = {}) {
     if (!providers.length) throw new Error("ChainProvider sem provedores");
-    this.model = providers.map((p) => p.name).join("→");
+    this.name = opts.name ?? "chain";
+    this.model = opts.rotate ? `${providers[0].model} ×${providers.length} chaves` : providers.map((p) => p.name).join("→");
+  }
+
+  private order(): AIProvider[] {
+    if (!this.opts.rotate) return this.providers;
+    const start = this.cursor++ % this.providers.length;
+    return [...this.providers.slice(start), ...this.providers.slice(0, start)];
   }
 
   private async attempt(method: Method, input: never, call: ProviderCall): Promise<ProviderResult> {
     const errors: string[] = [];
-    for (const p of this.providers) {
+    for (const p of this.order()) {
       if (call.signal.aborted) break;
       try {
         const r = await (p[method] as (i: never, c: ProviderCall) => Promise<ProviderResult>)(input, call);

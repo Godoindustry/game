@@ -34,12 +34,18 @@ export function createProvider(c: AppConfig): AIProvider | null {
     case "mock":
       return new MockProvider();
     case "chain": {
+      // Várias chaves do mesmo provedor viram um rodízio (ver ChainProvider.rotate).
+      const pool = (name: string, keys: (string | undefined)[], make: (key: string) => AIProvider): AIProvider | null => {
+        const list = keys.filter((k): k is string => !!k).map(make);
+        return list.length > 1 ? new ChainProvider(list, { name, rotate: true }) : list[0] ?? null;
+      };
       const available: Record<string, () => AIProvider | null> = {
-        groq: () => (c.GROQ_API_KEY ? new OpenAICompatibleProvider("https://api.groq.com/openai/v1", c.GROQ_API_KEY, c.GROQ_MODEL, {
-                name: "groq",
-                jsonMode: true,
-                extraBody: /gpt-oss|qwen3/.test(c.GROQ_MODEL) ? { reasoning_effort: "low" } : undefined,
-              }) : null),
+        groq: () => pool("groq", [c.GROQ_API_KEY, c.GROQ_API_KEY2, c.GROQ_API_KEY3, c.GROQ_API_KEY4], (key) =>
+          new OpenAICompatibleProvider("https://api.groq.com/openai/v1", key, c.GROQ_MODEL, {
+            name: "groq",
+            jsonMode: true,
+            extraBody: /gpt-oss|qwen3/.test(c.GROQ_MODEL) ? { reasoning_effort: "low" } : undefined,
+          })),
         openrouter: () =>
           c.OPENROUTER_API_KEY
             ? new OpenAICompatibleProvider("https://openrouter.ai/api/v1", c.OPENROUTER_API_KEY, c.OPENROUTER_MODEL, {
@@ -55,10 +61,11 @@ export function createProvider(c: AppConfig): AIProvider | null {
           c.MISTRAL_API_KEY
             ? new OpenAICompatibleProvider("https://api.mistral.ai/v1", c.MISTRAL_API_KEY, c.MISTRAL_MODEL, { name: "mistral", jsonMode: true })
             : null,
-        gemini: () =>
-          c.GEMINI_API_KEY
-            ? new OpenAICompatibleProvider("https://generativelanguage.googleapis.com/v1beta/openai", c.GEMINI_API_KEY, c.GEMINI_MODEL, { name: "gemini" })
-            : null,
+        gemini: () => pool(
+          "gemini",
+          [c.GEMINI_API_KEY, c.GEMINI_API_KEY2, c.GEMINI_API_KEY3, c.GEMINI_API_KEY4, c.GEMINI_API_KEY5, c.GEMINI_API_KEY6],
+          (key) => new OpenAICompatibleProvider("https://generativelanguage.googleapis.com/v1beta/openai", key, c.GEMINI_MODEL, { name: "gemini" }),
+        ),
       };
       const list = c.AI_CHAIN.split(",").map((n) => available[n.trim()]?.()).filter((p): p is AIProvider => !!p);
       return list.length ? new ChainProvider(list) : null;
@@ -145,6 +152,9 @@ function startOfDay(): string {
 
 async function run<I, O>(ctx: AIContext, spec: RunSpec<I, O>): Promise<{ value: O | null; source: AISource }> {
   const c = getConfig();
+  // Nunca põe uma rolagem ou escolha à espera de um serviço externo sem opt-in.
+  // Cada chamada pública já possui um fallback autoral/determinístico.
+  if (!c.AI_LIVE_GAMEPLAY) return { value: null, source: "fallback" };
   const provider = getProvider();
   const payload = JSON.stringify(spec.input);
   const cacheKey = sha256(`${provider?.name}|${provider?.model}|${spec.purpose}|${payload}`);

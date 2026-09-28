@@ -374,10 +374,11 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
         const npc = Object.values(content.npcs).find((n) => n.locationId === char.status.locationId);
         const action = actions.find((a) => a.id === actionId);
         if (npc && action) {
+          const outcomeFacts = rep.lines.slice(1).filter((line) => line.trim());
           const r = await aiNpcReply(
             ctx,
-            { npcName: npc.name, persona: npc.persona, playerMessage: String(action.params.message ?? ""), intent: npcIntents[actionId] ?? "outro", outcomeFacts: rep.lines.slice(1) },
-            `${npc.name} responde em voz baixa, sem tirar os olhos da porta.`,
+            { npcName: npc.name, persona: npc.persona, playerMessage: String(action.params.message ?? ""), intent: npcIntents[actionId] ?? "outro", outcomeFacts },
+            outcomeFacts.join(" ").slice(0, 1_200) || `${npc.name} responde em voz baixa, sem tirar os olhos da porta.`,
           );
           narratives[actionId] = { text: r.text, speech: r.speech, speakerKey: `npc:${npc.id}` };
         }

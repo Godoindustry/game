@@ -46,6 +46,8 @@ const schema = z.object({
 
   // IA
   AI_PROVIDER: z.enum(["mock", "chain", "openai_compatible", "anthropic", "none"]).default("mock"),
+  // Desligado por padrão: a partida responde com o texto autoral sem aguardar rede externa.
+  AI_LIVE_GAMEPLAY: bool.default(false),
   // Cadeia de provedores gratuitos/baratos (ordem de tentativa). Só entram os que têm chave.
   AI_CHAIN: z.string().default("groq,cerebras,gemini,mistral,openrouter"),
   CEREBRAS_API_KEY: z.string().optional(),
@@ -53,6 +55,10 @@ const schema = z.object({
   MISTRAL_API_KEY: z.string().optional(),
   MISTRAL_MODEL: z.string().default("mistral-small-latest"),
   GROQ_API_KEY: z.string().optional(),
+  // Chaves extras entram em rodízio com a principal (espalha o uso e contorna 429).
+  GROQ_API_KEY2: z.string().optional(),
+  GROQ_API_KEY3: z.string().optional(),
+  GROQ_API_KEY4: z.string().optional(),
   GROQ_MODEL: z.string().default("openai/gpt-oss-20b"),
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_MODEL: z.string().default("meta-llama/llama-3.3-70b-instruct:free"),

@@ -63,6 +63,7 @@ Veja [`.env.example`](.env.example). As principais:
 | `ACTION_REAL_SECONDS_PER_GAME_MINUTE` / `ACTION_MAX_REAL_SECONDS` | `0.5` / `60` | Espera real por minuto de jogo e teto |
 | `ROUND_TIMEOUT_SECONDS` / `PAUSE_AFTER_SECONDS` | `300` / `60` | Prazo da rodada no coop e detecção de "todos offline" |
 | `AI_PROVIDER` | `mock` | `chain`, `mock`, `openai_compatible`, `anthropic` ou `none` |
+| `AI_LIVE_GAMEPLAY` | `false` | Ative somente se aceitar que cenas esperem a resposta de uma IA externa |
 | `AI_CHAIN` | `groq,openrouter,gemini` | Ordem da cadeia (só entram provedores com chave) |
 | `GROQ_API_KEY` / `GROQ_MODEL` | — / `openai/gpt-oss-20b` | Groq |
 | `OPENROUTER_API_KEY` / `OPENROUTER_MODEL` | — / `meta-llama/llama-3.3-70b-instruct:free` | OpenRouter |

@@ -24,14 +24,15 @@ export const HORROR = {
     panico: "jogador/panico-compulsao",
     alivio: ["jogador/suspiro-alivio-1", "jogador/suspiro-alivio-2"],
   },
-  iara: { aparicao: "iara/aparicao-coral", suspiro: "iara/suspiro", chamado: "iara/sussurro-chamado", numeros: "iara/sussurro-numeros" },
-  mae: { grito: "mae-das-asas/grito-aparicao", risada: "mae-das-asas/risada", filhas: "mae-das-asas/filhas-risada" },
+  iara: { aparicao: "iara/aparicao-coral", suspiro: "iara/suspiro", chamado: "iara/sussurro-chamado", numeros: "iara/sussurro-numeros", passosSalto: "iara/passos-salto" },
+  mae: { grito: "mae-das-asas/grito-aparicao", risada: "mae-das-asas/risada", filhas: "mae-das-asas/filhas-risada", vampira: "mae-das-asas/vampira-olhar" },
   lobo: { rosnado: "lobo-de-ambar/rosnado", uivo: "lobo-de-ambar/uivo", distante: "lobo-de-ambar/uivo-distante", eco: "lobo-de-ambar/uivo-eco" },
   bichos: { rugido: "bichos/rugido-selvagem" },
   tavares: { entrada: "tavares/tensao-entrada", sarcastica: "tavares/risada-sarcastica", cruel: "tavares/risada-cruel" },
   almas: {
     murmurios: "almas/murmurios",
     sussurros: ["almas/sussurro-arrepiante", "almas/sussurro-submundo"],
+    ola: "almas/sussurro-ola",
     demoniaca: "almas/risada-demoniaca",
     maligna: "almas/risada-maligna",
   },
@@ -47,7 +48,14 @@ export const HORROR = {
     poco: "cenario/poco-gotas",
     galhos: ["cenario/galho-quebrando-1", "cenario/galho-quebrando-2"],
     osso: "cenario/osso-quebrando",
-    passos: ["cenario/mato-passo", "cenario/mato-arbusto", "cenario/mato-folhas", "cenario/mato-grama", "cenario/mato-campo-seco", "cenario/passos-floresta"],
+    passos: [
+      "cenario/mato-passo", "cenario/mato-arbusto", "cenario/mato-folhas", "cenario/mato-grama", "cenario/mato-campo-seco",
+      "cenario/passos-floresta", "cenario/passos-trilha", "cenario/passos-terra", "cenario/passos-caminhada",
+    ],
+    passosConcreto: "cenario/passos-concreto",
+    ventoInverno: "cenario/vento-inverno",
+    ventoForte: "cenario/vento-forte",
+    zumbido: "cenario/zumbido",
   },
 } as const;
 
@@ -68,13 +76,14 @@ const EVENT_CUE: [RegExp, Cue][] = [
   [/^ch_tavares$/, { sound: HORROR.tavares.entrada, then: { sound: HORROR.tavares.sarcastica, afterMs: 4200, vol: 0.5 } }],
   [/^vs_cacada$/, { sound: HORROR.tavares.cruel, vol: 0.45 }],
   // Iara, a Voz
-  [/^ch_iara_sinal$/, { sound: HORROR.iara.numeros, vol: 0.6 }],
+  // Salto alto no meio da mata, onde ninguém deveria estar — e então os números.
+  [/^ch_iara_sinal$/, { sound: HORROR.iara.passosSalto, vol: 0.55, then: { sound: HORROR.iara.numeros, afterMs: 5200, vol: 0.6 } }],
   [/^ch_iara$/, { sound: HORROR.iara.aparicao, then: { sound: HORROR.iara.chamado, afterMs: 5500, vol: 0.45 } }],
   [/^ch_iara_furia$/, { sound: HORROR.almas.demoniaca, vol: 0.5 }],
   [/^vs_febre$/, { sound: HORROR.iara.suspiro, vol: 0.5 }],
   [/^vs_celular$/, { sound: HORROR.iara.chamado, vol: 0.5 }],
   // Almas do vale
-  [/^vs_vozes$/, { sound: HORROR.cenario.galhos[0], vol: 0.5, then: { sound: HORROR.almas.sussurros[0], afterMs: 1400, vol: 0.55 } }],
+  [/^vs_vozes$/, { sound: HORROR.cenario.galhos[0], vol: 0.5, then: { sound: HORROR.almas.ola, afterMs: 1400, vol: 0.55 } }],
   [/^vs_nevoa$/, { sound: HORROR.almas.sussurros[1], vol: 0.5 }],
   [/^vs_tumulo$/, { sound: HORROR.almas.murmurios, vol: 0.4 }],
   // Mato, água e bichos
@@ -90,7 +99,7 @@ const EVENT_CUE: [RegExp, Cue][] = [
 const FIGHT = /^ch_(mae|mae_furia|ambar|ambar_final|tavares|iara)$/;
 
 const LINEAGE_CUE: Record<string, string> = {
-  vampire: HORROR.mae.grito,
+  vampire: HORROR.mae.vampira,
   werewolf: HORROR.lobo.uivo,
   haunted: HORROR.iara.aparicao,
   hunter: HORROR.cenario.encontro,
@@ -128,6 +137,7 @@ interface Seen {
   fire: boolean;
   fractures: number;
   location: string | null;
+  indoor: boolean;
 }
 
 export function useHorrorAudio(state: GameState | null, enabled: boolean) {
@@ -164,10 +174,15 @@ export function useHorrorAudio(state: GameState | null, enabled: boolean) {
       fire: !!state.here.fire,
       fractures: me?.wounds.filter((w) => w.type === "fratura").length ?? 0,
       location: state.here.locationId,
+      indoor: !!state.here.indoor,
     };
     const prev = seen.current;
     seen.current = now;
-    if (!prev) return;
+    if (!prev) {
+      // Abertura: "O zumbido nos ouvidos é a primeira coisa que volta."
+      if (now.event === "vs_despertar" && state.campaign.round <= 1) play(HORROR.cenario.zumbido, 0.6);
+      return;
+    }
 
     if (now.event && now.event !== prev.event) {
       const hit = EVENT_CUE.find(([re]) => re.test(now.event!));
@@ -184,7 +199,8 @@ export function useHorrorAudio(state: GameState | null, enabled: boolean) {
     else if (now.alive && prev.stress - now.stress >= 15) play(pick(HORROR.jogador.alivio));
 
     if (now.moving && !prev.moving) {
-      play(pick(HORROR.cenario.passos));
+      // Saindo de lugar fechado (estação, capela), o primeiro passo é em piso duro.
+      play(prev.indoor ? HORROR.cenario.passosConcreto : pick(HORROR.cenario.passos));
       // À noite, às vezes algo pisa num galho atrás de você.
       if (state.campaign.night && Math.random() < 0.3) {
         delayed.current.push(window.setTimeout(() => play(pick(HORROR.cenario.galhos)), 1800));
@@ -209,6 +225,11 @@ export function useHorrorAudio(state: GameState | null, enabled: boolean) {
           ? { sound: HORROR.cenario.rio, cat: "ambiente" }
           : state?.here.water === "lake"
             ? { sound: HORROR.cenario.poco, cat: "ambiente" }
+            // Vento ao ar livre: tempestade quando chove, vento gelado em noite de frio.
+            : !state?.here.indoor && state?.campaign.weather === "chuva"
+              ? { sound: HORROR.cenario.ventoForte, cat: "ambiente" }
+            : !state?.here.indoor && state?.campaign.night && (state?.campaign.temperature ?? 99) <= 8
+              ? { sound: HORROR.cenario.ventoInverno, cat: "ambiente" }
             : state?.campaign.night
               ? { sound: HORROR.cenario.noite, cat: "ambiente" }
               : !state?.here.indoor

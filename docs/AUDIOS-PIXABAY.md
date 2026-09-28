@@ -45,5 +45,4 @@ Os quatro primeiros são os que mais fazem falta: o grito de socorro e o dado.
 | 18 | `cenario/corda.mp3` | rope climbing / rope tension | Descer usando a corda, Fixar uma corda | 2–4 s |
 | 19 | `cenario/helicoptero.mp3` | helicopter flyby distant | Evento Rotor ao longe / Céu aberto | 5–10 s |
 | 20 | `cenario/motor-carro.mp3` | car engine approaching night / off road vehicle | Eventos Motor na ponte e Faróis entre as árvores | 5–8 s |
-| 21 | `cenario/aviao-destrocos.mp3` | plane crash aftermath / metal creaking fire | Abertura: Silêncio depois do impacto | 5–8 s |
-| 22 | `cenario/celular-vibrando.mp3` | phone vibrate / cellphone static interference | Evento 23h40 (o celular) | 2–4 s |
+| 21 | `cenario/celular-vibrando.mp3` | phone vibrate / cellphone static interference | Evento 23h40 (o celular) | 2–4 s |

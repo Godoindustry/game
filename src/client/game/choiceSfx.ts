@@ -34,7 +34,6 @@ export const PIXABAY_WANTED: Record<string, { search: string; where: string; sec
   "cenario/corda": { search: "rope climbing / rope tension", where: "Descer usando a corda, Fixar uma corda", seconds: "2–4" },
   "cenario/helicoptero": { search: "helicopter flyby distant", where: "Evento Rotor ao longe / Céu aberto", seconds: "5–10" },
   "cenario/motor-carro": { search: "car engine approaching night / off road vehicle", where: "Eventos Motor na ponte e Faróis entre as árvores", seconds: "5–8" },
-  "cenario/aviao-destrocos": { search: "plane crash aftermath / metal creaking fire", where: "Abertura: Silêncio depois do impacto", seconds: "5–8" },
   "cenario/celular-vibrando": { search: "phone vibrate / cellphone static interference", where: "Evento 23h40 (o celular)", seconds: "2–4" },
   "dado/rolando": { search: "dice roll wooden table", where: "Botão ROLAR D20", seconds: "1–2" },
   "dado/sucesso": { search: "success sting dark / mysterious positive hit", where: "Resultado do D20: sucesso", seconds: "1–2" },
@@ -47,6 +46,7 @@ export const PIXABAY_WANTED: Record<string, { search: string; where: string; sec
  */
 const CHOICE_RULES: [RegExp, SoundCue][] = [
   [/grit|chamar por|acenar|pedir ajuda/i, { want: "jogador/grito-socorro" }],
+  [/oferecer o pescoço|próprio sangue/i, { want: "mae-das-asas/vampira-olhar" }],
   [/uiv/i, { want: "lobo-de-ambar/uivo", vol: 0.7 }],
   [/cinto/i, { want: "cenario/cinto-fivela" }],
   [/forçar a porta|forçar o cadeado|alavanca|pular a cerca|quadriciclo/i, { want: "cenario/metal-forcando" }],
@@ -69,7 +69,6 @@ const CHOICE_RULES: [RegExp, SoundCue][] = [
 
 /** Eventos cujo som de chegada ainda falta (os que já existem ficam em horrorAudio.ts). */
 export const EVENT_WANTED: Record<string, SoundCue> = {
-  vs_despertar: { want: "cenario/aviao-destrocos", vol: 0.7 },
   vs_helicoptero: { want: "cenario/helicoptero" },
   vs_resgate: { want: "cenario/helicoptero", vol: 0.6 },
   vs_radio: { want: "cenario/radio-chiado", vol: 0.7 },

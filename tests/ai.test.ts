@@ -95,14 +95,17 @@ describe("Classificação de intenção", () => {
 });
 
 describe("O jogo não depende da IA", () => {
-  it("com a IA falhando, ações resolvem normalmente com os fatos do motor", async () => {
-    mock.setMode("error");
+  it("no modo fluido, ações não chamam a rede e narram os fatos autorais", async () => {
+    setConfig({ ...getConfig(), AI_LIVE_GAMEPLAY: false, AI_TIMEOUT_MS: 30_000 });
+    mock.setMode("timeout");
     const { client } = await registered("Lia");
     const id = await soloCampaign(client);
     const r = await act(client, id, "escolha_evento", { choiceId: "vs_despertar.gritar" });
     expect(r.status).toBe(200);
     expect(r.body.state.campaign.round).toBe(2);
     expect(r.body.state.log.some((l: { text: string }) => l.text.includes("mata inteira se cala"))).toBe(true);
+    expect(r.body.state.log.some((l: { kind: string; text: string }) => l.kind === "narrative" && l.text.includes("mata inteira se cala"))).toBe(true);
+    expect(Number((await getDb().get<{ n: number }>("SELECT COUNT(*) AS n FROM ai_requests"))?.n)).toBe(0);
   });
 });
 

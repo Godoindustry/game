@@ -68,3 +68,13 @@ e 3 cantos de pássaro (one birds song, voices of birds, song thrush).
 | cenario/mato-folhas | soul_serenity_sounds – leaves rustling – 236742 | Caminhar, carcaça |
 | cenario/mato-grama | dragon-studio – grass being rustled – 511323 (8 s iniciais) | Caminhar |
 | cenario/mato-campo-seco | dragon-studio – dry field grass rustling – 482893 (8 s iniciais) | Caminhar |
+| cenario/passos-trilha | dragon-studio – footsteps on the nature trail – 419017 (6 s iniciais) | Caminhar |
+| cenario/passos-terra | freesound_community – passos – 101430 (5 s iniciais) | Caminhar |
+| cenario/passos-caminhada | freesound_community – passos – 30798 (6 s iniciais) | Caminhar |
+| cenario/passos-concreto | freesound_community – concrete footsteps 1 – 6265 (5 s iniciais) | Sair andando de lugar fechado |
+| cenario/vento-inverno | dragon-studio – winter wind – 402331 | Noite fria ao ar livre (loop) |
+| cenario/vento-forte | dragon-studio – harsh wind – 515272 | Chuva ao ar livre (loop) |
+| cenario/zumbido | daub_audio – brain damage – 148577 (9 s iniciais) | Abertura: o zumbido depois do impacto |
+| iara/passos-salto | freesound_community – passos de salto – 70753 (7 s iniciais) | 23h40 em ponto: Iara se aproxima |
+| almas/sussurro-ola | misfit_melomaniac – hello whisper – 533246 | Alguém chama seu nome |
+| mae-das-asas/vampira-olhar | alesiadavina – female vampire calculating gaze – 508989 | Despertar Vampiro, oferecer o pescoço |
