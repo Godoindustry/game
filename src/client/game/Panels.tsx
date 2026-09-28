@@ -11,30 +11,37 @@ type Act = (type: string, params?: Record<string, unknown>) => void;
 
 // ── Evento / Decisão ────────────────────────────────────────────────────────
 export function EventCard({
-  state, event, onAct, busy,
+  state, event, onAct, busy, storyMode = false,
 }: {
   state: GameState;
   event: NonNullable<GameState["event"]>;
   onAct: Act;
   busy: boolean;
+  storyMode?: boolean;
 }) {
   const scene = sceneProps(state, event.locationId);
   const isDangerous = !!scene?.danger || event.choices.some((c) => /\b(corr|fug|enfrent)/i.test(c.label));
 
   return (
     <section
-      className={`event-card ${isDangerous ? "event-critical" : ""} ${scene ? "event-has-scene" : ""}`}
+      className={`event-card ${isDangerous ? "event-critical" : ""} ${scene && !storyMode ? "event-has-scene" : ""} ${storyMode ? "event-story-mode" : ""}`}
       aria-live="polite"
       data-tut-id="event"
     >
-      {scene && <LocationScene {...scene} />}
-      <p className="label amber event-kicker" style={{ marginBottom: 8, fontSize: 10 }}>
-        ▶ Evento · {state.campaign.clock}
-      </p>
-      <h2 className="event-title">{event.title}</h2>
-      <p className="event-body">
-        <Typewriter key={event.instanceId} text={event.body} />
-      </p>
+      {scene && !storyMode && <LocationScene {...scene} />}
+      {storyMode ? (
+        <h2 className="sr-only">{event.title}</h2>
+      ) : (
+        <>
+          <p className="label amber event-kicker" style={{ marginBottom: 8, fontSize: 10 }}>
+            ▶ Evento · {state.campaign.clock}
+          </p>
+          <h2 className="event-title">{event.title}</h2>
+          <p className="event-body">
+            <Typewriter key={event.instanceId} text={event.body} />
+          </p>
+        </>
+      )}
 
       {!event.participating ? (
         <div style={{
@@ -145,12 +152,13 @@ export function PendingCard({
 
 // ── Local atual e ações ────────────────────────────────────────────────────
 export function HereCard({
-  state, onAct, busy, selected,
+  state, onAct, busy, selected, storyMode = false,
 }: {
   state: GameState;
   onAct: Act;
   busy: boolean;
   selected: string | null;
+  storyMode?: boolean;
 }) {
   const { here, map } = state;
   const [msg, setMsg] = useState("");
@@ -177,7 +185,7 @@ export function HereCard({
               title={travelSel.reason ?? undefined}
               onClick={() => onAct("mover", { to: sel.id })}
             >
-              → Caminhar até lá · ~{formatMinutes(travelSel.estimatedMinutes)}
+              → Seguir até lá · ~{formatMinutes(travelSel.estimatedMinutes)}
             </button>
           ) : (
             <span className="tiny muted">Sem caminho direto conhecido daqui.</span>
@@ -187,7 +195,7 @@ export function HereCard({
 
       {/* Localização atual */}
       <section className="stack" style={{ gap: 6 }}>
-        {scene && !state.event && <LocationScene {...scene} caption={undefined} fire={here.fire} compact />}
+        {scene && !state.event && !storyMode && <LocationScene {...scene} caption={undefined} fire={here.fire} compact />}
         <div className="row-between">
           <div>
             <p className="label amber" style={{ margin: "0 0 2px" }}>Você está em</p>
@@ -239,7 +247,7 @@ export function HereCard({
               title={t.reason ?? undefined}
               onClick={() => onAct("mover", { to: t.to })}
             >
-              <span>→ {t.name}</span>
+              <span>→ Seguir para {t.name}</span>
               <span className="mono tiny muted">~{formatMinutes(t.estimatedMinutes)}</span>
             </button>
           ))}
@@ -466,7 +474,7 @@ export function EndScreen({
       <div
         className="end-bg"
         aria-hidden="true"
-        style={{ backgroundImage: `url(${state.map.image})` }}
+        style={{ backgroundImage: 'url("/art/vale-silente/story-chapel.png")' }}
       />
       <div className="end-card stack-lg">
         {/* Subtítulo */}

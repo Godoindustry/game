@@ -54,7 +54,7 @@ export function AudioSettings() {
             <Slider key={cat} label={CATEGORY_LABEL[cat]} value={levels[cat]} onChange={(v) => setLevel(cat, v)} disabled={muted} />
           ))}
           <p className="tiny muted" style={{ margin: 0 }}>
-            Para ligar/desligar ou ajustar cada participante, abra a voz da sala. A música abaixa sozinha durante os confrontos com chefes.
+            A voz sempre fica em primeiro plano. Ambiente, música e ruídos abaixam automaticamente enquanto o narrador ou um personagem fala.
           </p>
           <button className="btn btn-sm btn-ghost" onClick={reset}>Restaurar padrão</button>
         </div>

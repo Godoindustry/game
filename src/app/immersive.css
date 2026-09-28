@@ -45,6 +45,195 @@
   box-shadow: -22px 0 55px rgba(0, 0, 0, .48);
 }
 
+/* Modo história: palco cinematográfico em perspectiva humana, sem mundo controlável. */
+.story-mode {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: clamp(12px, 1.7vw, 24px);
+  background:
+    radial-gradient(circle at 50% 10%, rgba(97, 35, 48, .13), transparent 38%),
+    linear-gradient(180deg, #080607, #050405);
+  scrollbar-width: thin;
+  scrollbar-color: #4c2d35 transparent;
+}
+
+.story-mode .story-stage {
+  position: relative;
+  isolation: isolate;
+  min-height: clamp(430px, 61vh, 720px);
+  overflow: hidden;
+  border: 1px solid rgba(174, 129, 103, .35);
+  border-radius: 2px 22px 2px 2px;
+  background: #070708;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, .65), inset 0 0 0 1px rgba(255, 255, 255, .025);
+}
+
+.story-stage-art {
+  position: absolute;
+  inset: -3%;
+  z-index: -4;
+  background: url("/art/vale-silente/story-chapel.png") center / cover no-repeat;
+  filter: saturate(.67) contrast(1.13) brightness(.72);
+  transform: scale(1.035);
+  animation: story-camera 32s ease-in-out infinite alternate;
+}
+
+.story-stage-breathe {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  background: radial-gradient(ellipse at 60% 40%, transparent 0 24%, rgba(2, 3, 5, .22) 54%, rgba(2, 2, 3, .72) 100%);
+  animation: story-breathe 7s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.story-stage-grade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(4, 4, 6, .55), transparent 24%, transparent 43%, rgba(4, 3, 5, .92) 88%),
+    linear-gradient(90deg, rgba(5, 4, 5, .66), transparent 52%);
+  pointer-events: none;
+}
+
+.story-stage-rain {
+  position: absolute;
+  inset: -20%;
+  z-index: -2;
+  opacity: .34;
+  background-image: repeating-linear-gradient(104deg, transparent 0 17px, rgba(204, 220, 230, .26) 18px, transparent 19px 44px);
+  background-size: 240px 360px;
+  animation: story-rain .8s linear infinite;
+  pointer-events: none;
+}
+
+.story-stage-topline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 18px;
+  color: rgba(224, 211, 193, .68);
+  border-bottom: 1px solid rgba(218, 194, 153, .12);
+  background: linear-gradient(180deg, rgba(6, 5, 7, .78), transparent);
+  font: 600 9px/1 var(--font-mono);
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.story-stage-topline span:first-child { color: #d8c298; margin-right: auto; }
+.story-stage-topline span:first-child i { display: inline-block; width: 5px; height: 5px; margin-right: 7px; border-radius: 50%; background: #9f273d; box-shadow: 0 0 9px #c9334d; animation: story-record 2.4s ease-in-out infinite; }
+
+.story-stage-copy {
+  position: absolute;
+  left: clamp(20px, 4vw, 58px);
+  right: clamp(20px, 7vw, 92px);
+  bottom: clamp(24px, 5vh, 62px);
+  max-width: 820px;
+  text-shadow: 0 3px 18px #000;
+}
+
+.story-speaker {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 9px;
+  color: #c5a46f;
+  font: 700 10px/1 var(--font-mono);
+  letter-spacing: .19em;
+  text-transform: uppercase;
+}
+
+.story-speaker::before { content: ""; width: 34px; height: 1px; background: #a52d42; box-shadow: 0 0 9px rgba(193, 45, 70, .8); }
+.story-stage-copy h1 { margin: 0; color: #f1e6d5; font: 700 clamp(34px, 5vw, 68px)/.96 var(--font-head); letter-spacing: .025em; text-transform: uppercase; text-wrap: balance; }
+.story-stage-copy p { max-width: 720px; margin: 15px 0 0; color: #d0c7bc; font: italic clamp(14px, 1.25vw, 18px)/1.62 Georgia, serif; text-wrap: pretty; }
+.story-stage-copy small { color: #94888a; font: 600 9px/1 var(--font-mono); letter-spacing: .13em; text-transform: uppercase; }
+.story-rule { display: flex; align-items: center; width: min(310px, 58%); height: 1px; margin: 19px 0 13px; background: linear-gradient(90deg, #8c2639, transparent); }
+.story-rule i { width: 5px; height: 5px; border: 1px solid #c49b70; background: #110b0d; transform: rotate(45deg); }
+
+.story-mode-danger .story-stage { border-color: rgba(161, 37, 59, .62); box-shadow: 0 28px 80px rgba(0, 0, 0, .72), inset 0 0 90px rgba(104, 6, 22, .16); }
+.story-mode-danger .story-stage-breathe { background: radial-gradient(ellipse at 58% 40%, transparent 0 20%, rgba(48, 3, 12, .2) 55%, rgba(5, 2, 4, .82) 100%); }
+
+.story-decisions {
+  position: relative;
+  z-index: 2;
+  width: calc(100% - clamp(18px, 3vw, 44px));
+  max-width: 980px;
+  margin: clamp(-26px, -2vw, -16px) auto 0;
+  padding: clamp(16px, 2vw, 24px);
+  border: 1px solid rgba(99, 58, 68, .7);
+  border-radius: 2px 14px 2px 2px;
+  background: linear-gradient(145deg, rgba(27, 18, 22, .985), rgba(10, 8, 10, .99));
+  box-shadow: 0 18px 46px rgba(0, 0, 0, .62);
+}
+
+.story-decisions::before { content: ""; position: absolute; top: 0; left: 0; width: 34%; height: 1px; background: linear-gradient(90deg, #af3047, transparent); }
+.story-decisions-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 17px; padding-bottom: 13px; border-bottom: 1px solid rgba(103, 65, 75, .42); }
+.story-decisions-heading span { display: block; margin-bottom: 4px; color: #b68d62; font: 700 8px var(--font-mono); letter-spacing: .18em; }
+.story-decisions-heading strong { display: block; color: #eadfce; font: 700 23px/1 var(--font-head); letter-spacing: .045em; text-transform: uppercase; }
+.story-decisions-heading em { max-width: 330px; color: #766d70; font: italic 11px/1.4 Georgia, serif; text-align: right; }
+.story-decisions .event-story-mode { padding: 0; border: 0; background: none; box-shadow: none; }
+.story-decisions .event-story-mode::before,
+.story-decisions .event-story-mode::after { display: none; }
+.story-decisions .choice { min-height: 54px; margin-bottom: 8px; border-color: rgba(111, 73, 82, .58); background: rgba(7, 6, 8, .68); }
+.story-decisions .choice:hover:not(:disabled) { border-color: #a89067; background: rgba(52, 34, 40, .74); transform: translateX(3px); }
+.story-decisions .action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.story-remote-event { margin: 0 0 14px; padding: 10px 12px; color: #a89a91; border-left: 2px solid #79505a; background: rgba(68, 41, 48, .22); font: italic 12px/1.5 Georgia, serif; }
+
+/* Seletor de destinos em linguagem de história — nenhuma visão de tabuleiro. */
+.story-route-modal { position: fixed; inset: 0; z-index: 60; display: grid; grid-template-rows: auto 1fr; background: #050405; }
+.story-route-modal .world-map-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px clamp(16px, 3vw, 38px); border-bottom: 1px solid #55313a; background: #0a060c; }
+.story-route-content {
+  position: relative;
+  overflow-y: auto;
+  padding: clamp(28px, 6vw, 74px) clamp(18px, 8vw, 120px);
+  background:
+    linear-gradient(90deg, rgba(6, 5, 7, .98) 0%, rgba(6, 5, 7, .82) 48%, rgba(6, 5, 7, .56) 100%),
+    url("/art/vale-silente/story-chapel.png") center / cover fixed;
+}
+.story-route-content::after { content: ""; position: fixed; inset: 58px 0 0; pointer-events: none; box-shadow: inset 0 0 140px rgba(0, 0, 0, .82); }
+.story-route-content > header, .story-route-list { position: relative; z-index: 1; max-width: 920px; }
+.story-route-content > header { margin-bottom: 30px; }
+.story-route-content > header > span { color: #b08c61; font: 700 9px var(--font-mono); letter-spacing: .2em; }
+.story-route-content > header h2 { margin: 6px 0 9px; color: #eee1ce; font: 700 clamp(36px, 5vw, 64px)/1 var(--font-head); text-transform: uppercase; }
+.story-route-content > header p { max-width: 650px; margin: 0; color: #a89da0; font: italic 14px/1.6 Georgia, serif; }
+.story-route-list { display: grid; gap: 10px; }
+.story-route-choice {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 17px;
+  width: 100%;
+  min-height: 82px;
+  padding: 13px 17px;
+  color: #ddd1c0;
+  text-align: left;
+  border: 1px solid rgba(112, 70, 80, .55);
+  border-radius: 2px 12px 2px 2px;
+  background: linear-gradient(100deg, rgba(26, 17, 21, .96), rgba(10, 8, 10, .86));
+  cursor: pointer;
+  transition: transform .2s, border-color .2s, background .2s;
+}
+.story-route-choice:hover:not(:disabled) { transform: translateX(5px); border-color: #b28d63; background: linear-gradient(100deg, rgba(48, 28, 35, .98), rgba(13, 10, 12, .9)); }
+.story-route-choice:disabled { opacity: .36; cursor: not-allowed; }
+.story-route-number { color: #73515a; font: 500 20px var(--font-mono); }
+.story-route-copy { min-width: 0; }
+.story-route-copy b { display: block; color: #eadcca; font: 700 20px/1 var(--font-head); letter-spacing: .04em; text-transform: uppercase; }
+.story-route-copy small { display: block; overflow: hidden; margin-top: 6px; color: #8f8587; font: 12px/1.4 var(--font-body); text-overflow: ellipsis; white-space: nowrap; }
+.story-route-meta { display: flex; align-items: flex-end; flex-direction: column; gap: 5px; }
+.story-route-meta em { color: #da6577; font: normal 700 8px var(--font-mono); letter-spacing: .15em; }
+.story-route-meta i { color: #9b8c7b; font: normal 10px var(--font-mono); white-space: nowrap; }
+
+@keyframes story-camera { from { transform: scale(1.035) translate3d(0, 0, 0); } to { transform: scale(1.105) translate3d(-1.4%, -.8%, 0); } }
+@keyframes story-breathe { 0%, 100% { opacity: .78; } 50% { opacity: 1; } }
+@keyframes story-rain { to { transform: translate(-24px, 62px); } }
+@keyframes story-record { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+
 .game-immersive .side-tabs {
   background: rgba(10, 7, 8, .92);
   border-bottom-color: #42252d;
@@ -709,12 +898,29 @@
   .game-immersive .game-body { grid-template-columns: 1fr; }
   .game-immersive .hud { height: 60px; min-height: 60px; }
   .game-immersive .game-side { border-left: 0; border-top: 1px solid #4b2932; }
+  .story-mode { overflow: visible; }
+  .story-mode .story-stage { min-height: clamp(430px, 68vh, 620px); }
   .voice-popover { position: fixed; top: 68px; right: 10px; width: min(340px, calc(100vw - 20px)); }
   .spoken-scene { top: 60px; }
   .spoken-scene-dialogue { grid-template-columns: clamp(92px, 19vw, 140px) minmax(0, 1fr); }
 }
 
 @media (max-width: 560px) {
+  .story-mode { padding: 8px; }
+  .story-mode .story-stage { min-height: 530px; border-radius: 2px 13px 2px 2px; }
+  .story-stage-topline { gap: 8px; padding: 12px; font-size: 7px; }
+  .story-stage-topline span:nth-child(2) { display: none; }
+  .story-stage-copy { left: 17px; right: 17px; bottom: 42px; }
+  .story-stage-copy h1 { font-size: clamp(34px, 12vw, 51px); }
+  .story-stage-copy p { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 7; -webkit-box-orient: vertical; font-size: 14px; }
+  .story-decisions { width: calc(100% - 12px); padding: 15px 12px; }
+  .story-decisions-heading { align-items: flex-start; flex-direction: column; }
+  .story-decisions-heading em { text-align: left; }
+  .story-decisions .action-grid { grid-template-columns: 1fr; }
+  .story-route-content { padding: 28px 12px; }
+  .story-route-choice { grid-template-columns: 36px minmax(0, 1fr); gap: 10px; }
+  .story-route-meta { grid-column: 2; align-items: flex-start; flex-direction: row; }
+  .story-route-copy small { white-space: normal; }
   .game-immersive .body-grid { grid-template-columns: 1fr; }
   .human-silhouette { position: relative; width: min(230px, 100%); margin-inline: auto; }
   .power-hero { min-height: 132px; }
@@ -749,5 +955,6 @@
   .horror-cinematic-copy > i, .spoken-scene, .spoken-scene-art,
   .spoken-scene-rain, .spoken-scene-dialogue, .spoken-progress > i,
   .participant-transition { animation: none !important; }
+  .story-stage-art, .story-stage-breathe, .story-stage-rain, .story-stage-topline i { animation: none !important; }
   .power-card:hover .power-hero-art { transform: none; }
 }

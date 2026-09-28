@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/client/api";
 import { AppShell, ENDING_LABEL, Spinner } from "@/client/ui";
-import { toastError, useSession } from "@/client/session";
+import { toastError, useSession, useToasts } from "@/client/session";
 import { AVATAR_ICON, FriendStatus, useFriends } from "@/client/friends";
 
 interface CampaignItem {
@@ -73,6 +73,8 @@ function Dashboard() {
   const [difficulties, setDifficulties] = useState<DifficultyOption[]>([]);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const push = useToasts((s) => s.push);
 
   const load = useCallback(() => api<CampaignItem[]>("GET", "/api/campaigns").then(setList).catch(toastError), []);
   useEffect(() => {
@@ -89,6 +91,29 @@ function Dashboard() {
     } catch (err) {
       toastError(err);
       setBusy(false);
+    }
+  }
+
+  /** Admin apaga de vez; convidado sai (a campanha continua para os outros). Sempre com confirmação. */
+  async function remove(c: CampaignItem) {
+    const owner = c.role === "owner";
+    const others = c.members - 1;
+    const message = !owner
+      ? `Sair de “${c.name}”?\n\nSeu personagem${c.characterName ? ` (${c.characterName})` : ""} será removido. A campanha continua para os outros.`
+      : `Apagar “${c.name}” de vez?\n\n${c.characterName ? `O personagem ${c.characterName}, o diário e todo o progresso serão perdidos.` : "Todo o progresso será perdido."}` +
+        (others > 0 ? `\n\nAtenção: ela também some para ${others === 1 ? "o outro participante" : `os outros ${others} participantes`}.` : "") +
+        "\n\nNão dá para desfazer.";
+    if (!window.confirm(message)) return;
+    setRemoving(c.id);
+    try {
+      if (owner) await api("DELETE", `/api/campaigns/${c.id}`);
+      else await api("POST", `/api/campaigns/${c.id}/leave`);
+      push("ok", owner ? `“${c.name}” foi apagada.` : `Você saiu de “${c.name}”.`);
+      await load();
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setRemoving(null);
     }
   }
 
@@ -171,16 +196,29 @@ function Dashboard() {
         ) : (
           <div className="grid-3">
             {active.map((c) => (
-              <Link key={c.id} href={campaignHref(c)} className="panel stack" style={{ textDecoration: "none", color: "inherit", gap: 6 }}>
-                <div className="row-between">
-                  <strong>{c.name}</strong>
-                  <span className={`chip ${c.status === "active" ? "chip-green" : "chip-amber"}`}>{c.status === "active" ? "Em jogo" : "Lobby"}</span>
-                </div>
-                <span className="small muted">
-                  {c.mode === "solo" ? "Solo" : `Cooperativo · ${c.members}/${c.maxPlayers}`} · {c.difficulty.label} {c.role === "owner" && "· você é o admin"}
-                </span>
-                <span className="small">{c.characterName ? `Personagem: ${c.characterName}${c.alive === false ? " (morto)" : ""}` : "Personagem ainda não criado"}</span>
-              </Link>
+              <div key={c.id} style={{ position: "relative" }}>
+                <Link href={campaignHref(c)} className="panel stack" style={{ textDecoration: "none", color: "inherit", gap: 6, height: "100%" }}>
+                  <div className="row-between">
+                    <strong>{c.name}</strong>
+                    <span className={`chip ${c.status === "active" ? "chip-green" : "chip-amber"}`}>{c.status === "active" ? "Em jogo" : "Lobby"}</span>
+                  </div>
+                  <span className="small muted">
+                    {c.mode === "solo" ? "Solo" : `Cooperativo · ${c.members}/${c.maxPlayers}`} · {c.difficulty.label} {c.role === "owner" && "· você é o admin"}
+                  </span>
+                  <span className="small">{c.characterName ? `Personagem: ${c.characterName}${c.alive === false ? " (morto)" : ""}` : "Personagem ainda não criado"}</span>
+                </Link>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger"
+                  disabled={removing === c.id}
+                  onClick={() => void remove(c)}
+                  title={c.role === "owner" ? "Apagar campanha" : "Sair da campanha"}
+                  aria-label={c.role === "owner" ? `Apagar a campanha ${c.name}` : `Sair da campanha ${c.name}`}
+                  style={{ position: "absolute", top: -10, right: -10, width: 28, height: 28, minWidth: 0, padding: 0, borderRadius: 999, background: "var(--bg, #0b0d0c)", lineHeight: 1 }}
+                >
+                  {removing === c.id ? "…" : c.role === "owner" ? "✕" : "↩"}
+                </button>
+              </div>
             ))}
           </div>
         )}

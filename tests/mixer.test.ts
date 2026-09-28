@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { DEFAULT_LEVELS, mixVolume, onMixChange, peerVolume, useMixer } from "@/client/audioMixer";
+import { DEFAULT_LEVELS, VOICE_DUCK, mixVolume, onMixChange, peerVolume, useMixer } from "@/client/audioMixer";
 
 beforeEach(() => {
   useMixer.getState().reset();
-  useMixer.setState({ peerMuted: {}, peerVolume: {}, ducked: false });
+  useMixer.setState({ peerMuted: {}, peerVolume: {}, ducked: false, voiceActive: false });
 });
 
 describe("Mixer de áudio", () => {
@@ -34,6 +34,18 @@ describe("Mixer de áudio", () => {
     useMixer.getState().setDucked(true);
     expect(mixVolume("musica", 1)).toBeCloseTo(normal * 0.25);
     expect(mixVolume("efeitos", 1)).toBeCloseTo(efeito);
+  });
+
+  it("mantém a voz na frente e recua ruídos, ambiente e música durante uma fala", () => {
+    const voice = mixVolume("narracao", 1);
+    const effect = mixVolume("efeitos", 1);
+    const ambience = mixVolume("ambiente", 1);
+    const music = mixVolume("musica", 1);
+    useMixer.getState().setVoiceActive(true);
+    expect(mixVolume("narracao", 1)).toBeCloseTo(voice);
+    expect(mixVolume("efeitos", 1)).toBeCloseTo(effect * VOICE_DUCK.efeitos);
+    expect(mixVolume("ambiente", 1)).toBeCloseTo(ambience * VOICE_DUCK.ambiente);
+    expect(mixVolume("musica", 1)).toBeCloseTo(music * VOICE_DUCK.musica);
   });
 
   it("dá para desligar e ajustar cada participante separadamente", () => {

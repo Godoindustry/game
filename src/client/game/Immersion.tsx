@@ -14,7 +14,7 @@ const LINEAGE_SIGILS: Record<string, string> = {
   hunter: "⌖",
 };
 
-function sceneArtwork(state: GameState) {
+export function sceneArtwork(state: GameState) {
   const boss = state.story.boss;
   if (boss?.active) {
     if (boss.id === "tavares") {
@@ -50,6 +50,13 @@ function sceneArtwork(state: GameState) {
       backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.png")',
       backgroundPosition: "0% 0%",
       backgroundSize: "200% 200%",
+    };
+  }
+  if (!state.event) {
+    return {
+      backgroundImage: 'url("/art/vale-silente/story-chapel.png")',
+      backgroundPosition: "center center",
+      backgroundSize: "cover",
     };
   }
   if (state.story.phase) {
@@ -92,7 +99,7 @@ export function CampaignDirector({ state, onOpenMap }: { state: GameState; onOpe
       <div className="campaign-phase-body">
         <div className="campaign-phase-heading">
           <span>ATO {phase.index} / {phase.total}</span>
-          <button type="button" onClick={onOpenMap}>MAPAS</button>
+          <button type="button" onClick={onOpenMap}>ROTAS</button>
         </div>
         <strong>{phase.title}</strong>
         <em>{phase.subtitle}</em>
@@ -226,7 +233,7 @@ export function HorrorCinematics({ state }: { state: GameState }) {
 }
 
 export function NarratorVoice({ state }: { state: GameState }) {
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState(true);
   const last = [...state.log].reverse().find((entry) => ["event", "narrative", "npc", "ending", "death"].includes(entry.kind));
   const spoken = useRef<number | null>(null);
 

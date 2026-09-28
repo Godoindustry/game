@@ -3,19 +3,17 @@
  * Trilha de terror: efeitos por PESSOA e SITUAÇÃO em public/audio/<pessoa>/<situacao>.mp3
  * (créditos em public/audio/CREDITOS.md).
  *
- * Reage ao estado do jogo, sem regra nova:
+ * Reage ao estado do jogo (sem regra nova) e manda tudo para o diretor de áudio:
  *  - evento que começa → som da pessoa/criatura em cena (às vezes seguido de uma risada);
- *  - confronto com chefe → música de luta em loop; noite → ambiente noturno em loop, baixo;
- *  - morte, mordida, linhagem despertada, compulsão, alívio do estresse e toque de alma → estalos;
- *  - começar a caminhar → passos no mato (à noite, às vezes um galho quebra atrás);
- *  - fogueira acesa, fratura → estalos; lugar com fogo, rio, poço ou floresta de dia → som do lugar em loop.
- * Tudo em volume baixo, com fade, e só depois do primeiro gesto do usuário (regra do navegador).
+ *  - morte, mordida, linhagem despertada, compulsão, alívio do estresse, toque de alma,
+ *    viagem (passos), fogueira acesa, fratura → um efeito (nunca vários ao mesmo tempo);
+ *  - UM fundo por vez: luta de chefe > fogueira > rio > poço > noite > floresta de dia.
+ * Voz (narrador/personagens) sempre por cima: o diretor abaixa o resto enquanto alguém fala.
  */
 import { useEffect, useRef } from "react";
 import type { GameState } from "./useGame";
-import { mixVolume, onMixChange, useMixer, type AudioCategory } from "../audioMixer";
-
-const BASE = "/audio";
+import type { AudioCategory } from "../audioMixer";
+import { audioDirector } from "./audioDirector";
 
 /** Sons de cada pessoa/criatura e do cenário (caminho sem .mp3). */
 export const HORROR = {
@@ -106,17 +104,17 @@ function eventIdOf(state: GameState): string | null {
   return state.event?.id ?? null;
 }
 
-function fade(a: HTMLAudioElement, to: number, ms: number, done?: () => void) {
-  const from = a.volume;
-  const start = performance.now();
-  const step = () => {
-    const k = Math.min(1, (performance.now() - start) / ms);
-    a.volume = Math.max(0, Math.min(1, from + (to - from) * k));
-    if (k < 1) requestAnimationFrame(step);
-    else done?.();
-  };
-  requestAnimationFrame(step);
-}
+/** Sons que furam o intervalo entre efeitos (chefe, morte, transformação). */
+const IMPORTANT = new Set<string>([
+  HORROR.mae.grito, HORROR.lobo.rosnado, HORROR.lobo.uivo, HORROR.tavares.entrada, HORROR.iara.aparicao,
+  HORROR.cenario.despertar, HORROR.cenario.encontro, HORROR.jogador.gritoMorte,
+]);
+/** Sons naturalmente mais baixos na vida real (arquivos já normalizados; isto é só a proporção). */
+const QUIETER: Record<string, number> = Object.fromEntries([
+  ...HORROR.cenario.passos.map((s) => [s, 0.6]),
+  ...HORROR.cenario.galhos.map((s) => [s, 0.75]),
+  [HORROR.almas.murmurios, 0.75],
+]);
 
 interface Seen {
   event: string | null;
@@ -131,55 +129,23 @@ interface Seen {
   location: string | null;
 }
 
-type LoopInfo = { el: HTMLAudioElement; cat: AudioCategory; base: number; fading: boolean };
-
 export function useHorrorAudio(state: GameState | null, enabled: boolean) {
-  const loops = useRef<Record<string, LoopInfo>>({});
   const seen = useRef<Seen | null>(null);
+  const delayed = useRef<number[]>([]);
 
-  const play = (sound: string, vol = 0.55) => {
+  // Tudo passa pelo diretor: intervalo entre efeitos, um fundo só, e voz sempre por cima.
+  const play = (sound: string) => {
     if (!enabled) return;
-    try {
-      const a = new Audio(`${BASE}/${sound}.mp3`);
-      // Os volumes das cenas foram calibrados antes do mixer: ×1,4 mantém o peso deles no padrão.
-      a.volume = mixVolume("efeitos", Math.min(1, vol * 1.4));
-      void a.play().catch(() => undefined);
-      // O rosnado é longo: some em fade depois de alguns segundos.
-      if (sound === HORROR.lobo.rosnado) setTimeout(() => fade(a, 0, 1500, () => a.pause()), 8000);
-    } catch {
-      /* áudio é enfeite, nunca quebra o jogo */
-    }
+    audioDirector().sting(sound, QUIETER[sound] ?? 1, {
+      important: IMPORTANT.has(sound),
+      // O rosnado original é longo: some em fade depois de alguns segundos.
+      fadeOutAfterMs: sound === HORROR.lobo.rosnado ? 8000 : undefined,
+    });
   };
   const cue = (c: Cue) => {
-    play(pick(c.sound), c.vol ?? 0.55);
-    if (c.then) setTimeout(() => play(c.then!.sound, c.then!.vol ?? 0.5), c.then.afterMs);
+    play(pick(c.sound));
+    if (c.then) delayed.current.push(window.setTimeout(() => play(c.then!.sound), c.then.afterMs));
   };
-
-  const setLoop = (sound: string, on: boolean, base: number, cat: AudioCategory = "ambiente") => {
-    const cur = loops.current[sound];
-    if (on && enabled) {
-      if (cur && !cur.el.paused) return;
-      const info: LoopInfo = cur ?? { el: new Audio(`${BASE}/${sound}.mp3`), cat, base, fading: false };
-      info.el.loop = true;
-      info.el.volume = 0;
-      info.fading = true;
-      loops.current[sound] = info;
-      void info.el.play().then(() => fade(info.el, mixVolume(cat, base), 2500, () => { info.fading = false; })).catch(() => undefined);
-    } else if (cur && !cur.el.paused) {
-      cur.fading = true;
-      fade(cur.el, 0, 1500, () => { cur.el.pause(); cur.fading = false; });
-    }
-  };
-
-  // Slider do mixer: os loops que estão tocando acompanham na hora.
-  useEffect(() => {
-    const unsubscribe = onMixChange(() => {
-      for (const info of Object.values(loops.current)) {
-        if (!info.el.paused && !info.fading) info.el.volume = mixVolume(info.cat, info.base);
-      }
-    });
-    return unsubscribe;
-  }, []);
 
   // Estalos: reagem a MUDANÇAS (nunca ao estado já existente quando a tela abre).
   useEffect(() => {
@@ -206,54 +172,75 @@ export function useHorrorAudio(state: GameState | null, enabled: boolean) {
       const hit = EVENT_CUE.find(([re]) => re.test(now.event!));
       if (hit) cue(hit[1]);
     }
-    if (prev.alive && now.alive === false) play(HORROR.jogador.gritoMorte, 0.6);
-    else if (now.bitten > prev.bitten) play(HORROR.jogador.gritoMordida, 0.45);
+    if (prev.alive && now.alive === false) play(HORROR.jogador.gritoMorte);
+    else if (now.bitten > prev.bitten) play(HORROR.jogador.gritoMordida);
     if (prev.lineage === "human" && now.lineage && now.lineage !== "human") play(LINEAGE_CUE[now.lineage] ?? HORROR.cenario.encontro);
 
     const fresh = state.log.filter((l) => l.id > prev.log);
-    if (fresh.some((l) => /Compulsão:/.test(l.text))) play(HORROR.jogador.panico, 0.5);
-    else if (fresh.some((l) => l.kind === "narrative" && SOUL_LINE.test(l.text))) play(pick(HORROR.almas.sussurros), 0.5);
-    else if (now.alive && prev.stress - now.stress >= 15) play(pick(HORROR.jogador.alivio), 0.45);
+    if (fresh.some((l) => /Compulsão:/.test(l.text))) play(HORROR.jogador.panico);
+    else if (fresh.some((l) => l.kind === "narrative" && SOUL_LINE.test(l.text))) play(pick(HORROR.almas.sussurros));
+    else if (now.alive && prev.stress - now.stress >= 15) play(pick(HORROR.jogador.alivio));
 
     if (now.moving && !prev.moving) {
-      play(pick(HORROR.cenario.passos), 0.35);
+      play(pick(HORROR.cenario.passos));
       // À noite, às vezes algo pisa num galho atrás de você.
-      if (state.campaign.night && Math.random() < 0.3) setTimeout(() => play(pick(HORROR.cenario.galhos), 0.4), 1800);
+      if (state.campaign.night && Math.random() < 0.3) {
+        delayed.current.push(window.setTimeout(() => play(pick(HORROR.cenario.galhos)), 1800));
+      }
     }
-    if (now.fire && !prev.fire && now.location === prev.location) play(HORROR.cenario.fogueiraAcender, 0.5);
-    if (now.fractures > prev.fractures) play(HORROR.cenario.osso, 0.6);
+    if (now.fire && !prev.fire && now.location === prev.location) play(HORROR.cenario.fogueiraAcender);
+    if (now.fractures > prev.fractures) play(HORROR.cenario.osso);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, enabled]);
 
-  // Loops: luta de chefe tem prioridade sobre o ambiente noturno.
+  // UM fundo só, por prioridade: luta > fogueira > rio > poço > noite > dia ao ar livre.
   const eventId = state ? eventIdOf(state) : null;
   const fighting = !!eventId && FIGHT.test(eventId) && !!state?.event?.participating;
   const playing = !!state?.me?.alive && state?.campaign.status === "active";
-  const nightBed = playing && !!state?.campaign.night && !fighting;
-  // Som de lugar: floresta de dia ao ar livre; fogueira acesa; rio na ponte; gotas no poço.
-  const dayBed = playing && !state?.campaign.night && !state?.here.indoor && !fighting;
-  const fireBed = playing && !!state?.here.fire;
-  const riverBed = playing && state?.here.water === "stream";
-  const wellBed = playing && state?.here.water === "lake";
+  const bed: { sound: string; cat: AudioCategory } | null = !enabled || !playing
+    ? null
+    : fighting
+      ? { sound: HORROR.cenario.luta, cat: "musica" }
+      : state?.here.fire
+        ? { sound: HORROR.cenario.fogueira, cat: "ambiente" }
+        : state?.here.water === "stream"
+          ? { sound: HORROR.cenario.rio, cat: "ambiente" }
+          : state?.here.water === "lake"
+            ? { sound: HORROR.cenario.poco, cat: "ambiente" }
+            : state?.campaign.night
+              ? { sound: HORROR.cenario.noite, cat: "ambiente" }
+              : !state?.here.indoor
+                ? { sound: HORROR.cenario.dia, cat: "ambiente" }
+                : null;
+  const bedSound = bed?.sound ?? null;
+  const bedCat = bed?.cat ?? "ambiente";
   useEffect(() => {
-    // Volumes-base relativos DENTRO da categoria (o mixer multiplica por categoria e geral).
-    setLoop(HORROR.cenario.luta, enabled && fighting, 0.7, "musica");
-    setLoop(HORROR.cenario.noite, enabled && nightBed, 0.4);
-    setLoop(HORROR.cenario.dia, enabled && dayBed, 0.3);
-    setLoop(HORROR.cenario.fogueira, enabled && fireBed, 0.45);
-    setLoop(HORROR.cenario.rio, enabled && riverBed, 0.4);
-    setLoop(HORROR.cenario.poco, enabled && wellBed, 0.4);
-    // Durante a luta, a música do mundo andável abaixa e a música do chefe assume.
-    useMixer.getState().setDucked(enabled && fighting);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, fighting, nightBed, dayBed, fireBed, riverBed, wellBed]);
+    audioDirector().setBed(bedSound, 1, bedCat);
+  }, [bedSound, bedCat]);
+
+  // Ruídos naturais ficam raros e espaçados. Se houver fala, o mixer os mantém ao fundo.
+  useEffect(() => {
+    if (!enabled || !playing) return;
+    const pool: readonly string[] = state?.campaign.night
+      ? [...HORROR.cenario.galhos, HORROR.lobo.distante, ...HORROR.cenario.passos]
+      : [...HORROR.cenario.galhos, ...HORROR.cenario.passos];
+    let timer = 0;
+    const schedule = () => {
+      timer = window.setTimeout(() => {
+        audioDirector().sting(pick(pool), 0.42);
+        schedule();
+      }, 14_000 + Math.random() * 16_000);
+    };
+    schedule();
+    return () => window.clearTimeout(timer);
+  }, [enabled, playing, state?.campaign.night]);
 
   // Sai da tela: para tudo.
   useEffect(() => {
-    const playing = loops.current;
     return () => {
-      for (const info of Object.values(playing)) info.el.pause();
-      useMixer.getState().setDucked(false);
+      delayed.current.forEach(window.clearTimeout);
+      delayed.current = [];
+      audioDirector().stopAll();
     };
   }, []);
 }

@@ -4,65 +4,93 @@
  * [sighs], [laughs], [whispers]…); se não houver chave, a cota acabar ou a rede falhar,
  * usa a voz do navegador — com as tags REMOVIDAS (senão ela leria "sighs" em voz alta)
  * e com pausas nos lugares de [pause]/[long pause].
+ *
+ * Toda fala passa pelo diretor de áudio: uma de cada vez, e o resto abaixa enquanto ela dura.
  */
 import { stripVoiceTags } from "@/shared/voiceTags";
-import { mixVolume, onMixChange } from "../audioMixer";
+import { mixVolume } from "../audioMixer";
+import { audioDirector } from "./audioDirector";
 
-// Mexer no slider de narração durante uma fala muda o volume dela na hora.
-let baseVolume = 0.9;
-if (typeof window !== "undefined") onMixChange(() => { if (current) current.volume = mixVolume("narracao", baseVolume); });
-
-let current: HTMLAudioElement | null = null;
 let serverOff = false; // servidor respondeu "sem narrador": não insiste nesta sessão
-let token = 0;
 
 export function stopNarration(): void {
-  token++;
-  current?.pause();
-  current = null;
+  audioDirector().stopVoices();
   if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
 }
 
-export async function narrate(campaignId: string, logId: number, text: string, volume = 0.9): Promise<void> {
-  stopNarration();
-  baseVolume = volume;
-  const mine = token;
-  if (!serverOff) {
-    try {
-      const res = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}/log/${logId}/voice`, { credentials: "same-origin" });
-      if (mine !== token) return;
-      if (res.ok) {
-        const url = URL.createObjectURL(await res.blob());
-        if (mine !== token) return URL.revokeObjectURL(url);
-        const audio = new Audio(url);
-        audio.volume = mixVolume("narracao", volume);
-        audio.onended = () => URL.revokeObjectURL(url);
-        current = audio;
-        await audio.play();
-        return;
+/** Narra uma linha do diário. Uma linha nova interrompe a anterior (a história andou). */
+export function narrate(campaignId: string, logId: number, text: string, volume = 1): void {
+  let el: HTMLAudioElement | null = null;
+  let url: string | null = null;
+  let cancelled = false;
+  const releaseUrl = () => {
+    if (!url) return;
+    URL.revokeObjectURL(url);
+    url = null;
+  };
+  audioDirector().interruptWith({
+    priority: "narracao",
+    stop: () => {
+      cancelled = true;
+      el?.pause();
+      releaseUrl();
+      if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    },
+    run: async () => {
+      if (!serverOff) {
+        try {
+          const res = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}/log/${logId}/voice`, { credentials: "same-origin" });
+          if (cancelled) return;
+          if (res.ok) {
+            url = URL.createObjectURL(await res.blob());
+            if (cancelled) {
+              releaseUrl();
+              return;
+            }
+            el = new Audio(url);
+            el.volume = mixVolume("narracao", volume);
+            await new Promise<void>((resolve) => {
+              el!.onended = () => resolve();
+              el!.onerror = () => resolve();
+              void el!.play().catch(() => resolve());
+            });
+            releaseUrl();
+            return;
+          }
+          if (res.status === 503) serverOff = true;
+        } catch {
+          /* rede ou autoplay bloqueado: voz do navegador */
+        }
       }
-      if (res.status === 503) serverOff = true;
-    } catch {
-      /* rede ou autoplay bloqueado: voz do navegador */
-    }
-  }
-  if (mine === token) browserVoice(text, volume);
+      if (!cancelled) await browserVoice(text, volume);
+    },
+    setVolume: () => {
+      if (el) el.volume = mixVolume("narracao", volume);
+    },
+  });
 }
 
-function browserVoice(text: string, volume: number) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+function browserVoice(text: string, volume: number): Promise<void> {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return Promise.resolve();
   const synth = window.speechSynthesis;
   const voices = synth.getVoices();
   const voice = voices.find((v) => v.lang.toLowerCase() === "pt-br") ?? voices.find((v) => v.lang.toLowerCase().startsWith("pt")) ?? null;
   // Cada [pause]/[long pause] vira um corte: frases separadas soam como pausa.
   const parts = text.split(/\[(?:long )?pause\]/i).map(stripVoiceTags).map((s) => s.replace(/[【】]/g, "").trim()).filter(Boolean);
-  for (const p of parts) {
-    const u = new SpeechSynthesisUtterance(p);
-    u.voice = voice;
-    u.lang = "pt-BR";
-    u.rate = 0.86;
-    u.pitch = 0.7; // grave, sombrio
-    u.volume = mixVolume("narracao", volume);
-    synth.speak(u);
-  }
+  if (!parts.length) return Promise.resolve();
+  return new Promise((resolve) => {
+    parts.forEach((p, i) => {
+      const u = new SpeechSynthesisUtterance(p);
+      u.voice = voice;
+      u.lang = "pt-BR";
+      u.rate = 0.86;
+      u.pitch = 0.7; // grave, sombrio
+      u.volume = mixVolume("narracao", volume);
+      if (i === parts.length - 1) {
+        u.onend = () => resolve();
+        u.onerror = () => resolve();
+      }
+      synth.speak(u);
+    });
+  });
 }

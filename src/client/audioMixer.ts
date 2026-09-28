@@ -5,9 +5,9 @@
  *
  * Categorias:
  *  - narracao:      narrador ao vivo e falas gravadas (sistema, narrador, voz da morte)
- *  - efeitos:       estalos de terror (chefes, gritos, risadas, galhos, uivos, sons do mundo andável)
+ *  - efeitos:       estalos de terror (chefes, gritos, risadas, galhos e uivos)
  *  - ambiente:      sons de lugar em loop (noite, floresta, fogueira, rio, poço) e o ambiente procedural
- *  - musica:        trilha do mundo andável e música de luta dos chefes
+ *  - musica:        trilha narrativa e música de confronto com chefes
  *  - participantes: voz dos outros jogadores na sala
  *
  * Quem toca som chama `mixVolume(categoria, volumeBase)` na hora de tocar e, para sons longos,
@@ -35,6 +35,9 @@ export interface MixerState {
   peerVolume: Record<string, number>;
   /** Música abaixa sozinha durante o confronto com um chefe (a música de luta assume). */
   ducked: boolean;
+  /** Alguém está falando (narrador, personagem, alerta): o resto abaixa, como na vida real. */
+  voiceActive: boolean;
+  setVoiceActive: (v: boolean) => void;
   setMaster: (v: number) => void;
   setLevel: (cat: AudioCategory, v: number) => void;
   toggleMuted: () => void;
@@ -46,14 +49,15 @@ export interface MixerState {
 
 /** Equilíbrio padrão: narração e efeitos na frente, ambiente e música por baixo. */
 export const DEFAULT_LEVELS: Record<AudioCategory, number> = {
-  narracao: 0.9,
-  efeitos: 0.75,
-  ambiente: 0.55,
-  musica: 0.4,
-  participantes: 1,
+  narracao: 0.96,
+  efeitos: 0.52,
+  ambiente: 0.38,
+  musica: 0.26,
+  participantes: 0.92,
 };
-const DEFAULT_MASTER = 0.8;
-const KEY = "ls-audio-mixer";
+const DEFAULT_MASTER = 0.78;
+// v2 descarta a mixagem antiga, que deixava efeitos e ambientes altos demais.
+const KEY = "ls-audio-mixer-v2";
 
 type Saved = Pick<MixerState, "master" | "muted" | "levels" | "peerMuted" | "peerVolume">;
 
@@ -85,6 +89,8 @@ export const useMixer = create<MixerState>((set, get) => ({
   peerMuted: saved.peerMuted ?? {},
   peerVolume: saved.peerVolume ?? {},
   ducked: false,
+  voiceActive: false,
+  setVoiceActive: (v) => { if (get().voiceActive !== v) set({ voiceActive: v }); },
   setMaster: (v) => { set({ master: clamp01(v) }); save(get()); },
   setLevel: (cat, v) => { set({ levels: { ...get().levels, [cat]: clamp01(v) } }); save(get()); },
   toggleMuted: () => { set({ muted: !get().muted }); save(get()); },
@@ -94,12 +100,25 @@ export const useMixer = create<MixerState>((set, get) => ({
   reset: () => { set({ master: DEFAULT_MASTER, muted: false, levels: { ...DEFAULT_LEVELS } }); save(get()); },
 }));
 
+/**
+ * Quanto cada categoria abaixa enquanto alguém fala. Voz nunca abaixa; o resto recua
+ * o suficiente para a fala ficar clara, sem sumir.
+ */
+export const VOICE_DUCK: Record<AudioCategory, number> = {
+  narracao: 1,
+  participantes: 1,
+  efeitos: 0.36,
+  ambiente: 0.24,
+  musica: 0.18,
+};
+
 /** Volume final (0..1) de um som: base do próprio som × categoria × geral (0 se mudo). */
 export function mixVolume(cat: AudioCategory, base = 1): number {
   const s = useMixer.getState();
   if (s.muted) return 0;
-  const duck = cat === "musica" && s.ducked ? 0.25 : 1;
-  return clamp01(base * s.levels[cat] * s.master * duck);
+  const boss = cat === "musica" && s.ducked ? 0.25 : 1;
+  const voice = s.voiceActive ? VOICE_DUCK[cat] : 1;
+  return clamp01(base * s.levels[cat] * s.master * boss * voice);
 }
 
 /** Volume de um participante da voz (0 se eu o silenciei). HTMLAudioElement aceita no máximo 1. */

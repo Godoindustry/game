@@ -312,6 +312,23 @@ export async function leaveCampaign(user: SessionUser, campaignId: string) {
   });
 }
 
+/**
+ * Apaga a campanha de vez (só o administrador dela). O banco apaga em cascata personagens,
+ * membros, convites, diário, ações e estado do mundo. Campanhas encerradas ficam, para não
+ * sumir com a pontuação do ranking.
+ */
+export async function deleteCampaign(user: SessionUser, campaignId: string): Promise<{ ok: true }> {
+  const camp = await requireMember(user, campaignId);
+  if (camp.owner_user_id !== user.id) throw forbidden("Só o administrador da campanha pode apagá-la. Você pode sair dela.");
+  if (camp.status === "finished") throw conflict("Campanhas encerradas ficam no histórico e no ranking.", "campanha_encerrada");
+  const db = getDb();
+  await db.tx(async () => {
+    await db.lock(`campaign:${campaignId}`);
+    await db.run("DELETE FROM campaigns WHERE id = ? AND owner_user_id = ?", campaignId, user.id);
+  });
+  return { ok: true };
+}
+
 export async function endCampaign(actor: SessionUser, campaignId: string, ip: string | null) {
   const camp = await getCampaignRow(campaignId);
   const isOwner = camp.owner_user_id === actor.id;

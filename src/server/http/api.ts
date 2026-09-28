@@ -126,7 +126,8 @@ function buildRouter(): Router {
   r.post("/api/campaigns/:id/character", async (ctx) => campaigns.createCharacter(u(ctx), ctx.params.id, await ctx.body()), { auth: true, rate: "action" });
   r.post("/api/campaigns/:id/start", (ctx) => campaigns.startCampaign(u(ctx), ctx.params.id), { auth: true });
   r.delete("/api/campaigns/:id/members/:userId", (ctx) => campaigns.removeMember(u(ctx), ctx.params.id, ctx.params.userId, ctx.ip), { auth: true });
-  r.post("/api/campaigns/:id/leave", (ctx) => campaigns.leaveCampaign(u(ctx), ctx.params.id), { auth: true });
+  r.delete("/api/campaigns/:id", (ctx) => campaigns.deleteCampaign(u(ctx), ctx.params.id), { auth: true, rate: "action" });
+  r.post("/api/campaigns/:id/leave",(ctx) => campaigns.leaveCampaign(u(ctx), ctx.params.id), { auth: true });
   r.post("/api/campaigns/:id/end", (ctx) => campaigns.endCampaign(u(ctx), ctx.params.id, ctx.ip), { auth: true });
 
   // ---------- Jogo ----------

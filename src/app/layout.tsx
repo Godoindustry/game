@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import "./world.css";
 import "./immersive.css";
 import { Toasts } from "@/client/ui";
 import { Pwa } from "@/client/Pwa";

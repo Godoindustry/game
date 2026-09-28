@@ -4,24 +4,21 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { EcgLine, Logo, Spinner, useRequireUser } from "@/client/ui";
 import { useGame } from "@/client/game/useGame";
-import { MapView } from "@/client/game/MapView";
 import { CharacterPanel } from "@/client/game/CharacterPanel";
 import { Inventory } from "@/client/game/Inventory";
-import { EndScreen, Feed, HereCard, PartyList, PendingCard } from "@/client/game/Panels";
+import { EndScreen, Feed, PartyList } from "@/client/game/Panels";
 import { ObjectiveCompass } from "@/client/game/Compass";
 import { ScreenFx } from "@/client/game/ScreenFx";
-import { Tutorial, restartTutorial } from "@/client/game/Tutorial";
-import { useAudio, useHealthAudio, SFX } from "@/client/game/useAudio";
-import { useAmbience } from "@/client/game/ambience";
+import { useAudio, useHealthAudio } from "@/client/game/useAudio";
 import { useHorrorAudio } from "@/client/game/horrorAudio";
 import { AudioSettings } from "@/client/game/AudioSettings";
-import { GameWorld } from "@/client/world/GameWorld";
-import { CampaignDirector, D20Overlay, HorrorCinematics, LineageBadge, NarratorVoice, SceneCard } from "@/client/game/Immersion";
+import { StoryMode } from "@/client/game/StoryMode";
+import { CampaignDirector, D20Overlay, HorrorCinematics, LineageBadge, NarratorVoice } from "@/client/game/Immersion";
 import { RoomVoice } from "@/client/game/RoomVoice";
 import { SurvivorPortrait } from "@/client/game/Portrait";
 import { usePresence } from "@/client/presence";
 import { PowerCard } from "@/client/game/PowerCard";
-import { ParticipantTransition, SpokenScene } from "@/client/game/StoryDialogue";
+import { ParticipantTransition } from "@/client/game/StoryDialogue";
 
 type Tab = "acoes" | "diario" | "grupo";
 
@@ -40,11 +37,11 @@ export default function PlayPage() {
   const user = useRequireUser();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { state, busy, fatal, offset, submit, cancel, encounter } = useGame(id);
+  const { state, busy, fatal, offset, submit, cancel } = useGame(id);
   const [tab, setTab] = useState<Tab>("acoes");
   const [panel, setPanel] = useState<"char" | "bag" | "map" | null>(null);
   const [endClosed, setEndClosed] = useState(false);
-  const { play, toggle, enabled } = useAudio();
+  const { toggle, enabled } = useAudio();
   // Trilha de terror: chefes, despertar, noite, morte, mordida e compulsões.
   useHorrorAudio(state, enabled);
 
@@ -54,31 +51,9 @@ export default function PlayPage() {
   // Alertas automáticos de saúde (sangue, hipotermia, etc.)
   useHealthAudio(state?.me);
 
-  // Ambiente sonoro: vento, chuva, grilos à noite, fogo e coração acelerado.
-  useAmbience({
-    enabled: enabled && state?.campaign.status === "active",
-    night: !!state?.campaign.night,
-    rain: state?.campaign.weather === "chuva",
-    fire: !!state?.here.fire,
-    stress: state?.me?.alive ? state.me.status.stress : 0,
-  });
-
   useEffect(() => {
     if (state?.campaign.status === "lobby") router.replace(`/campanha/${id}/lobby`);
   }, [state?.campaign.status, id, router]);
-
-  // Toca áudio ambiental quando cai a noite
-  const isNight = state?.campaign.night;
-  useEffect(() => {
-    if (isNight) play(SFX.EVENT_NOITE, { vol: 0.4 });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isNight]);
-
-  // A seleção no mapa vale só até a próxima mensagem do diário (derivado, sem efeito).
-  const lastLog = state?.log[state.log.length - 1]?.id;
-  const [pick, setPick] = useState<{ id: string | null; log: number | undefined }>({ id: null, log: undefined });
-  const selected = pick.log === lastLog ? pick.id : null;
-  const setSelected = (locId: string | null) => setPick({ id: locId, log: lastLog });
 
   // ── Erro fatal ────────────────────────────────────────────────────────────
   if (fatal) {
@@ -179,7 +154,7 @@ export default function PlayPage() {
 
         {/* Bússola de objetivo */}
         {!finished && !dead && (
-          <ObjectiveCompass state={state} onShow={(l) => { setPanel(null); setSelected(l); setTab("acoes"); }} />
+          <ObjectiveCompass state={state} onShow={() => { setPanel("map"); setTab("acoes"); }} />
         )}
 
         <div className="spacer" />
@@ -197,9 +172,6 @@ export default function PlayPage() {
             title={enabled ? "Som ligado" : "Som desligado"}
           >
             {enabled ? "🔊" : "🔇"}
-          </button>
-          <button className="hud-icon hide-mobile" onClick={restartTutorial} aria-label="Rever tutorial" title="Rever tutorial">
-            ?
           </button>
         </div>
 
@@ -244,16 +216,14 @@ export default function PlayPage() {
       {/* ── Corpo do jogo ─────────────────────────────────────────────── */}
       <div className="game-body">
 
-        {/* Mundo andável */}
-        <GameWorld
+        {/* Modo história: cena narrada + decisões e D20, sem movimentação livre. */}
+        <StoryMode
           state={state}
-          offset={offset}
           busy={busy}
+          offset={offset}
           onAct={act}
           onCancel={cancel}
-          onOpen={setPanel}
-          onEncounter={encounter}
-          sound={enabled}
+          selected={null}
         />
 
         {/* Painel lateral */}
@@ -285,7 +255,6 @@ export default function PlayPage() {
             {/* ABA: Ações */}
             {tab === "acoes" && (
               <div className="stack">
-                <SceneCard state={state} />
                 <CampaignDirector state={state} onOpenMap={() => setPanel("map")} />
                 {me && me.alive && !finished && <PowerCard me={me} acts={state.acts} busy={busy || !!state.pending} onAct={act} />}
                 {finished && (
@@ -305,17 +274,6 @@ export default function PlayPage() {
                   </div>
                 )}
 
-                {state.pending && (
-                  <PendingCard
-                    pending={state.pending}
-                    offset={offset}
-                    onCancel={cancel}
-                    busy={busy}
-                  />
-                )}
-                {!finished && !dead && !state.pending && (
-                  <HereCard state={state} onAct={act} busy={busy} selected={selected} />
-                )}
 
                 {/* Atalhos rápidos */}
                 {me && !finished && (
@@ -373,45 +331,56 @@ export default function PlayPage() {
         />
       )}
 
-      {/* Mapa do vale (menu B do mundo) */}
+      {/* Rotas narrativas: escolhem um destino, sem mapa visto de cima. */}
       {panel === "map" && (
-        <div className="world-map-modal" role="dialog" aria-label="Mapa do vale">
+        <div className="world-map-modal story-route-modal" role="dialog" aria-modal="true" aria-label="Rotas da história">
           <div className="world-map-bar">
-            <span className="label">Mapa do vale</span>
+            <span className="label">Rotas da história</span>
             <button className="btn btn-sm" onClick={() => setPanel(null)}>Fechar</button>
           </div>
-          <MapView state={state} selected={selected} offset={offset} onSelect={(l) => setSelected(l)} />
-          <div className="world-map-foot">
-            {(() => {
-              const t = state.map.travel.find((x) => x.to === selected);
-              const loc = state.map.locations.find((x) => x.id === selected);
-              if (!loc) return <span className="tiny muted">Toque num local para ver o caminho.</span>;
-              return (
-                <>
-                  <span className="small"><b>{loc.name}</b> — {loc.description}</span>
-                  {t && (
-                    <button className="btn btn-sm btn-primary" disabled={busy || !t.available} title={t.reason ?? undefined}
-                      onClick={() => { act("mover", { to: t.to }); setPanel(null); }}>
-                      Caminhar até lá · ~{t.estimatedMinutes} min
-                    </button>
-                  )}
-                </>
-              );
-            })()}
+          <div className="story-route-content">
+            <header>
+              <span>LOCAL ATUAL</span>
+              <h2>{state.here.name}</h2>
+              <p>{state.here.description}</p>
+            </header>
+            <div className="story-route-list">
+              {state.map.travel.map((route, index) => {
+                const location = state.map.locations.find((item) => item.id === route.to);
+                return (
+                  <button
+                    key={route.to}
+                    className="story-route-choice"
+                    disabled={busy || !route.available}
+                    title={route.reason ?? undefined}
+                    onClick={() => { act("mover", { to: route.to }); setPanel(null); }}
+                  >
+                    <span className="story-route-number">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="story-route-copy">
+                      <b>{route.name}</b>
+                      <small>{location?.description ?? route.reason ?? "O caminho desaparece na névoa."}</small>
+                    </span>
+                    <span className="story-route-meta">
+                      {location && location.danger >= 3 && <em>PERIGO</em>}
+                      <i>~{route.estimatedMinutes} min</i>
+                    </span>
+                  </button>
+                );
+              })}
+              {state.map.travel.length === 0 && <p className="muted">Nenhuma rota está aberta nesta cena.</p>}
+            </div>
           </div>
         </div>
       )}
 
-      {/* ── Imersão: filtros de tela e tutorial ─────────────────────────── */}
+      {/* ── Imersão: filtros de tela ────────────────────────────────────── */}
       <ScreenFx me={me} />
-      {!finished && !dead && <Tutorial state={state} panel={panel === "map" ? null : panel} selected={selected} />}
 
       {/* ── Tela de fim ────────────────────────────────────────────────── */}
       {(finished || dead) && !endClosed && (
         <EndScreen state={state} onClose={() => setEndClosed(true)} />
       )}
       <ParticipantTransition state={state} />
-      {!finished && !dead && <SpokenScene state={state} />}
       <HorrorCinematics state={state} />
       <D20Overlay roll={state.lastRoll} />
     </div>

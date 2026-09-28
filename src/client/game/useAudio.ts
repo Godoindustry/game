@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { mixVolume } from "../audioMixer";
+import { audioDirector } from "./audioDirector";
 
 const AUDIO_BASE = "/audio";
 
@@ -55,32 +55,15 @@ export const SFX = {
 } as const;
 
 // ──────────────────────────────────────────────────────────────────────────
-export function useAudio(volume = 0.55) {
-  const currentRef = useRef<HTMLAudioElement | null>(null);
+export function useAudio(volume = 1) {
   const [enabled, setEnabled] = useState(true);
 
-  const play = useCallback((id: string, opts?: { vol?: number; loop?: boolean }) => {
-    try {
-      if (currentRef.current) {
-        currentRef.current.pause();
-        currentRef.current.currentTime = 0;
-      }
-      const audio = new Audio(`${AUDIO_BASE}/${id}.mp3`);
-      audio.volume = mixVolume("narracao", opts?.vol ?? volume);
-      audio.loop   = opts?.loop ?? false;
-      currentRef.current = audio;
-      audio.play().catch(() => { /* autoplay bloqueado — silencioso */ });
-    } catch {
-      // silencioso — áudio é enhancement, não feature crítica
-    }
+  // Toda fala gravada entra na fila de voz do diretor: uma de cada vez, o resto abaixa.
+  const play = useCallback((id: string, opts?: { vol?: number; alert?: boolean }) => {
+    audioDirector().voiceFile(`${AUDIO_BASE}/${id}.mp3`, opts?.vol ?? volume, opts?.alert ? "alerta" : "narracao");
   }, [volume]);
 
-  const stop = useCallback(() => {
-    if (currentRef.current) {
-      currentRef.current.pause();
-      currentRef.current.currentTime = 0;
-    }
-  }, []);
+  const stop = useCallback(() => audioDirector().stopVoices(), []);
 
   const playRandom = useCallback((ids: readonly string[], opts?: { vol?: number }) => {
     const id = ids[Math.floor(Math.random() * ids.length)];
@@ -90,14 +73,10 @@ export function useAudio(volume = 0.55) {
   const toggle = useCallback(() => {
     setEnabled((v) => {
       const next = !v;
-      if (!next) stop();
+      audioDirector().setEnabled(next);
       return next;
     });
-  }, [stop]);
-
-  useEffect(() => {
-    return () => { stop(); };
-  }, [stop]);
+  }, []);
 
   return { play, stop, playRandom, toggle, enabled };
 }
@@ -112,7 +91,7 @@ export function useHealthAudio(
     wounds: { bleedingRate: number }[];
   } | null | undefined
 ) {
-  const { play } = useAudio(0.5);
+  const { play } = useAudio(0.85);
   const prevAlert = useRef<string | null>(null);
 
   useEffect(() => {
@@ -124,7 +103,8 @@ export function useHealthAudio(
     else if (me.status.thirst > 85)                 alert = SFX.ALERT_SEDE;
     else if (me.health.health < 20)                 alert = SFX.ALERT_FOME;
 
-    if (alert && alert !== prevAlert.current) play(alert, { vol: 0.5 });
+    // Alerta não interrompe ninguém: se alguém já está falando, ele é descartado.
+    if (alert && alert !== prevAlert.current) play(alert, { alert: true });
     prevAlert.current = alert;
   }, [me, play]);
 }

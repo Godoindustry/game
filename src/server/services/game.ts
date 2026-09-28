@@ -145,16 +145,46 @@ export async function cancelAction(user: SessionUser, campaignId: string): Promi
 const encounterSchema = z.strictObject({ kind: z.enum(["morcego", "alma"]) });
 
 /**
- * O mundo andável avisa que uma criatura alcançou o jogador no escuro.
- * A regra (engine/vampire.ts) decide se houve ataque: só à noite, longe do fogo,
- * no máximo a cada 30 min de jogo. Não gasta a vez da rodada.
+ * Pedido explícito de encontro (rota mantida por compatibilidade). No modo história quem
+ * dispara os encontros é o próprio servidor, depois das rodadas noturnas (nightAmbushes).
+ * A regra (engine/vampire.ts) decide se houve ataque: só à noite, longe do fogo, com intervalo.
  */
 export async function encounter(user: SessionUser, campaignId: string, input: unknown) {
   const { kind } = encounterSchema.parse(input);
   const camp = await requireMember(user, campaignId);
   if (camp.status !== "active") throw conflict("A campanha não está em andamento.", "campanha_inativa");
   const charId = await myCharacterId(campaignId, user.id);
+  return runNightEncounter(campaignId, charId, user.id, kind);
+}
+
+/** Chance de algo sair do escuro depois de uma ação noturna ao ar livre, por agressividade do modo. */
+export const AMBUSH_BASE = 0.1;
+export const AMBUSH_PER_AGGRESSION = 0.25;
+
+/**
+ * Modo história: sem boneco andando no escuro, o SERVIDOR decide se algo se aproxima de quem
+ * acabou de agir à noite, fora de abrigo. Determinístico por semente/rodada; respeita fogo e intervalo.
+ */
+async function nightAmbushes(campaignId: string, charIds: string[], round: number): Promise<void> {
+  if (!charIds.length) return;
+  const camp = await getCampaignRow(campaignId);
+  if (camp.status !== "active") return;
+  const content = getScenario(camp.scenario_id);
+  const world = await loadWorld(campaignId);
+  const chars = await loadCampaignCharacters(campaignId);
+  const rules = rulesFor(difficultyOf(world.flags));
+  for (const id of [...new Set(charIds)]) {
+    const char = chars.find((c) => c.id === id);
+    if (!char?.alive || isSheltered(world, content, char.status.locationId) || encounterBlocked(char, world, content)) continue;
+    const rng = rngFor(world.seed, round, id, "emboscada");
+    if (rng() >= AMBUSH_BASE + AMBUSH_PER_AGGRESSION * rules.aggression) continue;
+    await runNightEncounter(campaignId, id, char.userId, rng() < 0.6 ? "morcego" : "alma");
+  }
+}
+
+async function runNightEncounter(campaignId: string, charId: string, userId: string, kind: "morcego" | "alma") {
   const db = getDb();
+  const camp = await getCampaignRow(campaignId);
   const content = getScenario(camp.scenario_id);
 
   // 1) Fora da transação: se vai haver encontro, a IA decide a ATITUDE (lista fechada) e escreve a cena.
@@ -168,7 +198,7 @@ export async function encounter(user: SessionUser, campaignId: string, input: un
   const rules = rulesFor(difficultyOf(world0.flags));
   const fallback = fallbackAttitude(kind, world0, rng);
   const ai = await aiCreatureAttitude(
-    { userId: user.id, campaignId },
+    { userId, campaignId },
     {
       creature: kind === "morcego" ? "morcego-vampiro" : "alma na névoa",
       allowedAttitudes: [...CREATURE_ATTITUDES[kind]],
@@ -328,7 +358,7 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
   );
 
   // Transação única: autosave de tudo ou nada. Trava + versão otimista impedem resolver duas vezes.
-  return db.tx(async () => {
+  const resolved = await db.tx(async () => {
     await db.lock(`campaign:${campaignId}`);
     const fresh = await getCampaignRow(campaignId);
     if (fresh.version !== camp.version || fresh.current_round !== camp.current_round || fresh.status !== "active") return false;
@@ -389,6 +419,11 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
     if (result.ended) await finalizeCampaign(campaignId, world, chars, content);
     return true;
   });
+  // Modo história: depois de uma rodada noturna, algo pode sair do escuro (fora da transação: usa IA).
+  if (resolved && !result.ended) {
+    await nightAmbushes(campaignId, Object.values(reports).filter((r) => r.minutes > 0).map((r) => r.characterId), camp.current_round);
+  }
+  return resolved;
 }
 
 async function grantRoundAchievements(chars: CharacterState[], world: WorldState, reports: Record<string, ActionReport>, campaignId: string) {
@@ -627,7 +662,7 @@ export async function getState(user: SessionUser, campaignId: string) {
           durationMinutes: myPending.duration_minutes,
           submittedAt: myPending.submitted_at,
           completesAt: myPending.completes_at,
-          // Destino da caminhada: o mapa anima o marcador pela trilha durante a espera.
+          // Destino da viagem narrativa durante a resolução da ação.
           target: myPending.type === "mover" ? String(json<Record<string, unknown>>(myPending.params, {}).to ?? "") || null : null,
           // Ninguém espera ninguém: a ação resolve sozinha (campo mantido por compatibilidade).
           waitingFor: [] as string[],

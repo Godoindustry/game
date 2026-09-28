@@ -1,7 +1,7 @@
 "use client";
 /**
- * Bússola de objetivo no HUD: aponta do local atual para o próximo alvo da rota
- * de fuga. Uma necessidade urgente do corpo (sangramento, frio, sede…) tem prioridade.
+ * Objetivo no HUD: mostra a próxima etapa da crônica e abre as rotas narrativas.
+ * Uma necessidade urgente do corpo (sangramento, frio, sede…) tem prioridade.
  */
 import { useEffect, useRef, useState } from "react";
 import type { GameState } from "./useGame";
@@ -66,10 +66,10 @@ export function ObjectiveCompass({ state, onShow }: { state: GameState; onShow: 
                   <span className="tiny green">◎ Você está em {obj.targetName}.</span>
                 ) : obj.targetOnMap ? (
                   <button className="btn btn-sm" onClick={() => { onShow(obj.targetLocationId!); setOpen(false); }}>
-                    Mostrar {obj.targetName} no mapa
+                    Ver rota para {obj.targetName}
                   </button>
                 ) : (
-                  <span className="tiny muted">Destino: {obj.targetName}. Siga a agulha — o caminho aparece conforme você explora.</span>
+                  <span className="tiny muted">Destino: {obj.targetName}. Novas rotas surgem conforme suas decisões revelam o vale.</span>
                 )
               )}
               {obj.others.map((o) => (

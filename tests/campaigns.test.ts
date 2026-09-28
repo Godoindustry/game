@@ -135,3 +135,51 @@ describe("Rodadas cooperativas", () => {
     expect(after).toBe(before);
   });
 });
+
+describe("Apagar campanha", () => {
+  it("o admin apaga de vez: some da lista e o banco apaga tudo em cascata", async () => {
+    const { owner, id } = await coop();
+    const inv = await owner.client.post(`/api/campaigns/${id}/invites`);
+    const guest = await registered("Convidado");
+    await guest.client.post("/api/invites/accept", { code: inv.body.code });
+    await owner.client.post(`/api/campaigns/${id}/character`, VALID_SHEET);
+    await guest.client.post(`/api/campaigns/${id}/character`, VALID_SHEET);
+    await owner.client.post(`/api/campaigns/${id}/start`);
+
+    // Convidado não apaga (só sai)
+    expect((await guest.client.del(`/api/campaigns/${id}`)).status).toBe(403);
+
+    const r = await owner.client.del(`/api/campaigns/${id}`);
+    expect(r.status).toBe(200);
+    expect((await owner.client.get("/api/campaigns")).body).toHaveLength(0);
+    expect((await guest.client.get("/api/campaigns")).body).toHaveLength(0);
+    for (const table of ["campaigns", "campaign_members", "characters", "campaign_log", "campaign_events"]) {
+      const col = table === "campaigns" ? "id" : "campaign_id";
+      const n = await getDb().get<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table} WHERE ${col} = ?`, id);
+      expect(Number(n?.n), table).toBe(0);
+    }
+    expect((await owner.client.get(`/api/campaigns/${id}/state`)).status).toBe(404);
+  });
+
+  it("convidado sai sem apagar a campanha dos outros", async () => {
+    const { owner, id } = await coop();
+    const inv = await owner.client.post(`/api/campaigns/${id}/invites`);
+    const guest = await registered("Saideiro");
+    await guest.client.post("/api/invites/accept", { code: inv.body.code });
+    expect((await guest.client.post(`/api/campaigns/${id}/leave`)).status).toBe(200);
+    expect((await guest.client.get("/api/campaigns")).body).toHaveLength(0);
+    expect((await owner.client.get("/api/campaigns")).body).toHaveLength(1);
+  });
+
+  it("campanha encerrada não é apagada (preserva o ranking)", async () => {
+    const { owner, id } = await coop();
+    await owner.client.post(`/api/campaigns/${id}/end`);
+    expect((await owner.client.del(`/api/campaigns/${id}`)).status).toBe(409);
+  });
+
+  it("quem não é membro não descobre nem apaga a campanha", async () => {
+    const { id } = await coop();
+    const stranger = await registered("Estranho");
+    expect((await stranger.client.del(`/api/campaigns/${id}`)).status).toBe(404);
+  });
+});

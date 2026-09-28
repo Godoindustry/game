@@ -53,20 +53,6 @@ export function useGame(campaignId: string) {
     [campaignId, accept, sync],
   );
 
-  /** Uma criatura alcançou o jogador no escuro: o servidor decide se houve ataque. */
-  const encounter = useCallback(
-    async (kind: "morcego" | "alma") => {
-      try {
-        const r = await api<{ happened: boolean; state: GameState }>("POST", `/api/campaigns/${campaignId}/encounter`, { kind });
-        accept(r.state);
-        return r.happened;
-      } catch {
-        return false;
-      }
-    },
-    [campaignId, accept],
-  );
-
   const cancel = useCallback(async () => {
     setBusy(true);
     try {
@@ -103,7 +89,7 @@ export function useGame(campaignId: string) {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [sync]);
 
-  return { state, busy, fatal, offset, sync, submit, cancel, encounter };
+  return { state, busy, fatal, offset, sync, submit, cancel };
 }
 
 export function useNow(active: boolean, offset: number): number {
@@ -119,7 +105,7 @@ export function useNow(active: boolean, offset: number): number {
 export const ACTION_LABEL: Record<string, string> = {
   examinar: "Examinando a área",
   procurar: "Procurando recursos",
-  mover: "Caminhando",
+  mover: "Seguindo pela rota",
   descansar: "Descansando",
   dormir: "Dormindo",
   comer: "Comendo",

@@ -128,17 +128,17 @@ Todas as mutações exigem o cabeçalho `x-csrf-token`, igual ao cookie `ls_csrf
 - **Campanhas:** solo e cooperativo (máx. 4), convites seguros, lobby, início, rodadas com prazo e ação automática segura, pausa quando todos estão offline, remoção de participante e encerramento.
 - **Personagem:** ficha completa (físico, profissão, conhecimentos, medos, histórico, personalidade, até 2 experiências) e 24 pontos em 12 atributos, validados no servidor.
 - **Motor determinístico:** tempo, fome, sede, energia, sono, dor, estresse, temperatura corporal, umidade, sangramento, infecção, doenças, mobilidade, membros, peso, volume, compartimentos, acessibilidade, durabilidade, bateria, testes de atributo (5–95%), eventos, consequências, morte e finais.
-- **Ações:** examinar, procurar, caminhar, descansar, dormir, comer, beber, coletar/purificar/ferver água, tratar ferimento, analgésico, montar abrigo, fogueira, lenha, pegar/largar/mover/equipar itens, conversar com NPC e escolhas de evento. Todas com duração oficial calculada pelo servidor.
+- **Ações:** examinar, procurar, escolher rotas, descansar, dormir, comer, beber, coletar/purificar/ferver água, tratar ferimento, analgésico, montar abrigo, fogueira, lenha, pegar/largar/mover/equipar itens, conversar com NPC e escolhas de evento. Todas com duração oficial calculada pelo servidor.
 - **Conteúdo:** 9 locais, 12 trilhas (3 ocultas), 32 itens, 25 eventos, 27 pistas, 1 NPC, 4 finais positivos + 1 negativo.
 - **Salvamento automático:** cada rodada é salva numa transação única com controle de versão.
 - **Conquistas (12) e ranking.**
-- **Atmosfera:** mapa com luz do horário (amanhecer, dia, entardecer, noite com raio de lanterna), névoa animada, chuva, fogueiras que tremulam, marcador que anda pela trilha durante a caminhada; eventos com cena recortada do mapa e texto em máquina de escrever; dossiê de pistas; som ambiente procedural (vento, chuva, grilos, fogo, coração acelerado).
+- **Atmosfera:** cenas cinematográficas em perspectiva humana, atos e chefes com arte própria, névoa e chuva animadas, narração por voz, dossiê de pistas, D20 animado e paisagem sonora com prioridade para diálogos.
 - **IA:** narrativa, fala do NPC e classificação de intenção, com cache, timeout, cotas, orçamento, filtro e fallback.
 - **Admin:** estatísticas, uso e custo de IA, usuários, campanhas, auditoria e caixa de e-mails de dev.
 
 ## O que foi testado
 
-**Automatizado: 80 testes (`npm test`), todos passando.**
+**Automatizado: 176 testes em 20 arquivos (`npm test`), todos passando.**
 
 | Área | Cobertura |
 |---|---|
@@ -184,20 +184,22 @@ Todas as mutações exigem o cabeçalho `x-csrf-token`, igual ao cookie `ls_csrf
 1. **Deploy Vercel + Supabase** — ver seção abaixo.
 2. Mailer real (Resend/SMTP) e credenciais do Google OAuth.
 3. Tempo real com WebSocket/Supabase Realtime no cooperativo.
-4. Zoom e arraste no mapa; mais regiões e campanhas.
+4. Mais regiões, cenas cinematográficas e campanhas.
 5. Editor de eventos no painel admin (hoje o conteúdo está em código versionado).
 
-## Mundo andável (modo jogo)
+## Modo história (RPG narrativo)
 
-A tela de jogo é um mundo 2D visto de cima (Phaser 3): cada local vira um cenário gerado de forma fixa (`src/client/world/layout.ts`), com o personagem andando (setas/WASD, joystick no celular ou tocando no chão) e interagindo (tecla E/espaço ou botão A) com caixas, galhos, fogueira, água, itens, NPC e as saídas para outros locais. O servidor continua decidindo tudo: o mundo só envia as mesmas ações de antes (`src/client/world/GameWorld.tsx`).
+A campanha funciona como uma mesa de RPG de terror. Não há personagem controlável, WASD, joystick nem câmera vista de cima. Cada turno apresenta uma cena cinematográfica, a narração do Mestre e decisões de ação, viagem ou diálogo. O servidor resolve consequências, combates e testes; o D20 aparece na tela com o resultado.
 
-- **Sem espera:** as ações resolvem na hora (`ACTION_REAL_SECONDS_PER_GAME_MINUTE=0`). No cooperativo ninguém espera ninguém: quem agiu resolve; os outros só veem o tempo passar.
-- **Noite e vampiros:** à noite só a lanterna ilumina. Morcegos-vampiro e almas perseguem quem está no escuro e fogem da fogueira. O ataque é decidido no servidor (`src/server/engine/vampire.ts`, rota `POST /api/campaigns/:id/encounter`): mordida = ferida + "sede escura"; dormir junto ao fogo cura; três mordidas transformam o personagem.
-- **Arte e sons:** pacote "Ninja Adventure" de Pixel-boy (licença CC0), em `public/game/`. Música: `theme-3` (dia) e `theme-9` (noite), trocáveis em `useMusic`.
+- **Cenas e escolhas:** eventos, conversas, situações de sobrevivência e confrontos avançam por decisões narrativas.
+- **D20:** testes usam as regras autoritativas do servidor e exibem a rolagem, modificador, dificuldade e sucesso ou falha.
+- **Narração:** a voz dinâmica lê a cena automaticamente. Apenas uma fala toca por vez; ambiente, música e ruídos abaixam enquanto alguém fala.
+- **Rotas:** mudar de local é uma escolha de história com tempo e risco, sem controlar a caminhada.
+- **Cooperativo:** o grupo conversa por voz dentro da sala, vota nas decisões e acompanha as ações dos demais.
 
 ## App no celular (Android / iOS)
 
-As telas públicas e de autenticação usam a direção cinematográfica de Vale Silente. O mapa e os recortes de cena exibem a arte original em alta resolução, sem redução de paleta, canvas de baixa resolução ou filtro pixelado.
+As telas públicas, de autenticação e da campanha usam a direção cinematográfica de Vale Silente, com imagens em alta resolução e sem pixel art.
 
 **PWA (grátis, Android e iPhone).** Com o site publicado em HTTPS: no Android, Chrome → "Instalar app" (o jogo também mostra um botão). No iPhone, Safari → Compartilhar → "Adicionar à Tela de Início". Service worker em `public/sw.js`; página sem conexão em `public/offline.html`.
 
