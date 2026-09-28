@@ -1,477 +1,152 @@
 /**
- * generate-audio-ssml.js
- * Gera TODOS os áudios do jogo com expressão emocional real via SSML.
- * Usa 2 contas ElevenLabs intercaladas para não estourar o limite.
+ * generate-audio.js — gera os áudios fixos do jogo (public/audio/*.mp3) com o ElevenLabs v3.
  *
- * Vozes usadas:
- *   NARRADOR → George (JBFqnCBsd6RMkjVDRZzb) — storyteller dramático britânico
- *   NPC      → Callum (N2lVS1w4EtoT3dr4eOWO) — husky, misterioso
- *   SISTEMA  → Daniel (onwK4e9ZLuTAKqWW03F9) — broadcaster frio/formal
- *   MORTE    → Brian  (nPczCjzI2devNBz1zQrb) — profundo, sombrio
+ * O modelo `eleven_v3` interpreta TAGS DE EXPRESSÃO entre colchetes, em inglês:
+ *   [sighs] [laughs] [dark laugh] [whispers] [gasps] [crying] [pause] [long pause] …
+ * (SSML como <prosody>/<emphasis> NÃO é suportado pela ElevenLabs — era ignorado.)
+ * A lista permitida fica em src/shared/voiceTags.ts.
  *
- * SSML suportado pela ElevenLabs:
- *   <break time="500ms"/>      → pausa
- *   <prosody rate="slow">      → ritmo lento
- *   <prosody rate="fast">      → ritmo acelerado
- *   <prosody pitch="-10%">     → tom mais grave
- *   <prosody volume="soft">    → mais baixo
- *   <emphasis level="strong">  → ênfase forte
+ * Chaves: NUNCA no código. Use variáveis de ambiente (uma ou várias, separadas por vírgula):
+ *   ELEVENLABS_API_KEYS="sk_conta1,sk_conta2" node scripts/generate-audio.js
+ *   (ou ELEVENLABS_API_KEY="sk_..." para uma conta)
+ * Para regerar um arquivo existente, apague o .mp3 (ou rode com --force).
+ *
+ * Vozes (troque por env se quiser):
+ *   NARRADOR → George (JBFqnCBsd6RMkjVDRZzb) — contador de histórias dramático
+ *   NPC      → Callum (N2lVS1w4EtoT3dr4eOWO) — rouco, misterioso
+ *   SISTEMA  → Daniel (onwK4e9ZLuTAKqWW03F9) — locutor frio
+ *   MORTE    → Brian  (nPczCjzI2devNBz1zQrb) — grave, sombrio
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import https from "node:https";
+import { fileURLToPath } from "node:url";
 
-// ── Contas ────────────────────────────────────────────────────────────────
-const KEYS = [
-  'sk_87716a1b971b949d9769d34e120a4a2012d87f65d39f9596', // Conta 1
-  'sk_47564ba5a2e65c0c6c6384af0776fa1641034b0952710fb1', // Conta 2
-];
+const KEYS = (process.env.ELEVENLABS_API_KEYS ?? process.env.ELEVENLABS_API_KEY ?? "")
+  .split(",")
+  .map((k) => k.trim())
+  .filter(Boolean);
 
-// ── IDs das vozes ─────────────────────────────────────────────────────────
 const VOICES = {
-  narrador: 'JBFqnCBsd6RMkjVDRZzb', // George - Warm, Captivating Storyteller
-  npc:      'N2lVS1w4EtoT3dr4eOWO', // Callum - Husky Trickster (misterioso)
-  sistema:  'onwK4e9ZLuTAKqWW03F9', // Daniel - Steady Broadcaster (frio)
-  morte:    'nPczCjzI2devNBz1zQrb', // Brian  - Deep, Resonant (sombrio)
+  narrador: process.env.ELEVENLABS_VOICE_NARRADOR ?? "JBFqnCBsd6RMkjVDRZzb",
+  npc: process.env.ELEVENLABS_VOICE_NPC ?? "N2lVS1w4EtoT3dr4eOWO",
+  sistema: process.env.ELEVENLABS_VOICE_SISTEMA ?? "onwK4e9ZLuTAKqWW03F9",
+  morte: process.env.ELEVENLABS_VOICE_MORTE ?? "nPczCjzI2devNBz1zQrb",
 };
 
-const MODEL   = 'eleven_multilingual_v2'; // suporte a PT-BR
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
-const OUT_DIR = path.join(__dirname, '../public/audio');
+const MODEL = process.env.ELEVENLABS_MODEL ?? "eleven_v3";
+const FORCE = process.argv.includes("--force");
+const OUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../public/audio");
 
-// ── Todos os áudios do jogo com SSML ─────────────────────────────────────
-// "role" define qual voz usar. Os textos usam tags SSML para entonação real.
-const AUDIO_SCRIPT = [
-
+// ── Roteiro: todo áudio leva tags de expressão ──────────────────────────────
+export const AUDIO_SCRIPT = [
   // ── TELA DE ENTRADA ────────────────────────────────────────────────────
-  {
-    id:   'intro-quote-1',
-    role: 'sistema',
-    ssml: `<speak>
-      <prosody rate="slow" pitch="-8%">
-        <break time="600ms"/>
-        <emphasis level="strong">sete…</emphasis>
-        <break time="400ms"/>
-        quatro…
-        <break time="400ms"/>
-        zero…
-        <break time="800ms"/>
-      </prosody>
-      <prosody rate="slow">
-        A voz no rádio não para.
-        <break time="400ms"/>
-        O cinto do piloto foi cortado.
-        <break time="600ms"/>
-        Ninguém sabe que você está aqui.
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'intro-quote-2',
-    role: 'narrador',
-    ssml: `<speak>
-      <prosody rate="slow">
-        A lanterna piscou.
-        <break time="700ms"/>
-        Depois apagou.
-        <break time="900ms"/>
-        <prosody pitch="-10%" rate="slow">
-          Algo se moveu na beira da trilha.
-        </prosody>
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'intro-quote-3',
-    role: 'sistema',
-    ssml: `<speak>
-      <prosody rate="slow">
-        O rádio captou uma frequência estranha.
-        <break time="500ms"/>
-        Repetia as mesmas coordenadas.
-        <break time="600ms"/>
-        <emphasis level="strong">Em loop.</emphasis>
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'intro-quote-4',
-    role: 'narrador',
-    ssml: `<speak>
-      <prosody rate="slow">
-        A construção estava abandonada há anos.
-        <break time="600ms"/>
-        <prosody pitch="-5%" rate="slow">
-          A fogueira dentro era recente.
-        </prosody>
-      </prosody>
-    </speak>`,
-  },
+  { id: "intro-quote-1", role: "sistema", text: "[slowly] [whispers] sete… [pause] quatro… [pause] zero… [long pause] [serious] A voz no rádio não para. O cinto do piloto foi cortado. [pause] [ominous] Ninguém sabe que você está aqui." },
+  { id: "intro-quote-2", role: "narrador", text: "[slowly] A lanterna piscou. [pause] Depois apagou. [long pause] [whispers] Algo se moveu na beira da trilha." },
+  { id: "intro-quote-3", role: "sistema", text: "[tense] O rádio captou uma frequência estranha. [pause] Repetia as mesmas coordenadas. [long pause] [ominous] Em loop." },
+  { id: "intro-quote-4", role: "narrador", text: "[mysterious] A construção estava abandonada há anos. [pause] [whispers] A fogueira dentro era recente. [dark laugh]" },
 
   // ── INTERFACE / HUD ───────────────────────────────────────────────────
-  {
-    id:   'hud-alert-fome',
-    role: 'sistema',
-    ssml: `<speak>
-      <prosody rate="medium" pitch="-5%">
-        <emphasis level="moderate">Alerta.</emphasis>
-        <break time="300ms"/>
-        Nível de fome crítico.
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'hud-alert-sede',
-    role: 'sistema',
-    ssml: `<speak>
-      <prosody rate="medium" pitch="-5%">
-        <emphasis level="moderate">Alerta.</emphasis>
-        <break time="300ms"/>
-        Desidratação severa.
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'hud-alert-sangue',
-    role: 'sistema',
-    ssml: `<speak>
-      <prosody rate="fast" pitch="-5%">
-        <emphasis level="strong">Sangramento ativo detectado.</emphasis>
-        <break time="300ms"/>
-        Trate o ferimento imediatamente.
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'hud-alert-hipotermia',
-    role: 'sistema',
-    ssml: `<speak>
-      <prosody rate="slow" pitch="-8%">
-        <emphasis level="strong">Alerta crítico.</emphasis>
-        <break time="400ms"/>
-        Temperatura corporal abaixo do limite seguro.
-        <break time="300ms"/>
-        Procure abrigo.
-      </prosody>
-    </speak>`,
-  },
+  { id: "hud-alert-fome", role: "sistema", text: "[serious] Alerta. [pause] [exhales] Nível de fome crítico." },
+  { id: "hud-alert-sede", role: "sistema", text: "[urgent] Alerta. [pause] [gulps] Desidratação severa." },
+  { id: "hud-alert-sangue", role: "sistema", text: "[urgent] Sangramento ativo detectado. [pause] Trate o ferimento imediatamente." },
+  { id: "hud-alert-hipotermia", role: "sistema", text: "[trembling] Alerta crítico. [pause] Temperatura corporal abaixo do limite seguro. [breathing heavily] Procure abrigo." },
 
   // ── EVENTOS NARRATIVOS ─────────────────────────────────────────────────
-  {
-    id:   'event-rastros',
-    role: 'narrador',
-    ssml: `<speak>
-      <prosody rate="slow">
-        Você encontrou pegadas na lama.
-        <break time="500ms"/>
-        São recentes.
-        <break time="700ms"/>
-        <prosody pitch="-8%" rate="slow">
-          Alguém… ou algo… esteve aqui há pouco.
-        </prosody>
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'event-radio',
-    role: 'narrador',
-    ssml: `<speak>
-      <prosody rate="slow">
-        O rádio ganhou vida por um segundo.
-        <break time="600ms"/>
-        Uma voz.
-        <break time="400ms"/>
-        Distorcida.
-        <break time="800ms"/>
-        <prosody pitch="-12%" rate="slow">
-          Depois… silêncio.
-        </prosody>
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'event-fogueira',
-    role: 'narrador',
-    ssml: `<speak>
-      <prosody rate="medium">
-        A fogueira crepita na escuridão.
-        <break time="500ms"/>
-        Por alguns instantes,
-        <break time="300ms"/>
-        o frio recua.
-        <break time="600ms"/>
-        Você se sente <prosody pitch="+5%">quase</prosody> seguro.
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'event-abrigo',
-    role: 'narrador',
-    ssml: `<speak>
-      <prosody rate="slow">
-        O abrigo é simples.
-        <break time="400ms"/>
-        Mas é o suficiente para sobreviver à noite.
-        <break time="700ms"/>
-        <prosody pitch="-5%">
-          Por enquanto.
-        </prosody>
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'event-noite',
-    role: 'narrador',
-    ssml: `<speak>
-      <prosody rate="slow" pitch="-8%">
-        A escuridão engoliu o Vale Silente.
-        <break time="600ms"/>
-        O que estava escondido durante o dia…
-        <break time="700ms"/>
-        <emphasis level="strong">acorda.</emphasis>
-      </prosody>
-    </speak>`,
-  },
+  { id: "event-rastros", role: "narrador", text: "[speaking softly] Você encontrou pegadas na lama. [pause] São recentes. [long pause] [whispers] Alguém… ou algo… esteve aqui há pouco." },
+  { id: "event-radio", role: "narrador", text: "[tense] O rádio ganhou vida por um segundo. [pause] Uma voz. [pause] Distorcida. [long pause] [whispers] Depois… silêncio." },
+  { id: "event-fogueira", role: "narrador", text: "[relieved] [sighs] A fogueira crepita na escuridão. Por alguns instantes, o frio recua. [pause] [laughs softly] Você se sente quase seguro." },
+  { id: "event-abrigo", role: "narrador", text: "[exhales] O abrigo é simples. Mas é o suficiente para sobreviver à noite. [long pause] [ominous] Por enquanto." },
+  { id: "event-noite", role: "narrador", text: "[ominous] [slowly] A escuridão engoliu o Vale Silente. [pause] O que estava escondido durante o dia… [long pause] [whispers] acorda." },
 
   // ── NPC ───────────────────────────────────────────────────────────────
-  {
-    id:   'npc-desconhecido-1',
-    role: 'npc',
-    ssml: `<speak>
-      <prosody rate="slow" pitch="-5%">
-        <break time="400ms"/>
-        Você não deveria estar aqui.
-        <break time="600ms"/>
-        Ninguém deveria estar aqui.
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'npc-desconhecido-2',
-    role: 'npc',
-    ssml: `<speak>
-      <prosody rate="slow" pitch="-8%">
-        <break time="300ms"/>
-        Eu tentei sair uma vez.
-        <break time="500ms"/>
-        O vale não deixa.
-        <break time="800ms"/>
-        <emphasis level="strong">Nunca deixa.</emphasis>
-      </prosody>
-    </speak>`,
-  },
+  { id: "npc-desconhecido-1", role: "npc", text: "[whispers] Você não deveria estar aqui. [pause] [laughs nervously] Ninguém deveria estar aqui." },
+  { id: "npc-desconhecido-2", role: "npc", text: "[sighs] Eu tentei sair uma vez. [pause] O vale não deixa. [long pause] [dark laugh] Nunca deixa." },
 
   // ── MORTE ──────────────────────────────────────────────────────────────
-  {
-    id:   'death-1',
-    role: 'morte',
-    ssml: `<speak>
-      <prosody rate="slow" pitch="-12%" volume="soft">
-        <break time="1000ms"/>
-        <emphasis level="strong">Sinal perdido.</emphasis>
-        <break time="800ms"/>
-        Seus sinais vitais cessaram.
-        <break time="600ms"/>
-        <prosody pitch="-15%" rate="slow">
-          O Vale Silente… engoliu mais uma alma.
-        </prosody>
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'death-fome',
-    role: 'morte',
-    ssml: `<speak>
-      <prosody rate="slow" pitch="-12%" volume="soft">
-        <break time="600ms"/>
-        Seu corpo cedeu à fome.
-        <break time="700ms"/>
-        <prosody rate="slow" pitch="-15%">
-          Você lutou tanto quanto pôde.
-          <break time="500ms"/>
-          Não foi suficiente.
-        </prosody>
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'death-hipotermia',
-    role: 'morte',
-    ssml: `<speak>
-      <prosody rate="slow" pitch="-10%" volume="soft">
-        <break time="600ms"/>
-        O frio apagou sua chama aos poucos.
-        <break time="700ms"/>
-        Você fechou os olhos pela última vez
-        <break time="400ms"/>
-        achando que ia dormir.
-        <break time="800ms"/>
-        <prosody pitch="-15%">
-          Não acordou.
-        </prosody>
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'death-ferimento',
-    role: 'morte',
-    ssml: `<speak>
-      <prosody rate="slow" pitch="-12%" volume="soft">
-        <break time="500ms"/>
-        O sangramento foi demais.
-        <break time="600ms"/>
-        <prosody rate="slow" pitch="-15%">
-          Seus olhos foram os últimos a desistirem.
-        </prosody>
-      </prosody>
-    </speak>`,
-  },
+  { id: "death-1", role: "morte", text: "[long pause] [cold] Sinal perdido. [pause] Seus sinais vitais cessaram. [long pause] [whispers] O Vale Silente… engoliu mais uma alma." },
+  { id: "death-fome", role: "morte", text: "[sighs] Seu corpo cedeu à fome. [pause] [sad] Você lutou tanto quanto pôde. [long pause] Não foi suficiente." },
+  { id: "death-hipotermia", role: "morte", text: "[slowly] O frio apagou sua chama aos poucos. [pause] Você fechou os olhos pela última vez, achando que ia dormir. [long pause] [whispers] Não acordou." },
+  { id: "death-ferimento", role: "morte", text: "[breathing heavily] O sangramento foi demais. [long pause] [voice breaking] Seus olhos foram os últimos a desistir." },
 
   // ── VITÓRIA ───────────────────────────────────────────────────────────
-  {
-    id:   'victory-1',
-    role: 'sistema',
-    ssml: `<speak>
-      <prosody rate="medium" pitch="+3%">
-        Equipe de resgate a caminho.
-        <break time="400ms"/>
-        Coordenadas confirmadas.
-        <break time="600ms"/>
-        <emphasis level="strong">Você conseguiu sobreviver ao Vale Silente.</emphasis>
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'victory-radio',
-    role: 'narrador',
-    ssml: `<speak>
-      <prosody rate="slow">
-        O rádio conseguiu transmitir.
-        <break time="500ms"/>
-        Em algum lugar, além das montanhas,
-        <break time="400ms"/>
-        alguém ouviu.
-        <break time="700ms"/>
-        <prosody pitch="+5%">
-          Pela primeira vez em dias,
-          <break time="300ms"/>
-          você acredita que vai sair vivo.
-        </prosody>
-      </prosody>
-    </speak>`,
-  },
+  { id: "victory-1", role: "sistema", text: "[hopeful] Equipe de resgate a caminho. [pause] Coordenadas confirmadas. [pause] [relieved] [laughs] Você conseguiu sobreviver ao Vale Silente." },
+  { id: "victory-radio", role: "narrador", text: "[hopeful] O rádio conseguiu transmitir. [pause] Em algum lugar, além das montanhas, alguém ouviu. [long pause] [voice breaking] Pela primeira vez em dias, você acredita que vai sair vivo." },
 
   // ── SONS DE AÇÃO / FEEDBACK ─────────────────────────────────────────
-  {
-    id:   'action-coletando',
-    role: 'narrador',
-    ssml: `<speak>
-      <prosody rate="medium">
-        Você vasculha a área com cuidado.
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'action-tratando',
-    role: 'narrador',
-    ssml: `<speak>
-      <prosody rate="slow">
-        Com mãos trêmulas,
-        <break time="300ms"/>
-        você tenta cuidar do ferimento.
-      </prosody>
-    </speak>`,
-  },
-  {
-    id:   'action-descansando',
-    role: 'narrador',
-    ssml: `<speak>
-      <prosody rate="slow" pitch="-5%">
-        Você finalmente fecha os olhos.
-        <break time="500ms"/>
-        O sono vem rápido.
-        <break time="600ms"/>
-        Mas não é tranquilo.
-      </prosody>
-    </speak>`,
-  },
+  { id: "action-coletando", role: "narrador", text: "[speaking softly] Você vasculha a área com cuidado. [sniffs]" },
+  { id: "action-tratando", role: "narrador", text: "[groans] Com mãos trêmulas, [pause] você tenta cuidar do ferimento." },
+  { id: "action-descansando", role: "narrador", text: "[exhausted] [sighs] Você finalmente fecha os olhos. [pause] O sono vem rápido. [long pause] [ominous] Mas não é tranquilo." },
+
+  // ── LINHAGENS (novas) ─────────────────────────────────────────────────
+  { id: "lineage-vampire", role: "narrador", text: "[gasps] O coração para por um longo segundo… [long pause] [whispers] e volta diferente. [dark laugh] A noite agora chama você pelo nome. Vampiro." },
+  { id: "lineage-werewolf", role: "narrador", text: "[breathing heavily] Seus ossos estalam sob a lua. [growls] Os sons da mata ficam nítidos, impossíveis. [long pause] [menacing] Lobisomem." },
+  { id: "lineage-haunted", role: "narrador", text: "[trembling] O frio não vai embora. [pause] Ele traz vozes. [whispers] [haunting] Os mortos do vale falam com você agora. Assombrado." },
 ];
 
 // ── Gerador ────────────────────────────────────────────────────────────────
-if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
-
-function tts(ssml, voiceId, apiKey) {
+function tts(text, voiceId, apiKey) {
   return new Promise((resolve, reject) => {
     const body = Buffer.from(JSON.stringify({
-      text:         ssml,
-      model_id:     MODEL,
-      voice_settings: { stability: 0.45, similarity_boost: 0.82, style: 0.55, use_speaker_boost: true },
+      text,
+      model_id: MODEL,
+      language_code: "pt",
+      voice_settings: { stability: 0.5, similarity_boost: 0.82 },
     }));
-
-    const req = https.request({
-      hostname: 'api.elevenlabs.io',
-      path:     `/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
-      method:   'POST',
-      headers:  {
-        'Accept':         'audio/mpeg',
-        'xi-api-key':     apiKey,
-        'Content-Type':   'application/json',
-        'Content-Length': body.length,
+    const req = https.request(
+      {
+        hostname: "api.elevenlabs.io",
+        path: `/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+        method: "POST",
+        headers: { Accept: "audio/mpeg", "xi-api-key": apiKey, "Content-Type": "application/json", "Content-Length": body.length },
       },
-    }, (res) => {
-      if (res.statusCode !== 200) {
-        let err = '';
-        res.on('data', d => err += d);
-        res.on('end', () => reject(new Error(`HTTP ${res.statusCode}: ${err}`)));
-        return;
-      }
-      const chunks = [];
-      res.on('data', c => chunks.push(c));
-      res.on('end', () => resolve(Buffer.concat(chunks)));
-    });
-
-    req.on('error', reject);
+      (res) => {
+        if (res.statusCode !== 200) {
+          let err = "";
+          res.on("data", (d) => (err += d));
+          res.on("end", () => reject(new Error(`HTTP ${res.statusCode}: ${err}`)));
+          return;
+        }
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => resolve(Buffer.concat(chunks)));
+      },
+    );
+    req.on("error", reject);
     req.write(body);
     req.end();
   });
 }
 
 async function main() {
+  if (!KEYS.length) {
+    console.error("Defina ELEVENLABS_API_KEYS (ou ELEVENLABS_API_KEY). As chaves nunca ficam no código.");
+    process.exit(1);
+  }
+  if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
   let keyIndex = 0;
   let total = 0;
-
-  console.log(`\n🎙  Gerando ${AUDIO_SCRIPT.length} áudios com SSML expressivo...\n`);
-  console.log(`  Conta 1: ${KEYS[0].slice(-8)} | Conta 2: ${KEYS[1].slice(-8)}\n`);
-
+  console.log(`\n🎙  ${AUDIO_SCRIPT.length} áudios · modelo ${MODEL} · ${KEYS.length} conta(s)\n`);
   for (const item of AUDIO_SCRIPT) {
     const outFile = path.join(OUT_DIR, `${item.id}.mp3`);
-
-    // pula se já existe
-    if (fs.existsSync(outFile)) {
-      console.log(`  ⏭  ${item.id}.mp3 já existe — pulando`);
+    if (fs.existsSync(outFile) && !FORCE) {
+      console.log(`  ⏭  ${item.id}.mp3 já existe — pulando (use --force para regerar)`);
       continue;
     }
-
-    const voiceId = VOICES[item.role];
-    const apiKey  = KEYS[keyIndex % KEYS.length];
-
     try {
       console.log(`  ⏳ [${item.role.padEnd(8)}] ${item.id}`);
-      const buf = await tts(item.ssml, voiceId, apiKey);
+      const buf = await tts(item.text, VOICES[item.role], KEYS[keyIndex % KEYS.length]);
       fs.writeFileSync(outFile, buf);
-      const kb = (buf.length / 1024).toFixed(1);
-      console.log(`  ✅ ${item.id}.mp3  (${kb} KB)  — conta ${keyIndex % 2 + 1}`);
+      console.log(`  ✅ ${item.id}.mp3 (${(buf.length / 1024).toFixed(1)} KB)`);
       total++;
     } catch (e) {
       console.error(`  ❌ ${item.id}: ${e.message}`);
     }
-
-    keyIndex++; // alterna conta a cada requisição
-    await new Promise(r => setTimeout(r, 600)); // 600ms entre req para não throttle
+    keyIndex++;
+    await new Promise((r) => setTimeout(r, 600));
   }
-
-  console.log(`\n  ✨ Concluído! ${total} arquivo(s) salvos em public/audio/\n`);
+  console.log(`\n  ✨ ${total} arquivo(s) salvos em public/audio/\n`);
 }
 
-main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) main();

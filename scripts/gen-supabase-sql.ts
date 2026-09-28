@@ -45,9 +45,11 @@ const recorder = {
     return { changes: 1, rows: [] };
   },
   async exec(script: string) {
-    // Migração v3 tenta ADD COLUMN (já existe no CREATE) — no SQL final usamos a forma idempotente.
-    if (/ALTER TABLE users ADD COLUMN username/.test(script)) {
-      lines.push("ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;");
+    // Migrações tentam ADD COLUMN (a coluna já está no CREATE) — no SQL final usamos a forma idempotente,
+    // senão rodar o setup.sql de novo aborta a transação inteira.
+    if (/^\s*ALTER TABLE \w+ ADD COLUMN /i.test(script)) {
+      const s = script.trim().replace(/ADD COLUMN (?!IF NOT EXISTS)/i, "ADD COLUMN IF NOT EXISTS ");
+      lines.push(s.endsWith(";") ? s : `${s};`);
       return;
     }
     const s = script.trim();

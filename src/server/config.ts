@@ -47,7 +47,11 @@ const schema = z.object({
   // IA
   AI_PROVIDER: z.enum(["mock", "chain", "openai_compatible", "anthropic", "none"]).default("mock"),
   // Cadeia de provedores gratuitos/baratos (ordem de tentativa). Só entram os que têm chave.
-  AI_CHAIN: z.string().default("groq,openrouter,gemini"),
+  AI_CHAIN: z.string().default("groq,cerebras,gemini,mistral,openrouter"),
+  CEREBRAS_API_KEY: z.string().optional(),
+  CEREBRAS_MODEL: z.string().default("llama-3.3-70b"),
+  MISTRAL_API_KEY: z.string().optional(),
+  MISTRAL_MODEL: z.string().default("mistral-small-latest"),
   GROQ_API_KEY: z.string().optional(),
   GROQ_MODEL: z.string().default("openai/gpt-oss-20b"),
   OPENROUTER_API_KEY: z.string().optional(),
@@ -66,6 +70,17 @@ const schema = z.object({
   AI_COST_OUTPUT_PER_MTOK: z.coerce.number().nonnegative().default(0),
   AI_USER_DAILY_REQUESTS: z.coerce.number().int().nonnegative().default(40),
   AI_PREMIUM_DAILY_REQUESTS: z.coerce.number().int().nonnegative().default(400),
+
+  // Narrador de voz (ElevenLabs). Sem chave: o jogo usa a voz do navegador.
+  ELEVENLABS_API_KEY: z.string().optional(),
+  ELEVENLABS_MODEL: z.string().default("eleven_v3"), // v3 entende as tags [sighs], [laughs]…
+  ELEVENLABS_VOICE_NARRADOR: z.string().default("JBFqnCBsd6RMkjVDRZzb"),
+  ELEVENLABS_VOICE_NPC: z.string().default("N2lVS1w4EtoT3dr4eOWO"),
+  ELEVENLABS_VOICE_MORTE: z.string().default("nPczCjzI2devNBz1zQrb"),
+  TTS_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
+  TTS_USER_DAILY_REQUESTS: z.coerce.number().int().nonnegative().default(80),
+  TTS_DAILY_CHAR_BUDGET: z.coerce.number().int().nonnegative().default(40000),
+  TTS_CACHE_DAYS: z.coerce.number().positive().default(30),
 
   FREE_MAX_ACTIVE_CAMPAIGNS: z.coerce.number().int().positive().default(3),
   PREMIUM_MAX_ACTIVE_CAMPAIGNS: z.coerce.number().int().positive().default(12),

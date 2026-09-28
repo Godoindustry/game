@@ -37,6 +37,12 @@ export async function migrate(db: Db, force = false): Promise<void> {
     /* coluna já existe */
   }
   await db.exec("CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username ON users(username)");
+  // v5: sexo visual do manequim; personagens antigos recebem o padrão masculino.
+  try {
+    await db.exec("ALTER TABLE characters ADD COLUMN sex TEXT NOT NULL DEFAULT 'masculino'");
+  } catch {
+    /* coluna já existe */
+  }
   await setMeta(db, "version", String(SCHEMA_VERSION));
 }
 

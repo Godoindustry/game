@@ -1,6 +1,6 @@
 -- ============================================================
 -- Linha de Sobrevivência — setup do banco (Supabase / PostgreSQL)
--- Gerado por scripts/gen-supabase-sql.ts em 2026-09-25T19:41:37.649Z
+-- Gerado por scripts/gen-supabase-sql.ts em 2026-09-28T12:26:15.607Z
 --
 -- Cole TUDO no Supabase → SQL Editor → New query → Run.
 -- É idempotente: pode rodar de novo sem apagar dados de jogo.
@@ -292,6 +292,7 @@ CREATE TABLE IF NOT EXISTS characters (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  sex TEXT NOT NULL DEFAULT 'masculino' CHECK (sex IN ('masculino','feminino')),
   age INTEGER NOT NULL,
   height_cm INTEGER NOT NULL,
   weight_kg INTEGER NOT NULL,
@@ -455,6 +456,41 @@ CREATE TABLE IF NOT EXISTS ranking_scores (
 );
 CREATE INDEX IF NOT EXISTS idx_ranking_score ON ranking_scores(score DESC);
 
+-- ============ Amigos e presença ============
+CREATE TABLE IF NOT EXISTS friend_codes (                -- código público para adicionar amigo (não expõe e-mail)
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  code TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS friendships (
+  id TEXT PRIMARY KEY,
+  requester_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  addressee_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL CHECK (status IN ('pending','accepted')),
+  created_at TEXT NOT NULL,
+  responded_at TEXT,
+  UNIQUE (requester_id, addressee_id)
+);
+CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships(addressee_id, status);
+
+CREATE TABLE IF NOT EXISTS character_powers (            -- classe (clã/tribo/ordem/credo) e recurso sobrenatural
+  character_id TEXT PRIMARY KEY REFERENCES characters(id) ON DELETE CASCADE,
+  class_id TEXT,
+  resource INTEGER NOT NULL DEFAULT 0 CHECK (resource BETWEEN 0 AND 5),
+  buffs TEXT NOT NULL DEFAULT '[]',
+  ward_until INTEGER NOT NULL DEFAULT 0,
+  clock INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_presence (               -- heartbeat do cliente: onde o jogador está agora
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  activity TEXT NOT NULL CHECK (activity IN ('menu','lobby','playing','offline')),
+  campaign_id TEXT REFERENCES campaigns(id) ON DELETE SET NULL,
+  last_seen_at TEXT NOT NULL
+);
+
 -- ============ Auditoria e IA ============
 CREATE TABLE IF NOT EXISTS admin_logs (
   id TEXT PRIMARY KEY,
@@ -554,6 +590,10 @@ ALTER TABLE player_actions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE action_resolutions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_achievements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ranking_scores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE friend_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE friendships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE character_powers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_presence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE security_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_requests ENABLE ROW LEVEL SECURITY;
@@ -564,7 +604,9 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username ON users(username);
 
-INSERT INTO schema_meta(key, value) VALUES('version', '3') ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT 'masculino';
+
+INSERT INTO schema_meta(key, value) VALUES('version', '6') ON CONFLICT(key) DO UPDATE SET value = excluded.value;
 
 INSERT INTO items(id,name,description,category,weight_g,volume_ml,stackable,max_stack,max_durability,battery_capacity,properties)
            VALUES('garrafa_agua','Garrafa d''água (500 ml)','Garrafa plástica cheia. Se veio de rio ou lago, precisa ser tratada.','agua',530,600,0,1,NULL,NULL,'{"water":35,"emptiesTo":"garrafa_vazia"}')
@@ -699,6 +741,12 @@ INSERT INTO items(id,name,description,category,weight_g,volume_ml,stackable,max_
              max_durability=excluded.max_durability, battery_capacity=excluded.battery_capacity, properties=excluded.properties;
 
 INSERT INTO items(id,name,description,category,weight_g,volume_ml,stackable,max_stack,max_durability,battery_capacity,properties)
+           VALUES('cracha_iara','Crachá de Iara Menezes','Plastificado, dentro de uma bolsa estanque laranja. Ficou 28 anos no fundo do poço.','documento',20,15,0,1,NULL,NULL,'{"readable":"IARA MENEZES — HIDROLOGIA — 1998. No verso, a caneta: “Se alguém achar isto: 074 não é frequência. É o rumo deles. Eles pousam às 23h40.”"}')
+           ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, category=excluded.category,
+             weight_g=excluded.weight_g, volume_ml=excluded.volume_ml, stackable=excluded.stackable, max_stack=excluded.max_stack,
+             max_durability=excluded.max_durability, battery_capacity=excluded.battery_capacity, properties=excluded.properties;
+
+INSERT INTO items(id,name,description,category,weight_g,volume_ml,stackable,max_stack,max_durability,battery_capacity,properties)
            VALUES('diario_campo','Diário de campo (1998)','Letra pequena e cuidadosa. Hidróloga Iara Menezes.','documento',300,400,0,1,NULL,NULL,'{"readable":"“Dia 37. O sinal volta toda noite às 23h40. Sete, quatro, zero. Não são aleatórios. Deixei a caixa do rochedo trancada com eles.”"}')
            ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, category=excluded.category,
              weight_g=excluded.weight_g, volume_ml=excluded.volume_ml, stackable=excluded.stackable, max_stack=excluded.max_stack,
@@ -797,7 +845,7 @@ INSERT INTO locations(id,scenario_id,name,description,x,y,terrain,hidden_initial
              terrain=excluded.terrain, hidden_initially=excluded.hidden_initially, danger_level=excluded.danger_level, properties=excluded.properties;
 
 INSERT INTO locations(id,scenario_id,name,description,x,y,terrain,hidden_initially,danger_level,properties)
-           VALUES('ponte','vale_silente','Ponte do córrego','Uma ponte de tábuas sobre o córrego. Rio acima, a cachoeira ruge no escuro.',56,39,'córrego',0,1,'{"tempModifier":-2,"water":"stream"}')
+           VALUES('ponte','vale_silente','Ponte do córrego','Uma ponte de tábuas sobre o córrego. Rio acima, a cachoeira ruge no escuro.',56,39,'córrego',0,1,'{"tempModifier":-2,"water":"stream","examineText":"Nas tábuas da ponte, lama fresca com marcas de pneus largos, de cravos grossos — um quadriciclo. Ninguém chega aqui a pé carregando peso.","examineClue":"pneus_ponte"}')
            ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, x=excluded.x, y=excluded.y,
              terrain=excluded.terrain, hidden_initially=excluded.hidden_initially, danger_level=excluded.danger_level, properties=excluded.properties;
 
@@ -807,17 +855,37 @@ INSERT INTO locations(id,scenario_id,name,description,x,y,terrain,hidden_initial
              terrain=excluded.terrain, hidden_initially=excluded.hidden_initially, danger_level=excluded.danger_level, properties=excluded.properties;
 
 INSERT INTO locations(id,scenario_id,name,description,x,y,terrain,hidden_initially,danger_level,properties)
-           VALUES('estacao','vale_silente','Estação de rádio','Uma antena treliçada, uma parábola torta e uma casa de alvenaria cercada por alambrado.',81,16,'estação',0,1,'{"indoor":true,"loot":[{"itemId":"mochila_cargueira","qty":1,"base":60},{"itemId":"atadura","qty":2,"base":60},{"itemId":"antisseptico","qty":1,"base":55},{"itemId":"biscoito","qty":1,"base":50}]}')
+           VALUES('estacao','vale_silente','Estação de rádio','Uma antena treliçada, uma parábola torta e uma casa de alvenaria cercada por alambrado.',81,16,'estação',0,1,'{"indoor":true,"examineText":"Nos fundos, um gerador a diesel enferrujado. O tanque tem um furo de bala, e o óleo escorre morro abaixo, direto para o córrego. Na porta, alguém pintou 074 com tinta laranja.","loot":[{"itemId":"mochila_cargueira","qty":1,"base":60},{"itemId":"atadura","qty":2,"base":60},{"itemId":"antisseptico","qty":1,"base":55},{"itemId":"biscoito","qty":1,"base":50}]}')
            ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, x=excluded.x, y=excluded.y,
              terrain=excluded.terrain, hidden_initially=excluded.hidden_initially, danger_level=excluded.danger_level, properties=excluded.properties;
 
 INSERT INTO locations(id,scenario_id,name,description,x,y,terrain,hidden_initially,danger_level,properties)
-           VALUES('penhasco','vale_silente','Mirante do penhasco','Um guarda-corpo de madeira podre à beira de um paredão. Lá embaixo, a névoa cobre a ravina.',82,38,'penhasco',0,3,'{"tempModifier":-3,"openSky":true}')
+           VALUES('penhasco','vale_silente','Mirante do penhasco','Um guarda-corpo de madeira podre à beira de um paredão. Lá embaixo, a névoa cobre a ravina.',82,38,'penhasco',0,3,'{"tempModifier":-3,"openSky":true,"examineText":"Grampos de escalada novos, cravados na rocha, descem para dentro da névoa. Alguém desce e sobe por aqui com frequência — e com carga."}')
            ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, x=excluded.x, y=excluded.y,
              terrain=excluded.terrain, hidden_initially=excluded.hidden_initially, danger_level=excluded.danger_level, properties=excluded.properties;
 
 INSERT INTO locations(id,scenario_id,name,description,x,y,terrain,hidden_initially,danger_level,properties)
-           VALUES('rochedo','vale_silente','Rochedo do marco','Um topo de rocha nua acima das copas, com um marco geodésico. Céu aberto em todas as direções.',70,74,'rochedo',1,1,'{"tempModifier":-2,"openSky":true}')
+           VALUES('rochedo','vale_silente','Rochedo do marco','Um topo de rocha nua acima das copas, com um marco geodésico. Céu aberto em todas as direções.',70,74,'rochedo',1,1,'{"tempModifier":-2,"openSky":true,"examineText":"No marco geodésico, riscado a ponta de faca: 074°. Uma seta aponta para o norte do vale — para a crista onde fica a antena."}')
+           ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, x=excluded.x, y=excluded.y,
+             terrain=excluded.terrain, hidden_initially=excluded.hidden_initially, danger_level=excluded.danger_level, properties=excluded.properties;
+
+INSERT INTO locations(id,scenario_id,name,description,x,y,terrain,hidden_initially,danger_level,properties)
+           VALUES('cemiterio','vale_silente','Cemitério dos sem nome','Cruzes sem placa afundam no barro. Uma capela baixa desaparece sob raízes e neblina.',34,67,'cemitério',1,2,'{"naturalShelter":true,"examineText":"As datas param em 1998. Uma lápide sem nome tem o número 740 riscado onde deveria existir uma oração.","examineClue":"lapide_740","loot":[{"itemId":"fosforos","qty":1,"base":45,"requiresExamined":true}]}')
+           ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, x=excluded.x, y=excluded.y,
+             terrain=excluded.terrain, hidden_initially=excluded.hidden_initially, danger_level=excluded.danger_level, properties=excluded.properties;
+
+INSERT INTO locations(id,scenario_id,name,description,x,y,terrain,hidden_initially,danger_level,properties)
+           VALUES('capela','vale_silente','Capela afogada','Água negra cobre os bancos. Atrás do altar, uma escada desce para máquinas que não constam em mapa algum.',48,75,'ruína',1,3,'{"indoor":true,"water":"lake","examineText":"Cabos de rádio atravessam a parede da capela e descem pela escada. Foram instalados muito depois do abandono.","examineClue":"cabos_capela","loot":[{"itemId":"corda","qty":1,"base":50},{"itemId":"atadura","qty":1,"base":40}]}')
+           ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, x=excluded.x, y=excluded.y,
+             terrain=excluded.terrain, hidden_initially=excluded.hidden_initially, danger_level=excluded.danger_level, properties=excluded.properties;
+
+INSERT INTO locations(id,scenario_id,name,description,x,y,terrain,hidden_initially,danger_level,properties)
+           VALUES('galeria','vale_silente','Galeria das turbinas','Um túnel hidrelétrico inundado vibra com um pulso que parece vir debaixo da água.',61,66,'subsolo',1,4,'{"indoor":true,"water":"stream","tempModifier":-4,"examineText":"A turbina foi convertida num amplificador. O eixo aponta para o Poço Escuro, como uma agulha de bússola.","examineClue":"turbina_sinal","loot":[{"itemId":"lanterna","qty":1,"base":45,"state":{"battery":55}}]}')
+           ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, x=excluded.x, y=excluded.y,
+             terrain=excluded.terrain, hidden_initially=excluded.hidden_initially, danger_level=excluded.danger_level, properties=excluded.properties;
+
+INSERT INTO locations(id,scenario_id,name,description,x,y,terrain,hidden_initially,danger_level,properties)
+           VALUES('observatorio','vale_silente','Observatório 740','No cume, uma parabólica colossal gira contra o vento. Cada volta repete o seu nome na estática.',92,8,'observatório',1,5,'{"indoor":true,"openSky":true,"tempModifier":-5,"examineText":"O transmissor pode abrir a frequência de emergência, mas três relés precisam ser alinhados na ordem 7-4-0.","examineClue":"relés_740"}')
            ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, x=excluded.x, y=excluded.y,
              terrain=excluded.terrain, hidden_initially=excluded.hidden_initially, danger_level=excluded.danger_level, properties=excluded.properties;
 
@@ -855,6 +923,24 @@ INSERT INTO location_links(from_id,to_id,base_minutes,hidden,risk) VALUES('lago'
            ON CONFLICT(from_id,to_id) DO UPDATE SET base_minutes=excluded.base_minutes, hidden=excluded.hidden, risk=excluded.risk;
 
 INSERT INTO location_links(from_id,to_id,base_minutes,hidden,risk) VALUES('penhasco','rochedo',55,1,2)
+           ON CONFLICT(from_id,to_id) DO UPDATE SET base_minutes=excluded.base_minutes, hidden=excluded.hidden, risk=excluded.risk;
+
+INSERT INTO location_links(from_id,to_id,base_minutes,hidden,risk) VALUES('mata','cemiterio',25,1,1)
+           ON CONFLICT(from_id,to_id) DO UPDATE SET base_minutes=excluded.base_minutes, hidden=excluded.hidden, risk=excluded.risk;
+
+INSERT INTO location_links(from_id,to_id,base_minutes,hidden,risk) VALUES('cemiterio','capela',20,1,1)
+           ON CONFLICT(from_id,to_id) DO UPDATE SET base_minutes=excluded.base_minutes, hidden=excluded.hidden, risk=excluded.risk;
+
+INSERT INTO location_links(from_id,to_id,base_minutes,hidden,risk) VALUES('capela','galeria',30,1,2)
+           ON CONFLICT(from_id,to_id) DO UPDATE SET base_minutes=excluded.base_minutes, hidden=excluded.hidden, risk=excluded.risk;
+
+INSERT INTO location_links(from_id,to_id,base_minutes,hidden,risk) VALUES('galeria','lago',25,0,2)
+           ON CONFLICT(from_id,to_id) DO UPDATE SET base_minutes=excluded.base_minutes, hidden=excluded.hidden, risk=excluded.risk;
+
+INSERT INTO location_links(from_id,to_id,base_minutes,hidden,risk) VALUES('estacao','observatorio',35,1,2)
+           ON CONFLICT(from_id,to_id) DO UPDATE SET base_minutes=excluded.base_minutes, hidden=excluded.hidden, risk=excluded.risk;
+
+INSERT INTO location_links(from_id,to_id,base_minutes,hidden,risk) VALUES('rochedo','observatorio',45,1,3)
            ON CONFLICT(from_id,to_id) DO UPDATE SET base_minutes=excluded.base_minutes, hidden=excluded.hidden, risk=excluded.risk;
 
 INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('vs_despertar','vale_silente','Silêncio depois do impacto','[exhales] O zumbido nos ouvidos é a primeira coisa que volta. Depois, o cheiro de combustível. Você está preso ao assento de um bimotor tombado entre as árvores. A cabine está aberta e vazia. [tense] O cinto do piloto não se rompeu: [pause] foi cortado. No painel, entre chiados, uma voz de mulher repete números, devagar: [whispers] “sete… quatro… zero…”','destrocos','{"start":true}',100,0)
@@ -902,6 +988,22 @@ INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcom
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
 
 INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_vozes.observar','vs_vozes','Apagar a luz e observar em silêncio',15,'{}','{"text":"Você se agacha atrás de uma raiz e prende a respiração.","check":{"attr":"furtividade","base":50},"success":{"text":"Um facho de lanterna se move entre as árvores, subindo pela crista norte. Quem quer que seja, não está perdido: anda como quem conhece o caminho até a antena.","effects":[{"op":"clue","key":"luz_na_crista"},{"op":"revealLink","from":"trilha","to":"estacao"}]},"failure":{"text":"Você não vê nada. Mas escuta passos se afastando, sem pressa.","effects":[{"op":"status","field":"stress","delta":10}]}}',0,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('vs_uivo','vale_silente','O uivo sob a pele','[ominous] O mato se abre sem vento. Dois olhos cor de âmbar observam você de uma altura impossível. [pause] A criatura não rosna. Ela inclina a cabeça, como se esperasse que você se lembrasse dela.','mata','{"night":true,"minMinute":180,"afterEvent":"vs_vozes"}',35,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_uivo.encarar','vs_uivo','Sustentar o olhar e se aproximar',10,'{}','{"text":"Você dá um passo para dentro do círculo de luar.","check":{"attr":"controle_emocional","base":45},"success":{"text":"A fera recua. Preso num espinho, você encontra um medalhão antigo marcado por uma lua partida.","effects":[{"op":"clue","key":"marca_lunar"}]},"failure":{"text":"Ela é rápida demais. Há dentes, o cheiro de terra molhada e uma dor branca no ombro. Quando você acorda, a ferida já está fechando.","effects":[{"op":"lycanthropy"}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_uivo.aceitar','vs_uivo','Responder ao uivo',5,'{}','{"text":"O som sai da sua garganta antes que você decida fazê-lo. A criatura salta — não para matar, mas para marcar.","effects":[{"op":"lycanthropy"}]}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_uivo.fogo','vs_uivo','Recuar até a luz e não olhar para trás',5,'{}','{"text":"O uivo acompanha você até a última faixa de luar. Quando olha de novo, só existem árvores.","effects":[{"op":"status","field":"stress","delta":10}]}',1,2)
              ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
 
@@ -1001,15 +1103,19 @@ INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeat
            ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
              trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
 
-INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_radio.ligar','vs_radio','Ligar a bateria ao rádio',20,'{}','{"text":"Você descasca os fios e conecta os terminais.","check":{"attr":"conhecimento_tecnico","base":45,"itemBonus":{"canivete":10},"experience":["tecnologia","mecanica"]},"success":{"text":"O painel acende. [relieved] Estática — e então uma voz real, cansada, de uma torre de controle regional. Você repete as coordenadas do mapa. [calm] “Recebido. Aguentem firme.”","effects":[{"op":"end","ending":"resgate_radio"}]},"failure":{"text":"Faísca. Cheiro de plástico queimado. O rádio chia e morre de novo. A bateria esquentou.","effects":[{"op":"wound","part":"braco_dir","type":"queimadura","severity":1},{"op":"itemDurability","item":"bateria_emergencia","delta":-50}]}}',0,0)
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_radio.ligar','vs_radio','Ligar a bateria ao rádio',20,'{"flagsAll":["tavares_resolvido","sinal_final_alinhado"],"flagsAny":["iara_em_paz","iara_furia"]}','{"text":"Você descasca os fios e conecta os terminais.","check":{"attr":"conhecimento_tecnico","base":45,"itemBonus":{"canivete":10},"experience":["tecnologia","mecanica"]},"success":{"text":"O painel acende. [relieved] Estática — e então uma voz real, cansada, de uma torre de controle regional. Você repete as coordenadas do mapa. [calm] “Recebido. Aguentem firme.”","effects":[{"op":"end","ending":"resgate_radio"}]},"failure":{"text":"Faísca. Cheiro de plástico queimado. O rádio chia e morre de novo. A bateria esquentou.","effects":[{"op":"wound","part":"braco_dir","type":"queimadura","severity":1},{"op":"itemDurability","item":"bateria_emergencia","delta":-50}]}}',0,0)
              ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
 
-INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_radio.sintonizar','vs_radio','Procurar a frequência dos números',10,'{}','{"text":"Com a bateria, o receptor capta a voz: “sete… quatro… zero”. O sinal é fortíssimo — não vem de longe. Vem de um ponto do próprio vale, a sudeste.","effects":[{"op":"clue","key":"frequencia"},{"op":"reveal","location":"rochedo"},{"op":"revealLink","from":"penhasco","to":"rochedo"},{"op":"status","field":"stress","delta":8}]}',0,1)
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_radio.denunciar','vs_radio','Ligar o rádio com Brandão e denunciar a rota',30,'{"flagsAll":["brandao_salvo","tavares_resolvido","sinal_final_alinhado"],"flagsAny":["iara_em_paz","iara_furia"],"cluesAny":["rumo_074"]}','{"text":"Brandão segura a lanterna enquanto você emenda os fios. Ele sabe qual fio é qual.","check":{"attr":"conhecimento_tecnico","base":65,"itemBonus":{"canivete":10},"experience":["tecnologia","mecanica"]},"success":{"text":"O painel acende. Brandão pega o microfone, respira fundo e fala tudo: o rumo 074, a pista de terra, os nomes, os voos de 1998. [pause] Do outro lado, depois de um longo silêncio: [calm] “Gravando. Continue, comandante.”","effects":[{"op":"end","ending":"a_verdade"}]},"failure":{"text":"Faísca. O rádio morre de novo. Brandão xinga baixinho e começa a desencapar outro fio.","effects":[{"op":"itemDurability","item":"bateria_emergencia","delta":-35}]}}',0,1)
              ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
 
-INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_radio.depois','vs_radio','Deixar para depois',1,'{}','{"text":"Você se afasta do rádio."}',1,2)
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_radio.sintonizar','vs_radio','Procurar a frequência dos números',10,'{}','{"text":"Com a bateria, o receptor capta a voz: “sete… quatro… zero”. O sinal é fortíssimo — não vem de longe. Vem de um ponto do próprio vale, a sudeste.","effects":[{"op":"clue","key":"frequencia"},{"op":"reveal","location":"rochedo"},{"op":"revealLink","from":"penhasco","to":"rochedo"},{"op":"status","field":"stress","delta":8}]}',0,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_radio.depois','vs_radio','Deixar para depois',1,'{}','{"text":"Você se afasta do rádio."}',1,3)
              ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
 
@@ -1049,7 +1155,7 @@ INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeat
            ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
              trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
 
-INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_rochedo.740','vs_rochedo','Tentar a combinação 7-4-0',5,'{"cluesAny":["frequencia","diario_iara","mapa_alfinetes"]}','{"text":"Clique. Dentro: dois sinalizadores, embalados em plástico, e uma foto antiga de uma mulher de capa de chuva segurando uma prancheta.","effects":[{"op":"addItem","item":"sinalizador","qty":2},{"op":"clue","key":"caixa_aberta"}]}',0,0)
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_rochedo.740','vs_rochedo','Tentar a combinação 7-4-0',5,'{"cluesAny":["frequencia","diario_iara","mapa_alfinetes","pedido_caixa","rumo_074","bolsa_iara"]}','{"text":"Clique. Dentro: dois sinalizadores, embalados em plástico, e uma foto antiga de uma mulher de capa de chuva segurando uma prancheta.","effects":[{"op":"addItem","item":"sinalizador","qty":2},{"op":"clue","key":"caixa_aberta"}]}',0,0)
              ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
 
@@ -1077,15 +1183,163 @@ INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeat
            ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
              trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
 
-INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_resgate.sinalizador','vs_resgate','Disparar o sinalizador',2,'{"hasItem":["sinalizador"]}','{"text":"Você espera o som do rotor e puxa o cordão. Fumaça vermelha sobe, densa.","effects":[{"op":"removeItem","item":"sinalizador"}],"check":{"attr":"percepcao","base":70},"success":{"text":"[relieved] O helicóptero faz uma curva fechada e vem na sua direção.","effects":[{"op":"end","ending":"resgate_sinalizador"}]},"failure":{"text":"Cedo demais. O helicóptero estava longe e não vê a fumaça.","effects":[]}}',0,0)
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_resgate.sinalizador','vs_resgate','Disparar o sinalizador',2,'{"hasItem":["sinalizador"],"flagsAll":["tavares_resolvido","sinal_final_alinhado"],"flagsAny":["iara_em_paz","iara_furia"]}','{"text":"Você espera o som do rotor e puxa o cordão. Fumaça vermelha sobe, densa.","effects":[{"op":"removeItem","item":"sinalizador"}],"check":{"attr":"percepcao","base":70},"success":{"text":"[relieved] O helicóptero faz uma curva fechada e vem na sua direção.","effects":[{"op":"end","ending":"resgate_sinalizador"}]},"failure":{"text":"Cedo demais. O helicóptero estava longe e não vê a fumaça.","effects":[]}}',0,0)
              ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
 
-INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_resgate.fogueira','vs_resgate','Fazer uma fogueira de sinal',30,'{"hasItem":["galhos_secos"],"hasAnyItem":["isqueiro","fosforos"]}','{"text":"Você empilha os galhos e joga folhas verdes por cima para fazer fumaça.","effects":[{"op":"removeItem","item":"galhos_secos"}],"check":{"attr":"improviso","base":45,"experience":["sobrevivencia"]},"success":{"text":"Uma coluna de fumaça branca sobe reta no ar parado. Minutos depois, o rotor.","effects":[{"op":"end","ending":"resgate_fogueira"}]},"failure":{"text":"O fogo não pega a tempo. A fumaça sai rala.","effects":[]}}',0,1)
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_resgate.fogueira','vs_resgate','Fazer uma fogueira de sinal',30,'{"hasItem":["galhos_secos"],"hasAnyItem":["isqueiro","fosforos"],"flagsAll":["tavares_resolvido","sinal_final_alinhado"],"flagsAny":["iara_em_paz","iara_furia"]}','{"text":"Você empilha os galhos e joga folhas verdes por cima para fazer fumaça.","effects":[{"op":"removeItem","item":"galhos_secos"}],"check":{"attr":"improviso","base":45,"experience":["sobrevivencia"]},"success":{"text":"Uma coluna de fumaça branca sobe reta no ar parado. Minutos depois, o rotor.","effects":[{"op":"end","ending":"resgate_fogueira"}]},"failure":{"text":"O fogo não pega a tempo. A fumaça sai rala.","effects":[]}}',0,1)
              ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
 
 INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_resgate.esperar','vs_resgate','Esperar e observar',30,'{}','{"text":"Nada no céu além de urubus."}',1,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('vs_poco','vale_silente','O olho d''água','A água do poço é tão parada que parece vidro. [pause] Então você vê: lá no fundo, presa entre duas pedras, uma luz fraca e verde pisca devagar. [slowly] Como se alguém, lá embaixo, ainda estivesse esperando.','lago','{}',40,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_poco.mergulhar','vs_poco','Mergulhar até a luz',15,'{}','{"text":"Você enche o peito de ar e afunda na água gelada.","check":{"attr":"resistencia","base":45},"success":{"text":"Seus dedos encontram uma bolsa estanque, de lona laranja. A luz é de um chaveiro fosforescente. Dentro, embrulhado em plástico, um crachá: IARA MENEZES — HIDROLOGIA — 1998.","effects":[{"op":"wet","amount":90},{"op":"addItem","item":"cracha_iara"},{"op":"clue","key":"bolsa_iara"},{"op":"status","field":"bodyTemp","delta":-0.6}]},"failure":{"text":"[gasps] O frio fecha seu peito como um punho. Você sobe engasgado, sem nada nas mãos. Quando olha de novo, a luz apagou.","effects":[{"op":"wet","amount":90},{"op":"status","field":"bodyTemp","delta":-0.9},{"op":"status","field":"stress","delta":15}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_poco.galho','vs_poco','Puxar com um galho comprido',20,'{}','{"text":"Você acha um galho longo e firme e sonda o fundo, deitado na pedra.","check":{"attr":"improviso","base":40},"success":{"text":"A ponta prende numa alça. Sobe uma bolsa estanque laranja, pingando. Dentro: um crachá plastificado. IARA MENEZES — HIDROLOGIA — 1998.","effects":[{"op":"wet","amount":15},{"op":"addItem","item":"cracha_iara"},{"op":"clue","key":"bolsa_iara"}]},"failure":{"text":"O galho quebra. A luz lá embaixo continua piscando — paciente.","effects":[{"op":"status","field":"stress","delta":5}]}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_poco.deixar','vs_poco','Não mexer no que está no fundo',1,'{}','{"text":"Você se afasta da borda. Por um bom tempo, sente a luz verde nas costas.","effects":[{"op":"status","field":"stress","delta":5}]}',1,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('vs_trilha','vale_silente','Gotas no caminho','Nas folhas largas da trilha, manchas escuras, ainda pegajosas: sangue, em gotas regulares, de quem anda mancando. [pause] Meio metro adiante, rente ao chão, um laço de arame armado entre duas raízes.','trilha','{}',40,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_trilha.seguir','vs_trilha','Seguir o rastro de sangue',25,'{}','{"text":"Você segue as gotas, passo a passo, contornando o laço.","check":{"attr":"orientacao","base":50},"success":{"text":"O rastro sobe a crista e segue para leste, pela linha das marcas laranjas. Quem sangra aqui sabe exatamente para onde vai: a antena.","effects":[{"op":"clue","key":"sangue_trilha"},{"op":"revealLink","from":"trilha","to":"estacao"}]},"failure":{"text":"As gotas somem num trecho de pedra. Você volta ao ponto de partida com as pernas pesadas.","effects":[{"op":"status","field":"energy","delta":-8}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_trilha.laco','vs_trilha','Examinar o laço de arame',10,'{}','{"text":"Você se agacha junto à armadilha.","check":{"attr":"percepcao","base":55},"success":{"text":"Arame galvanizado novo, nó de quem faz isso há anos. Não é para bicho pequeno. [ominous] Alguém mora neste vale — e não quer visitas.","effects":[{"op":"clue","key":"laco_cacador"}]},"failure":{"text":"[gasps] O arame salta e morde seu tornozelo antes que você tire a mão.","effects":[{"op":"wound","part":"perna_dir","type":"corte","severity":1}]}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_trilha.passar','vs_trilha','Passar longe e seguir as marcas',2,'{}','{"text":"Você pula o laço e não olha para as manchas. Elas continuam no canto do seu olho."}',1,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('vs_queixadas','vale_silente','Estalo de dentes','[tense] Os pássaros param todos ao mesmo tempo. Um cheiro forte, azedo, sobe do chão. Depois, o som: dezenas de dentes batendo, cascos, galhos quebrando. [urgent] Um bando de queixadas vem pela mata — na sua direção.','mata','{"day":true}',38,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_queixadas.arvore','vs_queixadas','Subir na árvore mais próxima',10,'{}','{"text":"Você agarra o primeiro galho baixo e se puxa para cima.","check":{"attr":"agilidade","base":50},"success":{"text":"Lá de cima, você vê o bando passar como um rio escuro. Quarenta, cinquenta bichos. Depois, silêncio de novo.","effects":[{"op":"status","field":"stress","delta":8}]},"failure":{"text":"O galho racha. Você cai no meio do bando e um dente abre sua perna antes de eles seguirem.","effects":[{"op":"wound","part":"perna_esq","type":"laceracao","severity":2},{"op":"status","field":"stress","delta":15}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_queixadas.imovel','vs_queixadas','Ficar completamente imóvel',10,'{}','{"text":"Você cola as costas num tronco e prende a respiração.","check":{"attr":"controle_emocional","base":55},"success":{"text":"Eles passam a um metro de você. Um para, fareja o ar, bate os dentes — e segue.","effects":[{"op":"status","field":"stress","delta":10}]},"failure":{"text":"Seu corpo se mexe antes de você decidir. O bando se vira. Você corre, tropeça e rola por uma encosta.","effects":[{"op":"wound","part":"braco_esq","type":"contusao","severity":1},{"op":"status","field":"stress","delta":18}]}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_queixadas.recuar','vs_queixadas','Recuar devagar pelo caminho de onde veio',15,'{}','{"text":"Você volta de costas, passo a passo, até o som ficar para trás.","effects":[{"op":"status","field":"stress","delta":8}]}',1,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('vs_celular','vale_silente','23h40','No seu bolso, o celular acende sozinho. Sem sinal, sem rede, sem chamada. [pause] Do alto-falante, abafada, vem a voz de mulher: [whispers] “sete… quatro… zero…” [long pause] E depois, pela primeira vez, uma palavra a mais. O seu nome.',NULL,'{"anyLocation":true,"night":true,"minMinute":1440,"hasItem":"celular"}',58,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_celular.ouvir','vs_celular','Encostar o celular no ouvido e escutar',5,'{}','{"text":"Você segura o aparelho com as duas mãos.","check":{"attr":"controle_emocional","base":45},"success":{"text":"Na terceira repetição, você percebe: o mesmo chiado, na mesma sílaba, a mesma respiração antes do zero. [pause] Não é alguém falando. É uma gravação. Mas o seu nome não estava nela da primeira vez.","effects":[{"op":"clue","key":"voz_gravada"},{"op":"status","field":"stress","delta":10}]},"failure":{"text":"A voz fica mais perto do microfone. Você larga o celular no chão e ele se apaga. Suas mãos não param de tremer.","effects":[{"op":"status","field":"stress","delta":25}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_celular.responder','vs_celular','Perguntar quem está falando',3,'{}','{"text":"“Quem é?” Sua voz sai rouca.","effects":[{"op":"status","field":"stress","delta":15}],"check":{"attr":"percepcao","base":50},"success":{"text":"[whispers] “A caixa”, diz a voz. [pause] “Não deixa eles levarem a caixa.” A tela mostra, por um segundo, um ponto a sudeste do vale.","effects":[{"op":"clue","key":"pedido_caixa"},{"op":"reveal","location":"rochedo"},{"op":"revealLink","from":"lago","to":"rochedo"}]},"failure":{"text":"Silêncio. Depois, muito baixo, alguém respira do outro lado.","effects":[]}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_celular.desligar','vs_celular','Desligar o aparelho',1,'{}','{"text":"Você segura o botão até a tela apagar. Por um instante, jura ter ouvido a voz terminar a frase.","effects":[{"op":"status","field":"stress","delta":8}]}',1,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('vs_brandao_ferida','vale_silente','A perna do comandante','[exhausted] Brandão está sentado no chão, suando frio. A atadura improvisada na perna escureceu e cheira mal. [pause] “Não vou sair daqui andando”, ele diz, sem olhar para você. “Mas você ainda pode.”','estacao','{"afterEvent":"vs_piloto","flagsAll":["confianca_piloto"],"flagsNone":["piloto_fugiu","brandao_salvo"],"cooldownMinutes":180}',41,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_brandao_ferida.tratar','vs_brandao_ferida','Limpar e enfaixar a perna dele',20,'{"hasItem":["atadura"]}','{"text":"Você corta as tiras velhas e lava o ferimento como dá.","effects":[{"op":"removeItem","item":"atadura"}],"check":{"attr":"medicina","base":45,"itemBonus":{"antisseptico":15},"experience":["medicina"]},"success":{"text":"Quando você termina, ele fica um tempo calado. [sighs] “Zero-sete-quatro não é código. É o rumo de pouso. Você voa em cima do rio, liga o rádio, e a voz te guia até a pista de terra. Quem pousa aqui segue a voz da mulher.” [pause] “Se esse rádio ligar, eu conto tudo. Para quem quiser ouvir.”","effects":[{"op":"flag","key":"brandao_salvo"},{"op":"clue","key":"rumo_074"},{"op":"flagAdd","key":"confianca_piloto","delta":2}]},"failure":{"text":"O ferimento é mais fundo do que parecia. Ele morde a manga da camisa para não gritar. Pelo menos agora está limpo.","effects":[{"op":"flagAdd","key":"confianca_piloto","delta":1},{"op":"status","field":"stress","delta":5}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_brandao_ferida.iara','vs_brandao_ferida','Perguntar sobre a mulher do diário',10,'{}','{"text":"“Quem era Iara Menezes?”","check":{"attr":"comunicacao","base":45},"success":{"text":"Ele demora. “Todo piloto dessa rota conhece a história. Ela media o rio. Viu os aviões pousando à noite e anotou os números. Um dia, sumiu.” [pause] “O inquérito disse que se perdeu na mata. Ninguém se perde com um rádio na mão.”","effects":[{"op":"clue","key":"iara_desaparecida"},{"op":"status","field":"stress","delta":6}]},"failure":{"text":"“Não fala dela aqui dentro”, ele diz, olhando para o rádio. E não fala mais nada.","effects":[{"op":"status","field":"stress","delta":4}]}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_brandao_ferida.descansar','vs_brandao_ferida','Deixar que ele descanse',2,'{}','{"text":"Ele fecha os olhos. Pela respiração, não está dormindo."}',1,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('vs_donos_carga','vale_silente','Motor na ponte','[urgent] Um motor de dois tempos sobe o vale, abafado pela mata. Um quadriciclo para do outro lado da ponte. Dois homens de botas de borracha descem. Um deles carrega uma espingarda com naturalidade, [pause] como quem carrega um guarda-chuva.','ponte','{"day":true,"minMinute":660}',45,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_donos_carga.esconder','vs_donos_carga','Esconder-se sob a ponte e escutar',15,'{}','{"text":"Você desce pela margem e se encolhe entre as pedras, com água até a cintura.","check":{"attr":"furtividade","base":50},"success":{"text":"Passos nas tábuas, bem em cima de você. “O Brandão não pousou onde devia.” “Então a gente pega a carga na ravina e acha ele depois. E quem mais tiver no avião.” [pause] O motor se afasta rumo ao penhasco.","effects":[{"op":"wet","amount":45},{"op":"clue","key":"donos_carga"},{"op":"status","field":"stress","delta":10}]},"failure":{"text":"Uma pedra rola sob seu pé. Os passos param. Um facho de lanterna varre a margem por um minuto inteiro — e então, sem pressa, eles vão embora.","effects":[{"op":"wet","amount":45},{"op":"flag","key":"donos_alerta"},{"op":"status","field":"stress","delta":22}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_donos_carga.pedir','vs_donos_carga','Sair da mata e pedir ajuda',10,'{}','{"text":"Você levanta os braços e atravessa a clareira.","check":{"attr":"comunicacao","base":40},"success":{"text":"Um deles sorri demais. “Claro, vem com a gente.” O outro olha para o seu rosto como quem decora. [pause] Você diz que vai buscar alguém ferido — e some na mata antes que respondam.","effects":[{"op":"clue","key":"donos_carga"},{"op":"flag","key":"donos_alerta"},{"op":"status","field":"stress","delta":15}]},"failure":{"text":"“Cadê a carga?” A coronha da espingarda acerta suas costelas antes de você entender a pergunta. Você foge pela mata, sem ar.","effects":[{"op":"wound","part":"torso","type":"contusao","severity":2},{"op":"flag","key":"donos_alerta"},{"op":"status","field":"stress","delta":20}]}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_donos_carga.imovel','vs_donos_carga','Ficar imóvel entre as árvores até passarem',20,'{}','{"text":"Você não respira direito até o som do motor sumir para os lados do penhasco. Eles não estavam procurando ajuda. Estavam procurando alguém.","effects":[{"op":"status","field":"stress","delta":12}]}',1,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('vs_cacada','vale_silente','Faróis entre as árvores','[tense] Um farol varre os troncos, devagar, de um lado para o outro. O motor está desligado; alguém empurra o quadriciclo para não fazer barulho. [whispers] Eles estão procurando você.',NULL,'{"anyLocation":true,"night":true,"flagsAll":["donos_alerta"]}',62,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_cacada.esconder','vs_cacada','Apagar a luz e se enfiar no mato',20,'{}','{"text":"Você se deita entre as raízes e cobre o rosto com folhas.","check":{"attr":"furtividade","base":50},"success":{"text":"O facho passa por cima de você duas vezes. Na terceira, eles desistem. [pause] Uma voz, perto demais: “Amanhã a gente acha.”","effects":[{"op":"status","field":"stress","delta":12},{"op":"wet","amount":20}]},"failure":{"text":"[gasps] Um estampido. Chumbo arranca a casca da árvore ao seu lado e rasga seu ombro. Você corre no escuro até não ouvir mais nada.","effects":[{"op":"wound","part":"braco_esq","type":"laceracao","severity":2},{"op":"status","field":"stress","delta":25}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_cacada.correr','vs_cacada','Correr para longe da luz',15,'{}','{"text":"Você dispara mata adentro.","check":{"attr":"agilidade","base":45},"success":{"text":"Galhos cortam seu rosto, mas o farol fica para trás.","effects":[{"op":"status","field":"energy","delta":-12},{"op":"status","field":"stress","delta":10}]},"failure":{"text":"Uma raiz prende seu pé. O tornozelo vira com um estalo.","effects":[{"op":"wound","part":"perna_dir","type":"entorse","severity":2},{"op":"status","field":"stress","delta":15}]}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_cacada.deitar','vs_cacada','Deitar no chão e não se mexer',30,'{}','{"text":"Você fica colado à terra fria por meia hora. O farol acaba indo embora.","effects":[{"op":"status","field":"stress","delta":15},{"op":"status","field":"bodyTemp","delta":-0.3}]}',1,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('vs_asas','vale_silente','Asas na escuridão','[whispers] Um bater de asas de couro, pesado demais para um morcego comum. Entre os galhos, dois pontos vermelhos se acendem — depois quatro. [pause] Elas não têm pressa. Estão esperando você ficar sozinho no escuro.',NULL,'{"anyLocation":true,"night":true,"notSheltered":true,"chance":0.3,"cooldownMinutes":240}',50,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_asas.lanterna','vs_asas','Apontar a lanterna direto para elas',5,'{"hasItem":["lanterna"]}','{"text":"[gasps] O facho acerta os olhos vermelhos. Um guincho agudo, e as asas se dispersam na mata. A luz as fere.","effects":[{"op":"status","field":"stress","delta":5},{"op":"clue","key":"luz_fere"}]}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_asas.chama','vs_asas','Acender uma chama e erguer acima da cabeça',5,'{"hasAnyItem":["isqueiro","fosforos"]}','{"text":"A chama treme no vento. As criaturas recuam, sibilando, e desaparecem além do alcance do fogo.","effects":[{"op":"status","field":"stress","delta":3},{"op":"clue","key":"luz_fere"}]}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_asas.imovel','vs_asas','Ficar imóvel e prender a respiração',15,'{}','{"text":"Você não mexe um músculo.","check":{"attr":"furtividade","base":45},"success":{"text":"Uma delas pousa a um palmo do seu rosto, fareja — e vai embora. [pause] Você só volta a respirar minutos depois.","effects":[{"op":"status","field":"stress","delta":12}]},"failure":{"text":"O cheiro do seu sangue entrega você.","effects":[{"op":"bite"}]}}',0,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_asas.correr','vs_asas','Correr',10,'{}','{"text":"Você dispara pela mata.","check":{"attr":"agilidade","base":40},"success":{"text":"As asas batem atrás de você por um tempo — e param de repente, como se tivessem perdido o interesse.","effects":[{"op":"status","field":"energy","delta":-10},{"op":"status","field":"stress","delta":10}]},"failure":{"text":"Algo cai nas suas costas. Dentes. Você rola no chão até se soltar.","effects":[{"op":"bite"},{"op":"status","field":"energy","delta":-10}]}}',1,3)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('vs_tumulo','vale_silente','A cova aberta','[tense] No meio da mata, um cemitério esquecido: cruzes tortas, uma lamparina apagada. Uma das covas está aberta. [pause] A terra não foi cavada de cima para baixo. Foi empurrada de dentro para fora.','mata','{"afterEvent":"vs_vozes"}',42,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_tumulo.ler','vs_tumulo','Limpar a lápide e ler o nome',10,'{}','{"text":"Você esfrega o musgo com a manga.","check":{"attr":"percepcao","base":45},"success":{"text":"[whispers] “IARA MENEZES — 1971–1998”. A hidróloga do rádio. [pause] Dentro da cova, só a prancheta, e marcas de unha na madeira do caixão.","effects":[{"op":"clue","key":"cova_iara"},{"op":"status","field":"stress","delta":10}]},"failure":{"text":"As letras estão gastas demais. Mas você tem certeza de que ouviu alguém respirar atrás de você.","effects":[{"op":"status","field":"stress","delta":15}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_tumulo.cobrir','vs_tumulo','Cobrir a cova com pedras',25,'{}','{"text":"Você empilha pedras até as mãos sangrarem. Não sabe bem por quê — só sabe que se sente melhor.","effects":[{"op":"status","field":"stress","delta":-10},{"op":"status","field":"energy","delta":-8},{"op":"flag","key":"cova_coberta"}]}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('vs_tumulo.sair','vs_tumulo','Sair dali sem olhar para trás',2,'{}','{"text":"Você se afasta rápido. A lamparina, que estava apagada, agora está acesa.","effects":[{"op":"status","field":"stress","delta":8}]}',1,2)
              ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
 
@@ -1129,6 +1383,370 @@ INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcom
              ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
 
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('fs_portao','vale_silente','O caminho das cruzes','[whispers] Entre duas figueiras, correntes enferrujadas balançam sem vento. Atrás delas, cruzes tortas seguem pela neblina até uma capela quase enterrada.','mata','{"afterEvent":"vs_vozes","flagsNone":["cemiterio_revelado"]}',46,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_portao.abrir','fs_portao','Abrir passagem entre as correntes',15,'{}','{"text":"O metal geme. O caminho dos mortos se abre.","effects":[{"op":"flag","key":"cemiterio_revelado"},{"op":"reveal","location":"cemiterio"},{"op":"revealLink","from":"mata","to":"cemiterio"}]}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_portao.marcar','fs_portao','Marcar o caminho e voltar depois',5,'{}','{"text":"Você amarra um pedaço de tecido na árvore. Quando olha de novo, ele já está molhado como se tivesse chovido por horas.","effects":[{"op":"flag","key":"cemiterio_revelado"},{"op":"reveal","location":"cemiterio"},{"op":"revealLink","from":"mata","to":"cemiterio"},{"op":"status","field":"stress","delta":5}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('fs_cemiterio','vale_silente','A porta sob as raízes','A porta da capela está presa por raízes grossas como braços. Do outro lado, água pinga no ritmo de uma transmissão em código.','cemiterio','{}',48,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_cemiterio.cortar','fs_cemiterio','Cortar as raízes e entrar',20,'{}','{"text":"Você abre espaço centímetro por centímetro.","check":{"attr":"improviso","base":50,"itemBonus":{"canivete":15}},"success":{"text":"A porta cede. O ar lá dentro tem cheiro de igreja inundada e fio queimado.","effects":[{"op":"flag","key":"capela_revelada"},{"op":"reveal","location":"capela"},{"op":"revealLink","from":"cemiterio","to":"capela"}]},"failure":{"text":"Uma raiz rompe de volta como um chicote, mas a passagem fica aberta.","effects":[{"op":"wound","part":"braco_dir","type":"corte","severity":1},{"op":"flag","key":"capela_revelada"},{"op":"reveal","location":"capela"},{"op":"revealLink","from":"cemiterio","to":"capela"}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_cemiterio.rezar','fs_cemiterio','Seguir a contagem sussurrada até outra entrada',25,'{}','{"text":"Sete passos, quatro cruzes, nenhuma oração. Uma abertura lateral leva à capela.","effects":[{"op":"flag","key":"capela_revelada"},{"op":"reveal","location":"capela"},{"op":"revealLink","from":"cemiterio","to":"capela"},{"op":"status","field":"stress","delta":8}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('fs_capela','vale_silente','A escada atrás do altar','[ominous] O altar está preso sobre trilhos. Atrás dele, uma escada industrial desce para água e ferrugem. Nas paredes, marcas de garras sobem — nenhuma desce.','capela','{}',49,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_capela.descer','fs_capela','Descer com a lanterna à frente',30,'{}','{"text":"A escada termina num corredor de turbinas abandonadas.","effects":[{"op":"flag","key":"galeria_revelada"},{"op":"reveal","location":"galeria"},{"op":"revealLink","from":"capela","to":"galeria"},{"op":"clue","key":"cabos_capela"}]}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_capela.corda','fs_capela','Fixar uma corda para garantir a volta',20,'{"hasItem":["corda"]}','{"text":"A corda fica presa ao altar. Agora existe um caminho de volta — se alguma coisa não a cortar.","effects":[{"op":"flag","key":"galeria_revelada"},{"op":"reveal","location":"galeria"},{"op":"revealLink","from":"capela","to":"galeria"},{"op":"clue","key":"cabos_capela"},{"op":"status","field":"stress","delta":-5}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_capela.voltar','fs_capela','Fechar o altar por enquanto',5,'{}','{"text":"O altar volta ao lugar. A vibração continua sob seus pés."}',1,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('fs_turbinas','vale_silente','O coração sob o vale','A turbina principal pulsa mesmo sem energia. Cabos sobem para a estação; outros desaparecem na água, na direção do Poço Escuro. [whispers] Algo respira do outro lado do concreto.','galeria','{}',58,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_turbinas.mapear','fs_turbinas','Mapear os cabos e seguir o pulso',35,'{}','{"text":"Você marca cada derivação na parede.","check":{"attr":"conhecimento_tecnico","base":50,"experience":["tecnologia","mecanica"]},"success":{"text":"O sistema inteiro amplifica um sinal que nasce sob o poço. E uma criatura enorme dorme junto dele.","effects":[{"op":"flag","key":"mae_conhecida"},{"op":"clue","key":"turbina_sinal"},{"op":"revealLink","from":"galeria","to":"lago"}]},"failure":{"text":"A turbina acorda por um segundo. A onda de choque joga você dentro da água negra.","effects":[{"op":"flag","key":"mae_conhecida"},{"op":"wet","amount":70},{"op":"status","field":"stress","delta":15},{"op":"revealLink","from":"galeria","to":"lago"}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_turbinas.recuar','fs_turbinas','Desligar tudo que puder e recuar',15,'{}','{"text":"Você arranca duas chaves. O pulso enfraquece, mas não para. Agora ele sabe que você está aqui.","effects":[{"op":"flag","key":"mae_conhecida"},{"op":"revealLink","from":"galeria","to":"lago"},{"op":"status","field":"stress","delta":10}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('fs_observatorio','vale_silente','A última subida','[urgent] A parabólica no cume gira pela primeira vez em décadas. No mapa de Iara, uma estrada técnica sobe até ela. O rádio comum nunca atravessará a tempestade sem aquele transmissor.','estacao','{"flagsAny":["iara_em_paz","iara_furia"],"flagsNone":["observatorio_revelado"]}',67,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_observatorio.subir','fs_observatorio','Abrir a estrada técnica até o cume',20,'{}','{"text":"Você força o cadeado e encontra a trilha de manutenção.","effects":[{"op":"flag","key":"observatorio_revelado"},{"op":"reveal","location":"observatorio"},{"op":"revealLink","from":"estacao","to":"observatorio"},{"op":"revealLink","from":"rochedo","to":"observatorio"}]}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_observatorio.preparar','fs_observatorio','Descansar e subir quando estiver pronto',15,'{}','{"text":"Você copia a rota no braço. O cume continuará chamando.","effects":[{"op":"flag","key":"observatorio_revelado"},{"op":"reveal","location":"observatorio"},{"op":"revealLink","from":"estacao","to":"observatorio"},{"op":"revealLink","from":"rochedo","to":"observatorio"},{"op":"status","field":"energy","delta":5}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('fs_alinhar','vale_silente','Sete, quatro, zero','[tense] Três relés gigantes tremem sob a tempestade. O primeiro pede sete voltas. O segundo, quatro. O último está travado no zero — e alguma coisa bate dentro da caixa metálica.','observatorio','{"flagsNone":["sinal_final_alinhado"],"cooldownMinutes":30}',72,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_alinhar.reles','fs_alinhar','Alinhar os relés na sequência 7-4-0',35,'{}','{"text":"Você prende o corpo ao painel e gira cada volante contra o vento.","check":{"attr":"conhecimento_tecnico","base":55,"itemBonus":{"canivete":10},"experience":["tecnologia","mecanica"]},"success":{"text":"[hopeful] A parabólica trava no rumo. Pela primeira vez, a estática se abre como uma porta. O rádio da estação agora pode alcançar o mundo.","effects":[{"op":"flag","key":"sinal_final_alinhado"},{"op":"clue","key":"relés_740"},{"op":"status","field":"stress","delta":-15}]},"failure":{"text":"Um arco elétrico atravessa o painel. Dois relés ficam no lugar; o terceiro precisa ser tentado outra vez.","effects":[{"op":"wound","part":"braco_dir","type":"queimadura","severity":1},{"op":"status","field":"stress","delta":8}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('fs_alinhar.tempestade','fs_alinhar','Esperar a tempestade ceder',20,'{}','{"text":"Ela não cede. A cada trovão, a voz no metal conta mais perto do seu ouvido.","effects":[{"op":"status","field":"stress","delta":5}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_ninho','vale_silente','As marcas chamam','[breathing heavily] As marcas no seu pescoço latejam no ritmo de outro coração — um coração enorme, lento, que não é o seu. [pause] Quando você fecha os olhos, vê água parada e uma luz verde lá no fundo. [whispers] Alguma coisa no poço escuro sabe o seu gosto.',NULL,'{"anyLocation":true,"night":true,"diseaseAny":["mordida"],"minMinute":60}',57,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_ninho.ouvir','ch_ninho','Deixar o chamado guiar você',5,'{}','{"text":"Você para de resistir e escuta.","check":{"attr":"controle_emocional","base":45},"success":{"text":"[tense] Por um instante você enxerga pelo olhar dela: uma caverna sob o poço, asas dobradas como um manto, dezenas de corpos pequenos pendurados no teto. [pause] Ela é a mãe de todas. E está com fome.","effects":[{"op":"clue","key":"ninho_mae"},{"op":"flag","key":"mae_conhecida"},{"op":"status","field":"stress","delta":8}]},"failure":{"text":"[gasps] Você volta a si de joelhos, com terra na boca, dez passos longe de onde estava. Não lembra de ter andado.","effects":[{"op":"flag","key":"mae_conhecida"},{"op":"status","field":"stress","delta":18}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_ninho.resistir','ch_ninho','Morder a própria língua até a dor apagar a visão',2,'{}','{"text":"O gosto de sangue traz você de volta. [whispers] Lá longe, algo parece achar graça.","effects":[{"op":"flag","key":"mae_conhecida"},{"op":"status","field":"pain","delta":5},{"op":"status","field":"stress","delta":6}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_mae','vale_silente','A Mãe das Asas','[ominous] A água do poço escuro sobe um palmo sem nenhuma chuva. Das pedras, desdobra-se algo do tamanho de um homem alto, envolto nas próprias asas como numa capa de viúva. [pause] O rosto é quase humano. Quase. [hisses] Ela sorri com dentes demais e diz, numa voz de muitas vozes: [whispers] “Você voltou para a mãe.”','lago','{"night":true,"flagsAll":["mae_conhecida"],"flagsNone":["mae_ferida","mae_caida","pacto_sangue"],"cooldownMinutes":120}',64,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_mae.luz','ch_mae','Cravar o facho da lanterna nos olhos dela',5,'{"hasItem":["lanterna"]}','{"text":"Você levanta a lanterna como quem ergue uma faca.","check":{"attr":"percepcao","base":50},"success":{"text":"[gasps] O facho acerta em cheio. O grito dela estoura os seus ouvidos e as asas se rasgam contra as pedras. Ela recua para dentro do poço, cega e ferida — [pause] mas não morta.","effects":[{"op":"flag","key":"mae_ferida"},{"op":"status","field":"stress","delta":10}]},"failure":{"text":"A luz treme na sua mão. Ela está atrás de você antes que o facho a encontre.","effects":[{"op":"bite"},{"op":"status","field":"stress","delta":12}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_mae.fogo','ch_mae','Incendiar um feixe de galhos e avançar com o fogo',10,'{"hasItem":["galhos_secos"],"hasAnyItem":["isqueiro","fosforos"]}','{"text":"Você acende o feixe. As chamas lambem seus dedos.","effects":[{"op":"removeItem","item":"galhos_secos"}],"check":{"attr":"improviso","base":50,"experience":["sobrevivencia"]},"success":{"text":"[terrified] As asas dela pegam fogo como papel velho. O cheiro é de couro e de coisa muito antiga queimando. Ela mergulha no poço, soltando vapor — [pause] ferida de verdade.","effects":[{"op":"flag","key":"mae_ferida"}]},"failure":{"text":"Um golpe de asa apaga o fogo e joga brasas no seu rosto.","effects":[{"op":"wound","part":"cabeca","type":"queimadura","severity":1},{"op":"status","field":"stress","delta":12}]}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_mae.ajoelhar','ch_mae','Ajoelhar-se e oferecer o próprio sangue',10,'{"lineage":["vampire"]}','{"text":"[reverent] Você se ajoelha na lama e expõe o pulso.","effects":[{"op":"flag","key":"pacto_sangue"},{"op":"clue","key":"pacto_sangue"},{"op":"status","field":"stress","delta":-25}],"check":{"attr":"comunicacao","base":45},"success":{"text":"Ela bebe devagar, como quem prova vinho. [dark laugh] “Filho meu.” [pause] “O vale inteiro é seu quando a lua cair. Os homens da carga, a mulher do rádio, o piloto medroso — todos seus.”"},"failure":{"text":"Ela bebe mais do que devia. O mundo gira. [whispers] “Ainda fraco… mas meu.”","effects":[{"op":"status","field":"energy","delta":-20}]}}',0,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_mae.fugir','ch_mae','Correr para longe do poço',10,'{}','{"text":"Você dá as costas para ela e corre.","check":{"attr":"agilidade","base":45},"success":{"text":"Asas batem logo atrás — e param na primeira faixa de luar. [whispers] “Amanhã, então.”","effects":[{"op":"status","field":"stress","delta":15},{"op":"status","field":"energy","delta":-10}]},"failure":{"text":"Garras fecham no seu ombro e soltam só depois de provar você.","effects":[{"op":"bite"},{"op":"status","field":"stress","delta":15}]}}',1,3)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_mae_furia','vale_silente','A fúria da Mãe','[menacing] O poço ferve. Ela sai da água de uma vez, meio queimada, meio cega — e já não sorri. As filhas descem das árvores como folhas pretas. [urgent] É agora: ela ou você.','lago','{"night":true,"flagsAll":["mae_ferida"],"flagsNone":["mae_caida"],"cooldownMinutes":90}',64,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_mae_furia.golpe','ch_mae_furia','Esperar o bote e golpear o coração dela',10,'{}','{"text":"Você finca os pés na lama e espera.","check":{"attr":"forca","base":40,"itemBonus":{"canivete":15}},"success":{"text":"[gasps] Ela vem. Você não recua. [long pause] Quando acaba, a coisa no chão é pequena, seca, quase frágil. As filhas se dispersam em silêncio. [relieved] As marcas no seu pescoço param de latejar pela primeira vez.","effects":[{"op":"flag","key":"mae_caida"},{"op":"clue","key":"mae_caida"},{"op":"cure","key":"mordida"},{"op":"status","field":"stress","delta":-20}]},"failure":{"text":"O bote é rápido demais. Dentes, garras, água gelada — você só se solta porque ela se engasga com a luz de algum relâmpago.","effects":[{"op":"bite"},{"op":"wound","part":"torso","type":"laceracao","severity":2}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_mae_furia.armadilha','ch_mae_furia','Atrair as filhas para a luz e deixá-la sozinha',15,'{"hasItem":["lanterna"]}','{"text":"Você pendura a lanterna num galho e se esconde no escuro.","check":{"attr":"furtividade","base":45},"success":{"text":"As filhas cercam a luz, confusas. A Mãe fica sozinha na margem — e não vê você chegando. [long pause] Quando termina, o poço fica em silêncio. [relieved] A sede escura vai embora do seu corpo.","effects":[{"op":"flag","key":"mae_caida"},{"op":"clue","key":"mae_caida"},{"op":"cure","key":"mordida"},{"op":"status","field":"stress","delta":-20}]},"failure":{"text":"Um galho estala sob seu pé. Ela vira a cabeça — e sorri de novo.","effects":[{"op":"bite"},{"op":"status","field":"stress","delta":15}]}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_mae_furia.recuar','ch_mae_furia','Recuar enquanto ela ainda está fraca',10,'{}','{"text":"Você sai de perto do poço de costas, sem piscar. [whispers] Ela não segue — está lambendo as feridas.","effects":[{"op":"status","field":"stress","delta":10}]}',1,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_trono','vale_silente','O trono da noite','[reverent] As filhas da Mãe pousam em volta de você em círculo, asas dobradas, cabeças baixas. Ela espera na água, [whispers] e estende a mão ossuda. “A lua caiu. O vale é seu, se você quiser. Nunca mais frio. Nunca mais fome. Nunca mais resgate.”','lago','{"night":true,"flagsAll":["pacto_sangue","tavares_resolvido"],"flagsAny":["iara_em_paz","iara_furia"],"lineageAny":["vampire"],"minMinute":1440,"cooldownMinutes":240}',63,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_trono.aceitar','ch_trono','Aceitar o vale e nunca mais sair',5,'{}','{"text":"[dark laugh] Você pega a mão dela. O frio vai embora para sempre.","effects":[{"op":"end","ending":"senhor_da_noite"}]}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_trono.recusar','ch_trono','Recusar — ainda quer voltar para casa',2,'{}','{"text":"[sighs] Ela recolhe a mão sem raiva. [whispers] “Humanos sempre querem voltar. Eu espero.”","effects":[{"op":"status","field":"stress","delta":8}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_carcaca','vale_silente','Garras a três metros','[tense] Uma queixada adulta, aberta do pescoço à barriga, pendurada num galho como se alguém guardasse comida. [pause] No tronco, marcas de garras — a três metros do chão. E, perto da raiz, um laço de arame igual ao da trilha, [ominous] cortado por dentes.','mata','{"day":true,"afterEvent":"vs_uivo"}',39,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_carcaca.rastrear','ch_carcaca','Seguir as marcas de garras',25,'{}','{"text":"Você segue as árvores marcadas, uma a uma.","check":{"attr":"orientacao","base":50},"success":{"text":"As marcas sobem até a Trilha da crista e terminam numa toca sob as pedras. Lá dentro: uma caneca de lata, um cobertor, uma foto de família desbotada. [whispers] A fera tem uma casa.","effects":[{"op":"flag","key":"rastro_ambar"},{"op":"clue","key":"toca_ambar"}]},"failure":{"text":"As marcas somem. Você passa o resto da tarde com a sensação de estar sendo seguido pelo mesmo caminho que você fez.","effects":[{"op":"flag","key":"rastro_ambar"},{"op":"status","field":"stress","delta":12}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_carcaca.sair','ch_carcaca','Sair dali antes que o dono volte',3,'{}','{"text":"Você se afasta rápido. Na volta, um uivo longo — em plena luz do dia.","effects":[{"op":"flag","key":"rastro_ambar"},{"op":"status","field":"stress","delta":10}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_ambar','vale_silente','O Lobo de Âmbar','[growls] Ele desce da crista sobre quatro patas e se levanta sobre duas. Mais alto que qualquer homem, pelo cinza-escuro, olhos de âmbar líquido. [pause] Traz no pescoço um pedaço de arame enferrujado, como uma coleira que ele mesmo não conseguiu tirar. [menacing] Ele não ataca ainda. Ele quer ver o que você vai fazer.','trilha','{"night":true,"flagsAll":["rastro_ambar"],"flagsNone":["ambar_ferido","ambar_caido","ambar_alfa","ambar_aliado"],"cooldownMinutes":120}',63,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_ambar.uivar','ch_ambar','Uivar de volta e desafiar pela matilha',10,'{"lineage":["werewolf"]}','{"text":"[growls] O uivo rasga a sua garganta. Os dois avançam ao mesmo tempo.","check":{"attr":"forca","base":45},"success":{"text":"Você o derruba na pedra e fecha os dentes no pescoço dele — e para. Ele baixa as orelhas. [long pause] A matilha agora é sua.","effects":[{"op":"flag","key":"ambar_alfa"},{"op":"clue","key":"alfa_matilha"},{"op":"status","field":"stress","delta":-15}]},"failure":{"text":"Ele é mais velho e mais forte. Joga você contra uma árvore e vai embora, sem pressa — dessa vez.","effects":[{"op":"wound","part":"torso","type":"laceracao","severity":2},{"op":"status","field":"stress","delta":10}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_ambar.medalhao','ch_ambar','Mostrar o medalhão da lua partida e dizer um nome',10,'{"cluesAny":["marca_lunar","toca_ambar"]}','{"text":"Você ergue o medalhão (ou a lembrança da foto na toca) e fala baixo.","check":{"attr":"controle_emocional","base":50},"success":{"text":"[voice breaking] O corpo dele encolhe, dobra, geme. No lugar da fera, um velho nu, magro, chorando no chão frio. “Anselmo”, ele diz. “Eu era o mateiro. Eu vi quando enterraram a moça do rádio viva.” [sobbing]","effects":[{"op":"flag","key":"ambar_aliado"},{"op":"clue","key":"anselmo_mateiro"},{"op":"clue","key":"estrada_servico"},{"op":"revealLink","from":"trilha","to":"estacao"}]},"failure":{"text":"Ele olha para o medalhão com ódio e o arranca da sua mão com uma unha. [growls] Você não sabe se o ódio é de você ou de si mesmo.","effects":[{"op":"wound","part":"braco_dir","type":"corte","severity":2}]}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_ambar.fogo','ch_ambar','Brandir fogo e forçar a luta',10,'{"hasAnyItem":["isqueiro","fosforos"]}','{"text":"Você acende o que tem e avança gritando.","check":{"attr":"forca","base":40,"itemBonus":{"canivete":10}},"success":{"text":"[gasps] O pelo dele pega fogo no ombro. Ele uiva de dor e some pela crista, deixando um rastro de sangue escuro. Ferido. Furioso.","effects":[{"op":"flag","key":"ambar_ferido"}]},"failure":{"text":"Uma patada apaga a chama e abre o seu braço até o osso.","effects":[{"op":"wound","part":"braco_esq","type":"laceracao","severity":3},{"op":"status","field":"stress","delta":15}]}}',0,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_ambar.baixar','ch_ambar','Baixar os olhos e recuar devagar',10,'{}','{"text":"Você não encara. Não corre.","check":{"attr":"controle_emocional","base":45},"success":{"text":"Ele fareja o ar por um longo tempo — e vira as costas. [whispers] Você foi julgado. Por hoje, absolvido.","effects":[{"op":"status","field":"stress","delta":10}]},"failure":{"text":"Seu corpo tremia demais. Ele cheirou o medo. Os dentes marcam o seu ombro — não para matar, para lembrar.","effects":[{"op":"lycanthropy"}]}}',1,3)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_ambar_final','vale_silente','A última caçada','[breathing heavily] O rastro de sangue termina em você. Ele está ali, encostado na pedra, respirando rápido, o ombro queimado ainda fumegando. [pause] Os olhos de âmbar já não têm fúria. Têm cansaço. [whispers] Como se ele esperasse por isso há vinte e oito anos.','trilha','{"night":true,"flagsAll":["ambar_ferido"],"flagsNone":["ambar_caido","ambar_aliado"],"cooldownMinutes":90}',63,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_ambar_final.acabar','ch_ambar_final','Acabar com isso',10,'{}','{"text":"Você se aproxima.","check":{"attr":"forca","base":45,"itemBonus":{"canivete":15}},"success":{"text":"[long pause] Ele não se defende. No fim, o corpo no chão é de um velho magro, com uma coleira de arame no pescoço. No bolso da calça rasgada, um bilhete: “Tavares enterrou a moça do rádio viva. Eu vi. Eu não fiz nada.” [sad]","effects":[{"op":"flag","key":"ambar_caido"},{"op":"clue","key":"anselmo_mateiro"},{"op":"status","field":"stress","delta":5}]},"failure":{"text":"Ainda ferido, ele é mais rápido que você. Deixa você no chão com três cortes paralelos e desaparece.","effects":[{"op":"wound","part":"perna_dir","type":"laceracao","severity":2}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_ambar_final.poupar','ch_ambar_final','Abaixar a arma e perguntar o nome dele',10,'{}','{"text":"“Quem é você?”","check":{"attr":"comunicacao","base":45},"success":{"text":"[voice breaking] “Anselmo.” A fera encolhe até virar um velho. “Eu vi o Tavares enterrar a moça do rádio. Viva. E a lua me pegou naquela mesma noite, como castigo.” [crying] Ele aponta uma estrada de serviço que ninguém conhece.","effects":[{"op":"flag","key":"ambar_aliado"},{"op":"clue","key":"anselmo_mateiro"},{"op":"clue","key":"estrada_servico"},{"op":"revealLink","from":"trilha","to":"estacao"}]},"failure":{"text":"Ele rosna e se arrasta para longe. Não confia em ninguém — ainda.","effects":[{"op":"status","field":"stress","delta":8}]}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_ambar_final.recuar','ch_ambar_final','Deixá-lo ali e ir embora',5,'{}','{"text":"[sighs] Você vira as costas. Atrás de você, um uivo baixo — quase um agradecimento. Ou uma promessa.","effects":[{"op":"status","field":"stress","delta":6}]}',1,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_lua_cheia','vale_silente','Lua cheia sobre a crista','[growls] A matilha espera na crista, olhos acesos no escuro. Lá embaixo, bem longe, o som de um helicóptero procurando alguém que já não existe. [pause] O vento traz o cheiro de tudo o que está vivo no vale. [whispers] Tudo isso pode ser seu território.','trilha','{"night":true,"flagsAll":["ambar_alfa","tavares_resolvido"],"flagsAny":["iara_em_paz","iara_furia"],"lineageAny":["werewolf"],"minMinute":1440,"cooldownMinutes":240}',62,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_lua_cheia.ficar','ch_lua_cheia','Ficar com a matilha para sempre',5,'{}','{"text":"[growls] Você uiva. A matilha responde. O helicóptero vai embora.","effects":[{"op":"end","ending":"rei_da_mata"}]}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_lua_cheia.voltar','ch_lua_cheia','Ainda não — há gente para salvar',2,'{}','{"text":"[sighs] Você desce da crista. A matilha espera. Ela sabe esperar.","effects":[{"op":"status","field":"stress","delta":5}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_tavares','vale_silente','O dono da carga','[calm] Ele está sentado na mureta da ponte, fumando, como se esperasse um ônibus. Uns sessenta anos, chapéu de couro, a espingarda atravessada no colo. O capanga das botas de borracha está atrás de você — [pause] você nem ouviu ele chegar. [chuckles] “Tavares”, ele se apresenta. “Você tem uma coisa que é minha. E eu tenho a única estrada que sai daqui.”','ponte','{"cluesAny":["donos_carga","carga_ravina"],"minMinute":900,"flagsAll":["encontro_feito"],"flagsNone":["tavares_resolvido"],"cooldownMinutes":180}',61,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_tavares.negociar','ch_tavares','Negociar: a carga pela saída',15,'{}','{"text":"Você fala devagar, sem olhar para a espingarda.","effects":[{"op":"flag","key":"tavares_presente"}],"check":{"attr":"comunicacao","base":45},"success":{"text":"[sarcastic] Ele ri. “Gente da cidade negocia bonito.” Mas escuta. E, distraído, fala demais: “A moça do rádio também quis negociar, em 98.” [pause] Ele percebe o que disse. O sorriso fica. Os olhos, não.","effects":[{"op":"clue","key":"tavares_confessa"},{"op":"status","field":"stress","delta":8}]},"failure":{"text":"“Chega de conversa.” A coronha acerta seu estômago. Você cai de joelhos na ponte. [dark laugh] “Pensa melhor. Eu espero aqui.”","effects":[{"op":"wound","part":"torso","type":"contusao","severity":2}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_tavares.emboscada','ch_tavares','Derrubar o capanga e tomar a espingarda',10,'{}','{"text":"Você gira e se joga contra o homem das botas.","check":{"attr":"agilidade","base":40},"success":{"text":"[gasps] Os dois caem da ponte para dentro do córrego gelado. Quando você sobe, a espingarda está na sua mão e Tavares está de mãos para cima, [nervous] pela primeira vez sem sorrir.","effects":[{"op":"flag","key":"tavares_resolvido"},{"op":"flag","key":"tavares_rendido"},{"op":"wet","amount":70},{"op":"status","field":"stress","delta":10}]},"failure":{"text":"Um tiro para o alto — depois um para baixo. Chumbo rasga a sua coxa. Você cai no córrego e a correnteza leva você para longe da ponte.","effects":[{"op":"wound","part":"perna_esq","type":"laceracao","severity":3},{"op":"wet","amount":80},{"op":"flag","key":"donos_alerta"}]}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_tavares.dentes','ch_tavares','Deixar ele ver o que você se tornou',5,'{"lineage":["vampire","werewolf"]}','{"text":"[menacing] Você sorri. E deixa o sorriso crescer.","check":{"attr":"comunicacao","base":40},"success":{"text":"[terrified] O cigarro cai da boca dele. O capanga corre pela estrada sem olhar para trás. Tavares fica — paralisado, mãos tremendo sobre a espingarda que ele não consegue levantar. [whispers] “Eu sabia… eu sabia que o vale ia cobrar.”","effects":[{"op":"flag","key":"tavares_resolvido"},{"op":"flag","key":"tavares_rendido"},{"op":"clue","key":"tavares_confessa"}]},"failure":{"text":"Ele atira antes de pensar. O chumbo arde — mas você continua de pé. Ele foge, e você deixa.","effects":[{"op":"wound","part":"torso","type":"laceracao","severity":1},{"op":"flag","key":"tavares_resolvido"}]}}',0,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_tavares.iara_fala','ch_tavares','Deixar Iara falar pela sua boca',5,'{"lineage":["haunted"]}','{"text":"[haunting] O frio sobe pela sua garganta. A voz que sai não é a sua. [whispers] “Sete… quatro… zero, Tavares.”","effects":[{"op":"flag","key":"tavares_resolvido"},{"op":"flag","key":"tavares_rendido"},{"op":"clue","key":"tavares_confessa"},{"op":"status","field":"stress","delta":10}]}',0,3)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_tavares.recuar','ch_tavares','Levantar as mãos e sair devagar',5,'{}','{"text":"[chuckles] “Vai, vai. O vale é pequeno.” Ele acende outro cigarro. Você sente o olhar dele nas costas até a mata fechar.","effects":[{"op":"flag","key":"tavares_presente"},{"op":"status","field":"stress","delta":12}]}',1,4)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_iara_sinal','vale_silente','23h40 em ponto','[long pause] Todos os sons do vale param ao mesmo tempo. Grilos, vento, água. [pause] Seu relógio marca 23h40. Ao longe, na direção da antena, a lâmpada vermelha acende sozinha — e começa a piscar em três tempos. [whispers] Sete. Quatro. Zero. [ominous] Ela está chamando você para a estação.',NULL,'{"anyLocation":true,"night":true,"minMinute":1440,"flagsAll":["tavares_resolvido"],"cluesAny":["cova_iara","bolsa_iara","iara_visao","voz_gravada","diario_iara"]}',59,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_iara_sinal.ir','ch_iara_sinal','Responder ao chamado',2,'{}','{"text":"Você não sabe por quê, mas diz em voz alta: “Estou indo.” [whispers] A lâmpada para de piscar.","effects":[{"op":"flag","key":"iara_chamou"},{"op":"status","field":"stress","delta":8}]}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_iara_sinal.calar','ch_iara_sinal','Ficar em silêncio e esperar o som voltar',10,'{}','{"text":"Os grilos voltam, um a um. Mas a lâmpada continua acesa até o amanhecer.","effects":[{"op":"flag","key":"iara_chamou"},{"op":"status","field":"stress","delta":12}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_iara','vale_silente','Iara, a Voz','[haunting] O lampião apaga. A névoa entra por baixo da porta e sobe até o teto. O rádio liga sozinho, sem bateria, [whispers] e a voz de mulher conta: “sete… quatro… zero…” [long pause] Então ela está ali, atrás da bancada. Capa de chuva encharcada, prancheta na mão, terra sob as unhas. [cold] Ela olha para você e pergunta, com a sua própria voz: “Você veio me tirar daqui… ou me calar?”','estacao','{"night":true,"flagsAll":["iara_chamou","estacao_aberta"],"flagsNone":["iara_em_paz","iara_furia"],"cooldownMinutes":180}',66,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_iara.prometer','ch_iara','Prometer que o mundo vai saber o que fizeram com ela',15,'{"cluesAny":["desvio_rota","rumo_074","tavares_confessa","anselmo_mateiro","iara_desaparecida"]}','{"text":"Você conta tudo o que sabe. O rumo 074. A carga. O nome de quem a enterrou.","check":{"attr":"controle_emocional","base":45},"success":{"text":"[voice breaking] A névoa fica imóvel. [long pause] Ela abaixa a prancheta. “Vinte e oito anos contando para ninguém.” [crying] “Liga o rádio. Eu dou a frequência certa — a da polícia, não a deles.” E some, deixando na bancada uma fita cassete escrita à mão: PROVAS.","effects":[{"op":"flag","key":"iara_em_paz"},{"op":"clue","key":"iara_revela"},{"op":"status","field":"stress","delta":-25}]},"failure":{"text":"Sua voz falha no meio. Ela inclina a cabeça, decepcionada. [whispers] “Todo mundo promete.” O frio atravessa você e ela se desfaz — por enquanto.","effects":[{"op":"haunt"}]}}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_iara.ouvir','ch_iara','Deixar os mortos falarem — escutar tudo',20,'{"lineage":["haunted"]}','{"text":"[whispers] Você não pergunta nada. Só abre espaço dentro de você para ela entrar.","effects":[{"op":"flag","key":"iara_em_paz"},{"op":"clue","key":"iara_revela"},{"op":"clue","key":"tavares_confessa"},{"op":"status","field":"stress","delta":-30}],"check":{"attr":"percepcao","base":30},"success":{"text":"Você vê a noite de 1998 pelos olhos dela: o avião pousando sem luzes, Tavares com a pá, Anselmo escondido entre as árvores sem coragem de gritar. [sobbing] Quando acaba, ela sorri pela primeira vez. [relieved] “Obrigada por me ouvir até o fim.”"},"failure":{"text":"As imagens vêm rápidas demais. Você entende o essencial — e ela, pelo menos, descansa."}}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_iara.desligar','ch_iara','Arrancar os fios do rádio e calar a voz',5,'{}','{"text":"[desperate] Você agarra o feixe de fios e puxa com toda a força.","check":{"attr":"forca","base":45},"success":{"text":"Faíscas. Silêncio. [long pause] A névoa sai pela porta como quem vai embora ofendida. [whispers] Lá fora, muito longe, alguém grita — um grito de homem. [ominous] Ela foi procurar outro ouvinte: quem a enterrou.","effects":[{"op":"flag","key":"iara_furia"},{"op":"clue","key":"iara_furia"},{"op":"status","field":"stress","delta":10}]},"failure":{"text":"[terrified] Os fios estão frios como gelo. Suas mãos grudam neles. A voz entra pelos seus dedos e sobe até a sua boca. Você começa a contar junto com ela.","effects":[{"op":"haunt"},{"op":"haunt"},{"op":"status","field":"bodyTemp","delta":-1}]}}',0,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_iara.fugir','ch_iara','Fugir da estação',10,'{}','{"text":"Você corre. A voz corre junto, sempre um passo atrás, [whispers] contando até você não aguentar mais ouvir.","effects":[{"op":"haunt"},{"op":"status","field":"stress","delta":10}]}',1,3)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_iara_furia','vale_silente','O que a névoa fez','[tense] O quadriciclo está tombado no meio da ponte, o farol ainda aceso apontando para a água. A espingarda boia no córrego. [long pause] Não há ninguém. Só pegadas de botas indo até a beira — e nenhuma voltando. [whispers] Na mureta, escrito com o dedo na lama: 740.','ponte','{"flagsAll":["iara_furia"]}',60,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_iara_furia.revistar','ch_iara_furia','Revistar o quadriciclo',10,'{}','{"text":"No baú: a chave de uma porteira, um mapa da estrada de serviço e um maço de dinheiro que ninguém vai vir buscar.","effects":[{"op":"flag","key":"tavares_resolvido"},{"op":"clue","key":"estrada_servico"},{"op":"addItem","item":"fosforos"}]}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_iara_furia.sair','ch_iara_furia','Não tocar em nada e ir embora',2,'{}','{"text":"Você passa longe da água. Ela está calma demais.","effects":[{"op":"flag","key":"tavares_resolvido"},{"op":"status","field":"stress","delta":10}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_despertar','vale_silente','O Despertar','[long pause] Às 2h40 o vale inteiro prende a respiração. [whispers] Quatro coisas vêm buscar você ao mesmo tempo: asas que batem no escuro, um uivo que sobe da crista, uma névoa fria que chama o seu nome — [pause] e, no fundo do peito, uma teimosia velha que diz não. [serious] Você só pode deixar entrar uma.',NULL,'{"anyLocation":true,"night":true,"minMinute":150,"lineageAny":["human"],"cooldownMinutes":30}',56,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_despertar.asas','ch_despertar','Oferecer o pescoço às asas (Vampiro)',10,'{}','{"text":"[gasps] Dentes. Frio. O coração para — e volta diferente. [dark laugh] A noite agora tem o seu gosto.","effects":[{"op":"awaken","lineage":"vampire"},{"op":"status","field":"stress","delta":10}]}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_despertar.uivo','ch_despertar','Responder ao uivo (Lobisomem)',10,'{}','{"text":"","effects":[{"op":"awaken","lineage":"werewolf"}]}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_despertar.nevoa','ch_despertar','Deixar a névoa entrar (Assombrado)',10,'{}','{"text":"[haunting] A névoa entra pela boca e pelos olhos. Quando sai, deixa vozes. [whispers] Os mortos do vale agora falam com você.","effects":[{"op":"awaken","lineage":"haunted"},{"op":"status","field":"bodyTemp","delta":-0.4}]}',0,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_despertar.resistir','ch_despertar','Resistir a todas (Caçador)',15,'{}','{"text":"[desperate] Você finca os pés no chão e diz não — para as asas, para a lua, para os mortos. [long pause] Elas recuam. Você continua humano. [serious] Mas agora enxerga cada uma delas.","effects":[{"op":"awaken","lineage":"hunter"},{"op":"status","field":"stress","delta":15}]}',1,3)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_classe_vampire','vale_silente','O sangue escolhe o seu clã','[whispers] O sangue da Mãe corre em você — mas não do mesmo jeito que corre nos outros. Na água parada do poço, reflexos que não são o seu mostram quatro caminhos. [pause] Cada clã é uma família antiga, com dons e maldições que passam pelo sangue.',NULL,'{"anyLocation":true,"lineageAny":["vampire"],"classNone":true,"cooldownMinutes":1}',68,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_vampire.filhos_do_poco','ch_classe_vampire','Filhos do Poço — Os Afogados',5,'{}','{"text":"Os primeiros que a Mãe das Asas bebeu e devolveu. Herdaram o silêncio da água parada: movem-se sem som, curam-se com o próprio sangue e enxergam no escuro como quem olha o fundo de um poço. Disciplinas: Véu da Névoa (passiva), Sangue que Fecha e Olhar de Poço. Perdição — Sede de Água Parada: O sangue da Mãe puxa você para a água. −10% em orientação: todo caminho parece levar ao poço. Compulsão — Mergulho: Com a Fome no máximo, você precisa submergir. (Fome sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"filhos_do_poco"}]}',1,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_vampire.corte_da_crista','ch_classe_vampire','Corte da Crista — Os Coroados',5,'{}','{"text":"Aristocratas do sangue. Acreditam que o vale inteiro — homens, feras e mortos — deveria se ajoelhar. Sua voz dobra vontades e sua pele endurece como pedra da crista. Disciplinas: Voz de Comando (passiva), Presença Fria e Pele de Mármore. Perdição — Paladar de Rei: Só o sangue certo sacia. Caçar bichos alivia menos a Fome, e o desprezo por trabalho braçal pesa: −10% em improviso. Compulsão — Domínio: Com a Fome no máximo, você precisa mandar em alguém ou em algo. (Fome sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"corte_da_crista"}]}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_vampire.rasgados','ch_classe_vampire','Os Rasgados — Andrajos',5,'{}','{"text":"O sangue da Mãe não os aceitou inteiros: saíram tortos, marcados, com rostos que assustam os vivos. Vivem nas frestas, sabem de tudo e somem quando querem. Disciplinas: Olhos de Rato (passiva), Sumir e Força do Túmulo. Perdição — Rosto Partido: A transformação deformou você. −20% em comunicação: os vivos desviam o olhar. Compulsão — Fome de Segredos: Com a Fome no máximo, você precisa saber o que ninguém sabe. (Fome sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"rasgados"}]}',0,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_vampire.febris','ch_classe_vampire','Os Febris — Os Lúcidos',5,'{}','{"text":"O sangue da Mãe chegou a eles junto com uma febre que nunca passou. Veem o que foi e o que vai ser — e às vezes o que nunca existiu. Dizem que são loucos. Às vezes estão certos. Disciplinas: Segunda Visão (passiva), Presságio e Sussurro na Mente. Perdição — Mente Rachada: A febre nunca passa. −15% em controle emocional. Compulsão — Delírio: Com a Fome no máximo, a febre mostra coisas. (Fome sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"febris"}]}',0,3)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_classe_werewolf','vale_silente','A matilha te reconhece','[growls] Uivos vêm de três direções da crista. Cada um é uma tribo, com a sua lei e o seu modo de caçar. [pause] A lua espera que você responda a um deles.',NULL,'{"anyLocation":true,"lineageAny":["werewolf"],"classNone":true,"cooldownMinutes":1}',68,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_werewolf.uivo_da_crista','ch_classe_werewolf','Uivo da Crista — Guardiões',5,'{}','{"text":"Guardam o vale como quem guarda a própria casa. Sentem cada passo na mata pelo chão e pelo vento — e não perdoam quem traz o mal para dentro dele. Disciplinas: Faro (passiva), Pele Grossa e Garra. Perdição — Lua no Sangue: A fera fala primeiro. −10% em comunicação. Compulsão — Território: Com a Fúria no máximo, você precisa marcar e defender. (Fúria sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"uivo_da_crista"}]}',1,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_werewolf.dentes_de_ferro','ch_classe_werewolf','Dentes de Ferro — Caçadores de Homens',5,'{}','{"text":"A tribo que odeia o que o homem fez ao vale: o diesel no córrego, os aviões sem luz, as covas na mata. Rasgam metal com os dentes e correm mais que o vento. Disciplinas: Cheiro de Diesel (passiva), Rasgar Metal e Correr com o Vento. Perdição — Ódio: Raiva de tudo que é humano. −15% em controle emocional. Compulsão — Fúria Cega: Com a Fúria no máximo, você ataca o que estiver perto. (Fúria sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"dentes_de_ferro"}]}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_werewolf.filhos_da_queixada','ch_classe_werewolf','Filhos da Queixada — O Bando',5,'{}','{"text":"A tribo mais antiga e mais prática: sobreviver primeiro, o resto depois. Comem de tudo, aguentam tudo e nunca andam sozinhos. Disciplinas: Estômago de Fera (passiva), Farejar Comida e Chamado do Bando. Perdição — Fome sem Fim: O corpo de fera queima tudo. −10% em inteligência (a fome distrai). Compulsão — Devorar: Com a Fúria no máximo, a fome vira urgência. (Fúria sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"filhos_da_queixada"}]}',0,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_classe_haunted','vale_silente','Os mortos te dão um lugar','[haunting] A névoa se abre em três corredores. Em cada um, os mortos fazem um trabalho diferente: chorar, escutar, atravessar. [whispers] Eles perguntam qual será o seu.',NULL,'{"anyLocation":true,"lineageAny":["haunted"],"classNone":true,"cooldownMinutes":1}',68,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_haunted.carpideiras','ch_classe_haunted','Carpideiras — As Choronas',5,'{}','{"text":"Choram pelos mortos que ninguém chorou. O choro acalma as almas — e às vezes os vivos. Carregam o luto como quem carrega água. Disciplinas: Lamento (passiva), Chorar pelos Mortos e Ouvir a Cova. Perdição — Luto: O peso de tantos mortos. −10% em agilidade. Compulsão — Velar: Com o Eco no máximo, você precisa velar um morto. (Eco sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"carpideiras"}]}',1,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_haunted.radio_escutas','ch_classe_haunted','Rádio-Escutas — Os da Frequência',5,'{}','{"text":"Ouvem os mortos pelo chiado — rádios, celulares sem sinal, fios soltos. Iara fala mais alto com eles. Consertam qualquer aparelho e escutam o que ele ainda guarda. Disciplinas: Frequência (passiva), Sintonizar e Eco do Passado. Perdição — Chiado: O ruído nunca para. −10% em comunicação: você responde a vozes que ninguém ouviu. Compulsão — Contagem: Com o Eco no máximo, você precisa contar junto com a voz. (Eco sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"radio_escutas"}]}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_haunted.os_frios','ch_classe_haunted','Os Frios — Sem Calor',5,'{}','{"text":"Tocaram a morte e voltaram com metade do corpo do lado de lá. Atravessam paredes de névoa, não fazem sombra e gelam o que tocam. Disciplinas: Corpo Frio (passiva), Atravessar e Toque Gelado. Perdição — Sem Calor: O corpo não se aquece direito. −10% em resistência. Compulsão — Frio do Outro Lado: Com o Eco no máximo, o lado de lá puxa você. (Eco sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"os_frios"}]}',0,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_classe_hunter','vale_silente','O credo de quem resistiu','[serious] Você não cedeu. Nem ao sangue, nem à lua, nem à névoa. [pause] Mas resistir sozinho não basta: há três jeitos antigos de continuar de pé neste vale.',NULL,'{"anyLocation":true,"lineageAny":["hunter"],"classNone":true,"cooldownMinutes":1}',68,1)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_hunter.vigias','ch_classe_hunter','Vigias — Os que Não Dormem',5,'{}','{"text":"Resistiram ao chamado ficando acordados. Aprenderam a ver as criaturas antes que elas vejam você — e a segurar a luz firme quando tudo treme. Disciplinas: Vigília (passiva), Luz Firme e Marcar a Presa. Perdição — Insônia: Dormir é deixar de vigiar. −10% em resistência. Compulsão — Não Dormir: Com a Obsessão no máximo, você não consegue fechar os olhos. (Obsessão sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"vigias"}]}',1,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_hunter.remendeiros','ch_classe_hunter','Remendeiros — Benzedeiros',5,'{}','{"text":"A fé deles é de mão: rezas antigas, chá amargo e pano limpo. Não vencem as criaturas — impedem que elas levem os seus. Disciplinas: Mãos Firmes (passiva), Benzedura e Chá Amargo. Perdição — Carrega a Dor dos Outros: Cada cura cobra um pouco. −10% em força. Compulsão — Cuidar: Com a Obsessão no máximo, você precisa cuidar de alguém. (Obsessão sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"remendeiros"}]}',0,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_classe_hunter.justiceiros','ch_classe_hunter','Justiceiros do 074 — Os da Verdade',5,'{}','{"text":"Resistiram porque alguém precisava contar a verdade. Farejam a mentira e não largam o osso até o culpado pagar — seja homem ou fera. Disciplinas: Faro de Mentira (passiva), Pressionar e Cumprir a Promessa. Perdição — Teimosia: Nunca se escondem da verdade — nem das balas. −10% em furtividade. Compulsão — Justiça: Com a Obsessão no máximo, você precisa confrontar alguém. (Obsessão sobe ao usar poderes.)","effects":[{"op":"setClass","classId":"justiceiros"}]}',0,2)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO events(id,scenario_id,title,body,location_id,trigger,priority,repeatable) VALUES('ch_encontro','vale_silente','O Encontro','[slowly] Sob a lona do acampamento abandonado, vocês se reencontram — mas não são mais as mesmas pessoas que embarcaram no bimotor. [pause] Olhos que refletem a luz. Mãos que não param de tremer. Alguém que fala com quem não está ali. [whispers] Na estaca principal, sob os 37 riscos de Iara, alguém gravou um risco novo. Para cada um de vocês.','abrigo','{"flagsAll":["ato2"],"partyTogether":true}',69,0)
+           ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, location_id=excluded.location_id,
+             trigger=excluded.trigger, priority=excluded.priority, repeatable=excluded.repeatable;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_encontro.revelar','ch_encontro','Mostrar quem você se tornou',20,'{}','{"text":"[relieved] Você conta tudo: o chamado, o preço, o poder. Ninguém foge. [pause] Pela primeira vez desde a queda, vocês são um grupo — um grupo estranho, mas um grupo.","effects":[{"op":"flag","key":"encontro_feito"},{"op":"flag","key":"grupo_unido"},{"op":"clue","key":"o_encontro"},{"op":"status","field":"stress","delta":-20}]}',0,0)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_encontro.esconder','ch_encontro','Esconder o que você é',10,'{}','{"text":"[nervous] Você sorri, diz que está bem, esconde as marcas. [pause] Os outros fazem o mesmo. [whispers] Todo mundo sabe que todo mundo está mentindo.","effects":[{"op":"flag","key":"encontro_feito"},{"op":"flag","key":"segredos_no_grupo"},{"op":"clue","key":"o_encontro"},{"op":"status","field":"stress","delta":5}]}',1,1)
+             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+               requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
+
 INSERT INTO achievements(id,name,description,icon,points,hidden) VALUES('pioneiro','Pioneiro','Um dos 12 primeiros sobreviventes cadastrados.','estrela',50,0)
          ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, icon=excluded.icon, points=excluded.points, hidden=excluded.hidden;
 
@@ -1159,9 +1777,27 @@ INSERT INTO achievements(id,name,description,icon,points,hidden) VALUES('confian
 INSERT INTO achievements(id,name,description,icon,points,hidden) VALUES('equipe','Ninguém fica para trás','Vença uma campanha cooperativa.','grupo',60,0)
          ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, icon=excluded.icon, points=excluded.points, hidden=excluded.hidden;
 
+INSERT INTO achievements(id,name,description,icon,points,hidden) VALUES('justica','Rumo 074','Saia do vale contando a verdade pelo rádio.','radio',120,1)
+         ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, icon=excluded.icon, points=excluded.points, hidden=excluded.hidden;
+
 INSERT INTO achievements(id,name,description,icon,points,hidden) VALUES('queda','A névoa chama','Morra na ravina.','caveira',5,1)
          ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, icon=excluded.icon, points=excluded.points, hidden=excluded.hidden;
 
-INSERT INTO schema_meta(key, value) VALUES('content_hash', '0c99524ddfa39601') ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+INSERT INTO achievements(id,name,description,icon,points,hidden) VALUES('mae_caida','Silêncio no poço','Derrote a Mãe das Asas.','chama',60,0)
+         ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, icon=excluded.icon, points=excluded.points, hidden=excluded.hidden;
+
+INSERT INTO achievements(id,name,description,icon,points,hidden) VALUES('lobo_ambar','O nome sob o pelo','Resolva o Lobo de Âmbar — pela força ou pelo nome.','lua',60,0)
+         ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, icon=excluded.icon, points=excluded.points, hidden=excluded.hidden;
+
+INSERT INTO achievements(id,name,description,icon,points,hidden) VALUES('tavares','Fim da linha','Tire Tavares do caminho.','caveira',60,0)
+         ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, icon=excluded.icon, points=excluded.points, hidden=excluded.hidden;
+
+INSERT INTO achievements(id,name,description,icon,points,hidden) VALUES('iara_paz','Ela descansa','Dê paz à voz de Iara.','radio',80,0)
+         ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, icon=excluded.icon, points=excluded.points, hidden=excluded.hidden;
+
+INSERT INTO achievements(id,name,description,icon,points,hidden) VALUES('pacto','Filho da noite','Aceite o pacto de sangue da Mãe das Asas.','lua',40,1)
+         ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, icon=excluded.icon, points=excluded.points, hidden=excluded.hidden;
+
+INSERT INTO schema_meta(key, value) VALUES('content_hash', '6ed2ec981f5751e0') ON CONFLICT(key) DO UPDATE SET value = excluded.value;
 
 COMMIT;

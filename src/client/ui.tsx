@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useSession, useToasts } from "./session";
+import { activityFromPath, usePresence } from "./presence";
 
 // ── Logo / Logotipo ────────────────────────────────────────────────────────
 // ECG transformando-se em linha de montanha — o símbolo da sobrevivência.
@@ -178,6 +179,7 @@ export function useRequireUser(opts: { master?: boolean } = {}) {
 // ── Navegação ──────────────────────────────────────────────────────────────
 const NAV = [
   { href: "/painel",  label: "Campanhas" },
+  { href: "/amigos",  label: "Amigos"    },
   { href: "/ranking", label: "Ranking"   },
   { href: "/perfil",  label: "Perfil"    },
 ];
@@ -187,6 +189,8 @@ export function AppShell({ children, master }: { children: ReactNode; master?: b
   const pathname = usePathname();
   const router = useRouter();
   const logout = useSession((s) => s.logout);
+  const where = activityFromPath(pathname);
+  usePresence(user ? where.activity : null, where.campaignId);
   if (!user) {
     return (
       <div className="container page row" style={{ justifyContent: "center", minHeight: "60vh" }}>
@@ -248,6 +252,9 @@ export const ENDING_LABEL: Record<string, string> = {
   resgate_radio:       "Resgate pelo rádio",
   resgate_sinalizador: "Resgate pelo sinalizador",
   resgate_fogueira:    "Resgate pela fumaça",
+  a_verdade:           "A verdade na frequência",
+  senhor_da_noite:     "Senhor da noite",
+  rei_da_mata:         "Rei da mata",
   morte:               "Morte",
   abandonada:          "Encerrada",
 };

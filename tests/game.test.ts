@@ -6,6 +6,7 @@ import { freshApp, registered, soloCampaign, act, key, VALID_SHEET, type Client 
 import { getDb, openDb, setDb } from "@/server/db/database";
 import { setConfig, getConfig } from "@/server/config";
 import { resetApiForTests } from "@/server/http/api";
+import { resetRateLimits } from "@/server/http/core";
 
 beforeEach(async () => {
   await freshApp();
@@ -159,9 +160,27 @@ describe("Fluxo solo completo", () => {
       },
     };
     const id = await soloCampaign(client, sheet);
+    // Este teste cobre o transporte HTTP, inventário, deslocamento e finalização.
+    // O encadeamento completo dos quatro atos é coberto em story.test.ts; aqui a
+    // campanha é preparada no Ato IV para que o rádio possa concluir o fluxo.
+    const campaign = await getDb().get<{ flags: string }>("SELECT flags FROM campaigns WHERE id = ?", id);
+    await getDb().run(
+      "UPDATE campaigns SET flags = ? WHERE id = ?",
+      JSON.stringify({
+        ...JSON.parse(campaign?.flags ?? "{}"),
+        encontro_feito: true,
+        tavares_resolvido: true,
+        iara_em_paz: true,
+        observatorio_revelado: true,
+        sinal_final_alinhado: true,
+      }),
+      id,
+    );
     const seenEvents = new Set<string>();
     let state = (await client.post(`/api/campaigns/${id}/sync`)).body;
     for (let i = 0; i < 120 && state.campaign.status === "active"; i++) {
+      // O fluxo completo (com Despertar, classe e tentativas no rádio) passa de 30 ações: o limitador não é o alvo aqui.
+      if (i % 20 === 0) await resetRateLimits();
       let res;
       if (state.event?.participating) {
         const evId = state.event.choices[0].id.split(".")[0];

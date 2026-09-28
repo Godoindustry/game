@@ -20,4 +20,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "equipe", name: "Ninguém fica para trás", description: "Vença uma campanha cooperativa.", icon: "grupo", points: 60 },
   { id: "justica", name: "Rumo 074", description: "Saia do vale contando a verdade pelo rádio.", icon: "radio", points: 120, hidden: true },
   { id: "queda", name: "A névoa chama", description: "Morra na ravina.", icon: "caveira", points: 5, hidden: true },
+  // Chefes
+  { id: "mae_caida", name: "Silêncio no poço", description: "Derrote a Mãe das Asas.", icon: "chama", points: 60 },
+  { id: "lobo_ambar", name: "O nome sob o pelo", description: "Resolva o Lobo de Âmbar — pela força ou pelo nome.", icon: "lua", points: 60 },
+  { id: "tavares", name: "Fim da linha", description: "Tire Tavares do caminho.", icon: "caveira", points: 60 },
+  { id: "iara_paz", name: "Ela descansa", description: "Dê paz à voz de Iara.", icon: "radio", points: 80 },
+  { id: "pacto", name: "Filho da noite", description: "Aceite o pacto de sangue da Mãe das Asas.", icon: "lua", points: 40, hidden: true },
 ];

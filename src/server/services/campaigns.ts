@@ -3,7 +3,8 @@
  * Autorização por recurso: toda função recebe o usuário da sessão e verifica o vínculo.
  */
 import { z } from "zod";
-import { getDb, nowIso } from "../db/database";
+import { getDb, json, nowIso } from "../db/database";
+import { DIFFICULTIES, DIFFICULTY_RULES, difficultyOf } from "../engine/difficulty";
 import { getConfig } from "../config";
 import { newId, newToken, sha256 } from "./ids";
 import { badRequest, conflict, forbidden, notFound } from "./errors";
@@ -14,6 +15,8 @@ import { getScenario } from "../content/valeSilente";
 import { validateCharacterSheet } from "../engine/character";
 import { initCharacter, initWorld } from "../engine/setup";
 import { startEvent } from "../engine/events";
+import { revealLocation } from "../engine/effects";
+import { neighbors } from "../engine/actions";
 import { addLog, insertCharacter, saveWorld } from "./stateRepo";
 
 export const MAX_PLAYERS = 4;
@@ -32,6 +35,7 @@ export interface CampaignRow {
   current_round: number;
   round_deadline_at: string | null;
   last_heartbeat_at: string | null;
+  flags: string;
   ending: string | null;
   ending_type: string | null;
   version: number;
@@ -46,7 +50,13 @@ export const createCampaignSchema = z.strictObject({
     .transform((s) => s.replace(/[\u0000-\u001f\u007f<>]/g, "").trim())
     .pipe(z.string().min(3, "Nome muito curto.")),
   mode: z.enum(["solo", "coop"]),
+  difficulty: z.enum(DIFFICULTIES).default("medio"),
 });
+
+function difficultyView(flags: string) {
+  const key = difficultyOf(json(flags, {}));
+  return { key, label: DIFFICULTY_RULES[key].label };
+}
 
 export async function getCampaignRow(id: string): Promise<CampaignRow> {
   const row = await getDb().get<CampaignRow>("SELECT * FROM campaigns WHERE id = ?", id);
@@ -94,9 +104,10 @@ export async function createCampaign(user: SessionUser, input: unknown) {
     );
     if (active >= limit) throw conflict(`Limite de ${limit} campanhas em andamento atingido${premium ? "" : " (premium permite mais)"}.`, "limite_campanhas");
     await db.run(
-      `INSERT INTO campaigns(id,name,owner_user_id,scenario_id,mode,status,max_players,seed,created_at,updated_at)
-       VALUES(?,?,?,?,?,'lobby',?,?,?,?)`,
-      id, data.name, user.id, "vale_silente", data.mode, data.mode === "solo" ? 1 : MAX_PLAYERS, c.FIXED_SEED ?? newToken(12), now, now,
+      `INSERT INTO campaigns(id,name,owner_user_id,scenario_id,mode,status,max_players,seed,flags,created_at,updated_at)
+       VALUES(?,?,?,?,?,'lobby',?,?,?,?,?)`,
+      id, data.name, user.id, "vale_silente", data.mode, data.mode === "solo" ? 1 : MAX_PLAYERS, c.FIXED_SEED ?? newToken(12),
+      JSON.stringify({ dificuldade: data.difficulty }), now, now,
     );
     await db.run("INSERT INTO campaign_members(id,campaign_id,user_id,role,joined_at) VALUES(?,?,?,'owner',?)", newId(), id, user.id, now);
   });
@@ -127,6 +138,7 @@ export async function listMyCampaigns(user: SessionUser) {
     ending: r.ending,
     endingType: r.ending_type,
     updatedAt: r.updated_at,
+    difficulty: difficultyView(r.flags),
   }));
 }
 
@@ -145,6 +157,7 @@ export async function lobbyView(user: SessionUser, campaignId: string) {
     mode: camp.mode,
     status: camp.status,
     maxPlayers: camp.max_players,
+    difficulty: difficultyView(camp.flags),
     isOwner: camp.owner_user_id === user.id,
     members: members.map((m) => ({
       userId: m.user_id,
@@ -237,17 +250,40 @@ export async function startCampaign(user: SessionUser, campaignId: string) {
     if (members.some((m) => !m.has_char)) throw conflict("Todos os participantes precisam criar o personagem antes de começar.", "fichas_pendentes");
     const content = getScenario(camp.scenario_id);
     const world = initWorld(content, campaignId, camp.seed);
-    const chars = (await db.all<{ id: string }>("SELECT id FROM characters WHERE campaign_id = ?", campaignId)).map((r) => r.id);
+    world.flags.dificuldade = difficultyOf(json(camp.flags, {})); // initWorld zera as flags: mantém o modo escolhido
+    // Ato I: cada um acorda num ponto do vale. O dono começa nos destroços (evento de abertura);
+    // os convidados, em ordem de entrada, nos outros pontos de partida.
+    const charRows = await db.all<{ id: string; user_id: string; joined_at: string }>(
+      `SELECT c.id, c.user_id, m.joined_at FROM characters c
+         JOIN campaign_members m ON m.campaign_id = c.campaign_id AND m.user_id = c.user_id
+        WHERE c.campaign_id = ? ORDER BY (c.user_id = ?) DESC, m.joined_at, c.id`,
+      campaignId, camp.owner_user_id,
+    );
+    const starts = content.startLocations?.length ? content.startLocations : [content.startLocation];
+    const placed = charRows.map((r, i) => ({ id: r.id, loc: starts[i % starts.length] }));
+    for (const p of placed) {
+      await db.run("UPDATE character_status SET location_id = ? WHERE character_id = ?", p.loc, p.id);
+      revealLocation(world, p.loc);
+      world.locations[p.loc].visited = true;
+      for (const n of neighbors(world, content, p.loc)) revealLocation(world, n.to);
+    }
     const ev = startEvent(content)!;
     world.eventHistory[ev.id] = 0;
     await saveWorld(world);
     const now = nowIso();
     await db.run("UPDATE campaigns SET status='active', started_at=?, last_heartbeat_at=?, updated_at=? WHERE id=?", now, now, now, campaignId);
+    // O evento de abertura é de quem acordou no local dele (os destroços).
+    const openers = placed.filter((p) => !ev.locationId || p.loc === ev.locationId).map((p) => p.id);
     await db.run(
       "INSERT INTO campaign_events(id,campaign_id,event_id,status,participants,round_triggered,triggered_at_minute,created_at) VALUES(?,?,?,'active',?,1,0,?)",
-      newId(), campaignId, ev.id, JSON.stringify(chars), now,
+      newId(), campaignId, ev.id, JSON.stringify(openers.length ? openers : placed.map((p) => p.id)), now,
     );
-    await addLog(campaignId, null, 0, "event", `【${ev.title}】 ${ev.body}`);
+    // Cada um só vê o próprio despertar (quem está longe não sabe o que houve nos destroços).
+    for (const id of openers.length ? openers : placed.map((p) => p.id)) await addLog(campaignId, id, 0, "event", `【${ev.title}】 ${ev.body}`);
+    for (const p of placed) {
+      const intro = content.startIntros?.[p.loc];
+      if (intro && !openers.includes(p.id)) await addLog(campaignId, p.id, 0, "narrative", `【${content.locations[p.loc].name}】 ${intro}`);
+    }
   });
   return lobbyView(user, campaignId);
 }

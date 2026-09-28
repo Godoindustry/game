@@ -5,7 +5,7 @@
  */
 import type { AIProvider, ProviderCall, ProviderResult } from "../types";
 
-type Method = "generateNarrative" | "generateNpcResponse" | "generateClueDescription" | "classifyPlayerIntent";
+type Method = "generateNarrative" | "generateNpcResponse" | "generateClueDescription" | "classifyPlayerIntent" | "decideCreatureAttitude";
 
 export class ChainProvider implements AIProvider {
   readonly name = "chain";
@@ -35,4 +35,5 @@ export class ChainProvider implements AIProvider {
   generateNpcResponse = (i: never, c: ProviderCall) => this.attempt("generateNpcResponse", i, c);
   generateClueDescription = (i: never, c: ProviderCall) => this.attempt("generateClueDescription", i, c);
   classifyPlayerIntent = (i: never, c: ProviderCall) => this.attempt("classifyPlayerIntent", i, c);
+  decideCreatureAttitude = (i: never, c: ProviderCall) => this.attempt("decideCreatureAttitude", i, c);
 }

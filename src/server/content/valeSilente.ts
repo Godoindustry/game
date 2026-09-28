@@ -12,6 +12,18 @@
 import type { ChoiceDef, EventDef, GameContent, LinkDef, LocationDef } from "../engine/types";
 import { ITEMS } from "./items";
 
+import { BOSS_CLUES, BOSS_ENDINGS, BOSS_EVENTS, BOSS_NPCS, BOSS_NPC_RULES } from "./chefes";
+import { ACT_CLUES, ACT_EVENTS, MEETING_LOCATION, START_INTROS, START_LOCATIONS } from "./atos";
+import {
+  PHASE_CLUES,
+  PHASE_EVENTS,
+  PHASE_LINKS,
+  PHASE_LOCATIONS,
+  VALE_ACTS,
+  VALE_BOSSES,
+  VALE_REGIONS,
+} from "./fases";
+
 const LOCATIONS: LocationDef[] = [
   {
     id: "destrocos", name: "Destroços do bimotor", x: 13.5, y: 23, terrain: "destroços", hiddenInitially: false, dangerLevel: 1,
@@ -218,6 +230,30 @@ const EVENTS: EventDef[] = [
     ],
   },
   {
+    id: "vs_uivo", title: "O uivo sob a pele", locationId: "mata", priority: 35, repeatable: false,
+    trigger: { night: true, minMinute: 180, afterEvent: "vs_vozes" },
+    body: "[ominous] O mato se abre sem vento. Dois olhos cor de âmbar observam você de uma altura impossível. [pause] A criatura não rosna. Ela inclina a cabeça, como se esperasse que você se lembrasse dela.",
+    choices: [
+      c("vs_uivo", "encarar", {
+        label: "Sustentar o olhar e se aproximar", durationMinutes: 10,
+        outcome: {
+          text: "Você dá um passo para dentro do círculo de luar.",
+          check: { attr: "controle_emocional", base: 45 },
+          success: { text: "A fera recua. Preso num espinho, você encontra um medalhão antigo marcado por uma lua partida.", effects: [{ op: "clue", key: "marca_lunar" }] },
+          failure: { text: "Ela é rápida demais. Há dentes, o cheiro de terra molhada e uma dor branca no ombro. Quando você acorda, a ferida já está fechando.", effects: [{ op: "lycanthropy" }] },
+        },
+      }),
+      c("vs_uivo", "aceitar", {
+        label: "Responder ao uivo", durationMinutes: 5,
+        outcome: { text: "O som sai da sua garganta antes que você decida fazê-lo. A criatura salta — não para matar, mas para marcar.", effects: [{ op: "lycanthropy" }] },
+      }),
+      c("vs_uivo", "fogo", {
+        label: "Recuar até a luz e não olhar para trás", durationMinutes: 5, safe: true,
+        outcome: { text: "O uivo acompanha você até a última faixa de luar. Quando olha de novo, só existem árvores.", effects: [{ op: "status", field: "stress", delta: 10 }] },
+      }),
+    ],
+  },
+  {
     id: "vs_acampamento", title: "O acampamento abandonado", locationId: "abrigo", priority: 40, repeatable: false,
     trigger: {},
     body: "Sob a lona, caixas de madeira e uma fogueira fria. [slowly] Na estaca principal, marcas de contagem: trinta e sete riscos, agrupados de cinco em cinco. Abaixo, gravado a canivete: IARA.",
@@ -359,6 +395,7 @@ const EVENTS: EventDef[] = [
     choices: [
       c("vs_radio", "ligar", {
         label: "Ligar a bateria ao rádio", durationMinutes: 20,
+        requirements: { flagsAll: ["tavares_resolvido", "sinal_final_alinhado"], flagsAny: ["iara_em_paz", "iara_furia"] },
         outcome: {
           text: "Você descasca os fios e conecta os terminais.",
           check: { attr: "conhecimento_tecnico", base: 45, itemBonus: { canivete: 10 }, experience: ["tecnologia", "mecanica"] },
@@ -367,7 +404,7 @@ const EVENTS: EventDef[] = [
         },
       }),
       c("vs_radio", "denunciar", {
-        label: "Ligar o rádio com Brandão e denunciar a rota", durationMinutes: 30, requirements: { flagsAll: ["brandao_salvo"], cluesAny: ["rumo_074"] },
+        label: "Ligar o rádio com Brandão e denunciar a rota", durationMinutes: 30, requirements: { flagsAll: ["brandao_salvo", "tavares_resolvido", "sinal_final_alinhado"], flagsAny: ["iara_em_paz", "iara_furia"], cluesAny: ["rumo_074"] },
         outcome: {
           text: "Brandão segura a lanterna enquanto você emenda os fios. Ele sabe qual fio é qual.",
           check: { attr: "conhecimento_tecnico", base: 65, itemBonus: { canivete: 10 }, experience: ["tecnologia", "mecanica"] },
@@ -462,7 +499,7 @@ const EVENTS: EventDef[] = [
     body: "Daqui você tem visão limpa do céu. [urgent] Se o helicóptero voltar, é agora ou nunca.",
     choices: [
       c("vs_resgate", "sinalizador", {
-        label: "Disparar o sinalizador", durationMinutes: 2, requirements: { hasItem: ["sinalizador"] },
+        label: "Disparar o sinalizador", durationMinutes: 2, requirements: { hasItem: ["sinalizador"], flagsAll: ["tavares_resolvido", "sinal_final_alinhado"], flagsAny: ["iara_em_paz", "iara_furia"] },
         outcome: {
           text: "Você espera o som do rotor e puxa o cordão. Fumaça vermelha sobe, densa.",
           effects: [{ op: "removeItem", item: "sinalizador" }],
@@ -472,7 +509,7 @@ const EVENTS: EventDef[] = [
         },
       }),
       c("vs_resgate", "fogueira", {
-        label: "Fazer uma fogueira de sinal", durationMinutes: 30, requirements: { hasItem: ["galhos_secos"], hasAnyItem: ["isqueiro", "fosforos"] },
+        label: "Fazer uma fogueira de sinal", durationMinutes: 30, requirements: { hasItem: ["galhos_secos"], hasAnyItem: ["isqueiro", "fosforos"], flagsAll: ["tavares_resolvido", "sinal_final_alinhado"], flagsAny: ["iara_em_paz", "iara_furia"] },
         outcome: {
           text: "Você empilha os galhos e joga folhas verdes por cima para fazer fumaça.",
           effects: [{ op: "removeItem", item: "galhos_secos" }],
@@ -763,13 +800,17 @@ export const VALE_SILENTE: GameContent = {
   startLocation: "destrocos",
   startMinuteOfDay: 23 * 60 + 40,
   items: Object.fromEntries(ITEMS.map((i) => [i.id, i])),
-  locations: Object.fromEntries(LOCATIONS.map((l) => [l.id, l])),
-  links: LINKS,
-  events: EVENTS,
+  locations: Object.fromEntries([...LOCATIONS, ...PHASE_LOCATIONS].map((l) => [l.id, l])),
+  links: [...LINKS, ...PHASE_LINKS],
+  events: [...EVENTS, ...PHASE_EVENTS, ...BOSS_EVENTS, ...ACT_EVENTS],
+  startLocations: START_LOCATIONS,
+  startIntros: START_INTROS,
+  meetingLocation: MEETING_LOCATION,
   clues: Object.fromEntries(
     [
       { key: "elt_desligado", title: "Transmissor desligado", text: "O ELT do avião foi desligado manualmente. Alguém não queria que o avião fosse encontrado." },
       { key: "voz_na_mata", title: "Uma resposta", text: "Alguém — ou algo — respondeu ao seu grito." },
+      { key: "marca_lunar", title: "A lua partida", text: "Um medalhão antigo traz a marca de uma linhagem que desperta sob a lua." },
       { key: "pouso_tentado", title: "Pouso, não queda", text: "O avião tentou pousar ali. O piloto sabia para onde ia." },
       { key: "caderno_piloto", title: "Caderno de voo", text: "“VS — pouso não registrado — R$ 40 mil na volta.” O desvio foi pago." },
       { key: "luz_na_crista", title: "Luz na crista", text: "Alguém sobe a crista norte até a antena como quem conhece o caminho." },
@@ -797,6 +838,9 @@ export const VALE_SILENTE: GameContent = {
       { key: "rumo_074", title: "Rumo 074", text: "Os números são o rumo de pouso de uma pista clandestina. A voz de Iara guia os aviões do contrabando." },
       { key: "iara_desaparecida", title: "Perdida na mata", text: "Iara viu os pousos noturnos em 1998 e desapareceu. O inquérito foi arquivado." },
       { key: "donos_carga", title: "Os donos da carga", text: "Dois homens armados vieram buscar a carga — e procuram os sobreviventes do avião." },
+      ...PHASE_CLUES,
+      ...BOSS_CLUES,
+      ...ACT_CLUES,
     ].map((cl) => [cl.key, cl]),
   ),
   endings: {
@@ -805,6 +849,7 @@ export const VALE_SILENTE: GameContent = {
     resgate_fogueira: { key: "resgate_fogueira", type: "victory", title: "Coluna de fumaça", text: "[relieved] A fumaça branca guiou o resgate até você. [slowly] O vale fica para trás, em silêncio." },
     a_verdade: { key: "a_verdade", type: "victory", title: "A verdade na frequência", text: "[relieved] O resgate chega com a polícia federal junto. Brandão desce a estrada algemado e em paz. [pause] Semanas depois, mergulhadores tiram do poço escuro o que restava de Iara Menezes. [slowly] Às 23h40 daquela noite, pela primeira vez em vinte e oito anos, o rádio da estação fica em silêncio." },
     morte: { key: "morte", type: "defeat", title: "O vale fica com você", text: "[cold] Semanas depois, uma equipe encontra os destroços. [pause] O relatório final fala em [whispers] “causas naturais”." },
+    ...Object.fromEntries(BOSS_ENDINGS.map((e) => [e.key, e])),
   },
   npcs: {
     piloto: {
@@ -812,6 +857,7 @@ export const VALE_SILENTE: GameContent = {
       persona: "Piloto de táxi aéreo, 50 anos, ferido na perna, febril, paranoico e culpado. Fala pouco, em frases curtas. Aceitou dinheiro para desviar o voo e entregar uma carga no vale, numa pista clandestina usada desde os anos 90. Sabe que 074 é o rumo de pouso e que a voz no rádio é uma gravação antiga de Iara Menezes, a hidróloga que desapareceu em 1998 por ter visto os pousos. Tem medo de quem vem buscar a carga — e mais ainda do que voa à noite: tem duas marcas de dentes no pescoço, sente uma sede que água não mata e só dorme perto do fogo. Sabe que as criaturas fogem da luz. Esconde as marcas com a gola e só admite a mordida se confiar em quem pergunta. Nunca usa a palavra “vampiro”.",
       intents: ["perguntar_acidente", "perguntar_caminho", "pedir_ajuda", "oferecer_item", "acalmar", "ameacar", "perguntar_numeros", "outro"],
     },
+    ...Object.fromEntries(BOSS_NPCS.map((n) => [n.id, n])),
   },
   npcRules: {
     piloto: {
@@ -853,6 +899,7 @@ export const VALE_SILENTE: GameContent = {
       },
       outro: { text: "Ele escuta, mas não parece entender o que você quer.", effects: [] },
     },
+    ...BOSS_NPC_RULES,
   },
   startingInventory: [
     { itemId: "camiseta", container: "equipped" },
@@ -872,7 +919,10 @@ export const VALE_SILENTE: GameContent = {
       steps: [
         { id: "bateria", label: "Recuperar a bateria de emergência", hint: "Está no compartimento de carga do avião, emperrado. Força ou uma alavanca resolvem.", locations: ["destrocos"], done: [{ hasAnyItem: ["bateria_emergencia"] }] },
         { id: "estacao", label: "Entrar na estação de rádio", hint: "A antena a leste. O portão tem cadeado — procure outro jeito de entrar.", locations: ["estacao"], done: [{ flagsAll: ["estacao_aberta"] }] },
-        { id: "ligar", label: "Ligar a bateria a um rádio", hint: "Dentro da estação. Conhecimento técnico ou um canivete ajudam com os fios.", locations: ["estacao"] },
+        { id: "tavares", label: "Impedir que Tavares feche a saída", hint: "Siga a carga até a ponte. Ele só aparece quando sabe que você descobriu demais.", locations: ["ponte", "penhasco"], done: [{ flagsAll: ["tavares_resolvido"] }] },
+        { id: "iara", label: "Responder à voz de Iara", hint: "Às 23h40, volte à estação e escute até o fim.", locations: ["estacao"], done: [{ flagsAny: ["iara_em_paz", "iara_furia"] }] },
+        { id: "observatorio", label: "Alinhar o Observatório 740", hint: "Suba ao cume e alinhe os três relés. Sem isso, a tempestade engole qualquer transmissão.", locations: ["observatorio"], done: [{ flagsAll: ["sinal_final_alinhado"] }] },
+        { id: "ligar", label: "Fazer a transmissão final", hint: "Volte ao rádio da estação. Agora o mundo conseguirá ouvir.", locations: ["estacao"] },
       ],
     },
     {
@@ -880,10 +930,16 @@ export const VALE_SILENTE: GameContent = {
       steps: [
         { id: "busca", label: "Descobrir se alguém está procurando", hint: "Sobreviva à noite. De dia, escute o céu.", done: [{ flagsAll: ["busca_ativa"] }] },
         { id: "sinal", label: "Conseguir um jeito de sinalizar", hint: "Um sinalizador — ou lenha seca e algo para acender fogo.", locations: ["rochedo", "estacao"], done: [{ hasAnyItem: ["sinalizador"] }, { hasAllItems: ["galhos_secos"], hasAnyItem: ["isqueiro", "fosforos"] }] },
-        { id: "ceu", label: "Ir a um lugar de céu aberto, de dia", hint: "Do rochedo ou do mirante o helicóptero consegue ver você.", locations: ["rochedo", "penhasco"] },
+        { id: "verdade", label: "Resolver o que prende o vale", hint: "Tavares e Iara precisam de uma resposta antes de qualquer resgate ser seguro.", locations: ["ponte", "estacao"], done: [{ flagsAll: ["tavares_resolvido"], flagsAny: ["iara_em_paz", "iara_furia"] }] },
+        { id: "ceu", label: "Abrir o sinal no Observatório 740", hint: "Alinhe a frequência no cume antes de chamar o helicóptero.", locations: ["observatorio"], done: [{ flagsAll: ["sinal_final_alinhado"] }] },
+        { id: "resgate", label: "Ir a um lugar de céu aberto, de dia", hint: "Do rochedo, do mirante ou do observatório o helicóptero consegue ver você.", locations: ["observatorio", "rochedo", "penhasco"] },
       ],
     },
   ],
+  acts: VALE_ACTS,
+  regions: VALE_REGIONS,
+  bosses: VALE_BOSSES,
+  targetRealMinutes: [90, 130],
   professionKits: {
     enfermagem: [{ itemId: "atadura", container: "backpack_side" }],
     mecanico: [{ itemId: "canivete", container: "pockets" }],

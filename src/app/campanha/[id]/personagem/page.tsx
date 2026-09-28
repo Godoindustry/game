@@ -10,6 +10,7 @@ interface Options {
   attributes: string[];
   professions: { id: string; label: string; bonus: string | null }[];
   bodyTypes: string[];
+  sexes: string[];
   conditionings: string[];
   experiences: string[];
   points: number;
@@ -25,7 +26,7 @@ function CharacterForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [f, setF] = useState({
-    name: "", age: 30, heightCm: 170, weightKg: 70, bodyType: "medio", conditioning: "moderado", profession: "estudante",
+    name: "", sex: "masculino", age: 30, heightCm: 170, weightKg: 70, bodyType: "medio", conditioning: "moderado", profession: "estudante",
     knowledge: "", fears: "", history: "", personality: "", experiences: [] as string[],
   });
   const [attrs, setAttrs] = useState<Record<string, number>>({});
@@ -102,6 +103,17 @@ function CharacterForm() {
             <span className="label">Nome</span>
             <input className="input" maxLength={40} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Ex.: Ana Ribeiro" />
           </label>
+          <div className="field">
+            <span className="label">Silhueta</span>
+            <div className="character-sex-picker" role="group" aria-label="Silhueta corporal">
+              {opt.sexes.map((sex) => (
+                <button key={sex} type="button" className={f.sex === sex ? "active" : ""} onClick={() => setF({ ...f, sex })}>
+                  <span aria-hidden="true">{sex === "feminino" ? "♀" : "♂"}</span>
+                  {sex === "feminino" ? "Feminina" : "Masculina"}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid-3" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
             {num("age", "Idade", 18, 80, "anos")}
             {num("heightCm", "Altura", 140, 210, "cm")}

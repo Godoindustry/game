@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/client/api";
@@ -23,7 +23,7 @@ function LobbyView() {
   const [lobby, setLobby] = useState<Lobby | null>(null);
   const [invite, setInvite] = useState<{ code: string; url: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [inviteLoaded, setInviteLoaded] = useState(false);
+  const inviteLoaded = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -37,15 +37,15 @@ function LobbyView() {
 
   // Gera o convite automaticamente na primeira vez que o dono abre o lobby coop
   const ensureInvite = useCallback(async (l: Lobby) => {
-    if (!l.isOwner || l.mode !== "coop" || inviteLoaded) return;
-    setInviteLoaded(true);
+    if (!l.isOwner || l.mode !== "coop" || inviteLoaded.current) return;
+    inviteLoaded.current = true;
     try {
       const inv = await api<{ code: string; url: string }>("POST", `/api/campaigns/${id}/invites`);
       setInvite(inv);
     } catch {
       // convite já existe ou sala cheia — ignora
     }
-  }, [id, inviteLoaded]);
+  }, [id]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- busca assíncrona ao montar; o setState ocorre após o await
@@ -55,6 +55,7 @@ function LobbyView() {
   }, [load]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- convite é criado por chamada assíncrona e o estado muda após a resposta
     if (lobby) void ensureInvite(lobby);
   }, [lobby, ensureInvite]);
 

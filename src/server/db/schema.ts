@@ -10,7 +10,7 @@
  *  - Itens do catálogo são RESTRICT (não se apaga item em uso).
  *  - Logs administrativos e de IA → SET NULL (o log sobrevive ao alvo).
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 6;
 
 export const SCHEMA_SQL = /* sql */ `
 
@@ -296,6 +296,7 @@ CREATE TABLE IF NOT EXISTS characters (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  sex TEXT NOT NULL DEFAULT 'masculino' CHECK (sex IN ('masculino','feminino')),
   age INTEGER NOT NULL,
   height_cm INTEGER NOT NULL,
   weight_kg INTEGER NOT NULL,
@@ -458,6 +459,41 @@ CREATE TABLE IF NOT EXISTS ranking_scores (
   UNIQUE (campaign_id, character_id)
 );
 CREATE INDEX IF NOT EXISTS idx_ranking_score ON ranking_scores(score DESC);
+
+-- ============ Amigos e presença ============
+CREATE TABLE IF NOT EXISTS friend_codes (                -- código público para adicionar amigo (não expõe e-mail)
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  code TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS friendships (
+  id TEXT PRIMARY KEY,
+  requester_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  addressee_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL CHECK (status IN ('pending','accepted')),
+  created_at TEXT NOT NULL,
+  responded_at TEXT,
+  UNIQUE (requester_id, addressee_id)
+);
+CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships(addressee_id, status);
+
+CREATE TABLE IF NOT EXISTS character_powers (            -- classe (clã/tribo/ordem/credo) e recurso sobrenatural
+  character_id TEXT PRIMARY KEY REFERENCES characters(id) ON DELETE CASCADE,
+  class_id TEXT,
+  resource INTEGER NOT NULL DEFAULT 0 CHECK (resource BETWEEN 0 AND 5),
+  buffs TEXT NOT NULL DEFAULT '[]',
+  ward_until INTEGER NOT NULL DEFAULT 0,
+  clock INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_presence (               -- heartbeat do cliente: onde o jogador está agora
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  activity TEXT NOT NULL CHECK (activity IN ('menu','lobby','playing','offline')),
+  campaign_id TEXT REFERENCES campaigns(id) ON DELETE SET NULL,
+  last_seen_at TEXT NOT NULL
+);
 
 -- ============ Auditoria e IA ============
 CREATE TABLE IF NOT EXISTS admin_logs (

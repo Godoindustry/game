@@ -1,0 +1,575 @@
+/* Vale Silente — mesa gótica imersiva */
+.game-immersive {
+  --bg: #090708;
+  --bg-2: #100b0d;
+  --panel: #151013;
+  --panel-2: #1c1418;
+  --panel-3: #24191e;
+  --line: #332329;
+  --line-2: #4a3038;
+  --line-3: #67404b;
+  --amber: #a99165;
+  --amber-2: #d8c298;
+  --amber-3: #f0dfbd;
+  --red: #971f35;
+  --red-2: #d15467;
+  --red-glow: rgba(151, 31, 53, .38);
+  background: #060506;
+}
+
+.game-immersive .hud {
+  min-height: 68px;
+  height: 68px;
+  border-bottom-color: rgba(151, 31, 53, .45);
+  background:
+    linear-gradient(90deg, rgba(18, 10, 13, .98), rgba(8, 6, 7, .94)),
+    url("/art/vale-silente/valley-cinematic.png") center 42% / cover;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, .55);
+}
+
+.game-immersive .hud::after {
+  background: linear-gradient(90deg, transparent, #8f2639 22%, #d8c298 50%, #8f2639 78%, transparent);
+  opacity: .7;
+}
+
+.game-immersive .game-body {
+  grid-template-columns: minmax(0, 1fr) 430px;
+  background: #080608;
+}
+
+.game-immersive .game-side {
+  border-left-color: #4b2932;
+  background:
+    linear-gradient(180deg, rgba(16, 10, 13, .94), rgba(8, 6, 7, .98)),
+    url("/art/vale-silente/valley-cinematic.png") 82% center / auto 100%;
+  box-shadow: -22px 0 55px rgba(0, 0, 0, .48);
+}
+
+.game-immersive .side-tabs {
+  background: rgba(10, 7, 8, .92);
+  border-bottom-color: #42252d;
+}
+
+.game-immersive .side-tabs button {
+  font-family: var(--font-head);
+  color: #9e8c8f;
+}
+
+.game-immersive .side-tabs button.active {
+  color: #ead8b7;
+  border-bottom-color: #a52d42;
+  text-shadow: 0 0 16px rgba(164, 44, 65, .45);
+}
+
+.game-immersive .world {
+  box-shadow: inset -1px 0 #3a2229, inset 0 0 80px rgba(0, 0, 0, .5);
+}
+
+/* Arte de cena e narração */
+.scene-card {
+  position: relative;
+  min-height: 174px;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgba(191, 151, 116, .28);
+  border-radius: 2px 16px 2px 2px;
+  background: url("/art/vale-silente/valley-cinematic.png") center 48% / cover;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, .42), inset 0 0 0 1px rgba(255, 255, 255, .025);
+}
+
+.scene-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, rgba(8, 5, 7, .95) 0%, rgba(8, 5, 7, .74) 55%, rgba(8, 5, 7, .18) 100%);
+}
+
+.scene-card-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(5, 3, 4, .86), transparent 70%);
+  pointer-events: none;
+}
+
+.scene-card-content {
+  position: relative;
+  z-index: 1;
+  width: 79%;
+  padding: 16px 17px 15px;
+}
+
+.scene-kicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  color: #c8aa77;
+  font: 600 10px/1 var(--font-mono);
+  letter-spacing: .14em;
+}
+
+.scene-kicker span { width: 22px; height: 1px; background: #a52d42; box-shadow: 0 0 8px #a52d42; }
+.scene-card strong { display: block; color: #f0e4d1; font: 700 21px/1.1 var(--font-head); text-transform: uppercase; letter-spacing: .055em; }
+.scene-card p { margin: 8px 0 0; color: #c8bdb4; font: italic 12px/1.5 Georgia, serif; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.scene-card-noise {
+  position: absolute;
+  inset: -45%;
+  z-index: 0;
+  opacity: .1;
+  pointer-events: none;
+  background-image: repeating-radial-gradient(circle at 30% 20%, transparent 0 1px, rgba(255, 255, 255, .2) 2px, transparent 3px);
+  background-size: 6px 6px;
+  animation: horror-grain .22s steps(2) infinite;
+}
+.scene-card-boss { border-color: rgba(190, 44, 68, .68); box-shadow: 0 18px 44px rgba(0, 0, 0, .6), inset 0 0 38px rgba(142, 19, 41, .2); }
+.scene-card-boss::after { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(105deg, rgba(36, 3, 11, .88), transparent 70%); animation: boss-card-breathe 2.8s ease-in-out infinite; }
+.scene-card-boss .scene-kicker { color: #e36072; }
+
+/* Diretor da campanha: atos, duração, objetivos e confrontos */
+.campaign-director {
+  overflow: hidden;
+  border: 1px solid #4b3038;
+  border-radius: 3px 14px 3px 14px;
+  background: #0b0809;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, .28);
+}
+.campaign-phase-art {
+  height: 88px;
+  background-image: linear-gradient(0deg, #0b0809 0%, transparent 72%), url("/art/vale-silente/phase-atlas.png");
+  background-repeat: no-repeat;
+  background-size: 200% 200%;
+  filter: saturate(.72) contrast(1.08);
+}
+.campaign-phase-body { padding: 0 12px 12px; }
+.campaign-phase-heading { display: flex; align-items: center; justify-content: space-between; margin-top: -6px; color: #b88a74; font: 700 9px var(--font-mono); letter-spacing: .18em; }
+.campaign-phase-heading button { padding: 3px 7px; color: #a99480; border: 1px solid #4b3739; background: rgba(15, 10, 11, .88); font: 600 8px var(--font-mono); letter-spacing: .12em; cursor: pointer; }
+.campaign-phase-heading button:hover { color: #f0d8ae; border-color: #90606a; }
+.campaign-phase-body > strong { display: block; margin-top: 3px; color: #f1dfc2; font: 700 22px/1 var(--font-head); text-transform: uppercase; letter-spacing: .075em; }
+.campaign-phase-body > em { display: block; margin-top: 4px; color: #a88983; font: italic 11px/1.3 Georgia, serif; }
+.campaign-phase-body > p { margin: 8px 0 10px; color: #9c9190; font-size: 11px; line-height: 1.45; }
+.campaign-progress { overflow: hidden; height: 3px; background: #2e2024; }
+.campaign-progress > i { display: block; height: 100%; background: linear-gradient(90deg, #772035, #c34d5e, #d4a65f); box-shadow: 0 0 10px rgba(195, 77, 94, .55); transition: width .45s ease; }
+.campaign-progress-copy { display: flex; justify-content: space-between; gap: 8px; margin-top: 5px; color: #71666a; font: 8px var(--font-mono); text-transform: uppercase; }
+.campaign-milestones { display: grid; gap: 4px; margin-top: 10px; }
+.campaign-milestones > span { display: flex; align-items: center; gap: 6px; color: #a69a98; font-size: 10px; }
+.campaign-milestones > span > i { display: inline-grid; place-items: center; width: 15px; height: 15px; color: #80505a; border: 1px solid #4f3339; border-radius: 50%; font: normal 8px var(--font-mono); }
+.campaign-milestones > span.is-done { color: #6f8d78; text-decoration: line-through; text-decoration-color: rgba(111, 141, 120, .4); }
+.campaign-milestones > span.is-done > i { color: #a9d2ae; border-color: #496450; background: rgba(74, 111, 80, .18); }
+.campaign-act-track { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 11px; }
+.campaign-act-track > span { display: grid; place-items: center; height: 18px; color: #594c50; border: 1px solid #302327; font: 700 8px var(--font-mono); }
+.campaign-act-track > .act-completed { color: #83ad8b; border-color: #3d5c43; background: rgba(58, 92, 65, .18); }
+.campaign-act-track > .act-current { color: #e5c28d; border-color: #986b43; background: rgba(141, 91, 46, .19); box-shadow: inset 0 -2px #b34355; }
+
+.boss-threat { position: relative; display: grid; grid-template-columns: 104px minmax(0, 1fr); min-height: 118px; border-top: 1px solid #5a252f; background: linear-gradient(105deg, #18090d, #0a0809); }
+.boss-threat-art { background-image: linear-gradient(90deg, transparent 58%, #130a0d 100%), url("/art/vale-silente/boss-atlas.png"); background-repeat: no-repeat; background-size: 300% 100%; filter: saturate(.8) contrast(1.12); }
+.boss-threat-copy { align-self: center; padding: 11px 12px 11px 4px; min-width: 0; }
+.boss-threat-copy > span { display: block; color: #c04e5d; font: 700 8px var(--font-mono); letter-spacing: .15em; }
+.boss-threat-copy > strong { display: block; margin-top: 3px; color: #ead6ba; font: 700 16px/1.05 var(--font-head); text-transform: uppercase; letter-spacing: .055em; }
+.boss-threat-copy > em { display: block; margin-top: 3px; color: #917b78; font: italic 10px/1.3 Georgia, serif; }
+.boss-threat-copy > small { display: block; margin-top: 5px; color: #b09b8d; font: 9px var(--font-mono); }
+.boss-stage-pips { display: flex; gap: 4px; margin-top: 9px; }
+.boss-stage-pips i { width: 23px; height: 3px; background: #352329; }
+.boss-stage-pips i.filled { background: #a92f43; box-shadow: 0 0 7px rgba(169, 47, 67, .5); }
+.boss-threat-ambar { border-top-color: #725a31; }
+.boss-threat-ambar .boss-threat-copy > span, .boss-threat-ambar .boss-stage-pips i.filled { color: #d1a95f; background-color: #a27835; }
+.boss-threat-iara { border-top-color: #506873; }
+.boss-threat-iara .boss-threat-copy > span, .boss-threat-iara .boss-stage-pips i.filled { color: #88b3c0; background-color: #528195; }
+.boss-threat-tavares .boss-threat-art { filter: grayscale(.6) sepia(.25) brightness(.62); }
+
+/* Quatro mapas regionais sobre o mapa tático geral */
+.map-region-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; padding: 7px; border-bottom: 1px solid #38262c; background: #090708; }
+.map-region-tabs button { position: relative; display: grid; grid-template-columns: 42px minmax(0, 1fr); align-items: center; min-height: 42px; padding: 3px; overflow: hidden; color: #897b7d; text-align: left; border: 1px solid #33272a; background: #100c0d; cursor: pointer; }
+.map-region-tabs button > i { display: block; width: 38px; height: 34px; background-repeat: no-repeat; background-size: 200% 200%; filter: grayscale(.55) brightness(.62); }
+.map-region-tabs button > span { display: flex; flex-direction: column; min-width: 0; padding: 0 5px; }
+.map-region-tabs button b { overflow: hidden; color: #b8a8a2; font: 600 9px var(--font-head); text-overflow: ellipsis; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+.map-region-tabs button small { overflow: hidden; margin-top: 2px; color: #695e61; font: 7px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.map-region-tabs button.active { border-color: #9b4a59; background: #1b1013; box-shadow: inset 0 -2px #aa3448; }
+.map-region-tabs button.active > i { filter: none; }
+.map-region-tabs button.active b { color: #edd9b8; }
+.map-region-tabs button.locked { opacity: .42; cursor: not-allowed; }
+.map-region-name { color: #d0ad79; letter-spacing: .12em; text-transform: uppercase; }
+
+/* Retratos do atlas gerado */
+.survivor-portrait {
+  display: inline-block;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border: 1px solid rgba(216, 194, 152, .42);
+  border-radius: 50%;
+  background-image: url("/art/vale-silente/survivor-atlas.png");
+  background-repeat: no-repeat;
+  background-size: 200% 200%;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, .5), 0 0 12px rgba(151, 31, 53, .12);
+}
+
+.portrait-dead { filter: grayscale(1); opacity: .5; }
+.avatar-btn > .survivor-portrait { width: 100%; height: 100%; flex-basis: auto; border: 0; border-radius: inherit; }
+.game-immersive .avatar-btn { width: 48px; height: 48px; border-color: #76515a; background: #130d10; }
+.game-immersive .avatar-btn:hover { border-color: #d8c298; box-shadow: 0 0 20px rgba(151, 31, 53, .4); }
+
+/* Linhagens */
+.lineage-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 118px;
+  padding: 5px 8px 5px 5px;
+  border: 1px solid #3b2930;
+  background: rgba(11, 8, 9, .78);
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 50%, calc(100% - 9px) 100%, 0 100%);
+}
+
+.lineage-sigil {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: #a99480;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font: 700 12px Georgia, serif;
+}
+
+.lineage-badge > span:nth-child(2) { display: flex; flex-direction: column; line-height: 1.05; }
+.lineage-badge small { color: #77676b; font: 600 8px var(--font-mono); letter-spacing: .15em; }
+.lineage-badge b { color: #c7b7a7; font: 600 11px var(--font-head); text-transform: uppercase; letter-spacing: .08em; }
+.lineage-badge i { margin-left: auto; color: #a52d42; font: 600 10px var(--font-mono); }
+.lineage-vampire { border-color: #762234; background: linear-gradient(90deg, rgba(96, 17, 34, .34), rgba(11, 8, 9, .88)); }
+.lineage-vampire .lineage-sigil, .lineage-vampire b { color: #e06a79; }
+.lineage-werewolf { border-color: #75623b; background: linear-gradient(90deg, rgba(91, 72, 37, .35), rgba(11, 8, 9, .88)); }
+.lineage-werewolf .lineage-sigil, .lineage-werewolf b { color: #d5b879; }
+.lineage-haunted { border-color: #486a71; background: linear-gradient(90deg, rgba(42, 77, 83, .34), rgba(11, 8, 9, .88)); }
+.lineage-haunted .lineage-sigil, .lineage-haunted b { color: #8bc6ca; }
+.lineage-hunter { border-color: #866b42; background: linear-gradient(90deg, rgba(97, 70, 31, .32), rgba(11, 8, 9, .88)); }
+.lineage-hunter .lineage-sigil, .lineage-hunter b { color: #e0bd77; }
+
+.character-lineage {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  min-height: 132px;
+  overflow: hidden;
+  border: 1px solid #3d2930;
+  border-radius: var(--radius);
+  background: #0c090a;
+}
+
+.character-lineage-art {
+  background-image: linear-gradient(0deg, rgba(8, 5, 6, .2), transparent), url("/art/vale-silente/archetype-atlas.png");
+  background-size: 200% 200%;
+  background-position: 50% center;
+  filter: grayscale(.75) brightness(.48);
+}
+
+.character-lineage-vampire .character-lineage-art { background-position: 0% 0%; filter: none; }
+.character-lineage-werewolf .character-lineage-art { background-position: 100% 0%; filter: none; }
+.character-lineage-haunted .character-lineage-art { background-position: 0% 100%; filter: none; }
+.character-lineage-hunter .character-lineage-art { background-position: 100% 100%; filter: none; }
+.character-lineage > div:last-child { align-self: center; padding: 13px; }
+.character-lineage span { color: #9c7a80; font: 600 9px var(--font-mono); letter-spacing: .17em; }
+.character-lineage strong { display: block; margin-top: 3px; color: #e8d8bd; font: 700 22px var(--font-head); text-transform: uppercase; letter-spacing: .06em; }
+.character-lineage p { margin: 4px 0 0; color: #9f9290; font: 12px/1.4 Georgia, serif; }
+.lineage-progress { display: flex; gap: 5px; margin-top: 9px; }
+.lineage-progress i { width: 28px; height: 3px; background: #38242a; }
+.lineage-progress i.filled { background: #a52d42; box-shadow: 0 0 7px rgba(165, 45, 66, .5); }
+
+/* Manequim corporal humano: sexo, tipo físico, roupas e ferimentos */
+.game-immersive .body-grid { grid-template-columns: minmax(174px, 200px) minmax(0, 1fr); gap: 18px; }
+.human-silhouette {
+  position: sticky;
+  top: 0;
+  overflow: hidden;
+  padding: 10px 8px 8px;
+  border: 1px solid #3d2930;
+  border-radius: 18px 18px 3px 3px;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(166, 129, 99, .12), transparent 38%),
+    linear-gradient(180deg, #161012, #090708);
+  box-shadow: inset 0 0 35px rgba(0, 0, 0, .55), 0 14px 30px rgba(0, 0, 0, .25);
+}
+.human-silhouette::before {
+  content: "ANATOMIA / EQUIPAMENTO";
+  position: absolute;
+  top: 10px;
+  left: 11px;
+  z-index: 2;
+  color: #755c62;
+  font: 600 7px var(--font-mono);
+  letter-spacing: .15em;
+}
+.human-silhouette svg { display: block; width: 100%; height: auto; max-height: 390px; }
+.silhouette-floor { fill: rgba(0, 0, 0, .72); filter: blur(3px); }
+.silhouette-body .body-part, .silhouette-neck { stroke: rgba(224, 201, 173, .25); stroke-width: 1; transition: fill .25s, filter .25s; }
+.silhouette-hair { fill: #151214; stroke: #45383c; stroke-width: 1; }
+.silhouette-clothes .garment { fill: url(#clothShade); stroke: #777064; stroke-width: 1; }
+.silhouette-clothes .torso-garment { filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .5)); }
+.silhouette-clothes .leg-garment { fill: #202528; stroke: #596064; }
+.silhouette-clothes .shoe-garment { fill: #111315; stroke: #4c4946; }
+.silhouette-clothes .head-garment { fill: #282b29; stroke: #69635b; }
+.gear-backpack { fill: #22251f; stroke: #696047; stroke-width: 2; }
+.silhouette-wounds circle { fill: rgba(151, 31, 53, .22); stroke: #bd344d; stroke-width: 1.5; }
+.silhouette-wounds path { fill: none; stroke: #ff7280; stroke-width: 2; stroke-linecap: round; filter: drop-shadow(0 0 3px #9b1f36); }
+.silhouette-wounds .is-bleeding circle { animation: wound-pulse 1.25s ease-in-out infinite; }
+.silhouette-wounds .bandage { fill: #c7b99b; stroke: #776c59; stroke-width: 1; opacity: .9; }
+.silhouette-wounds .bandage + path { opacity: .25; }
+.silhouette-meta { display: flex; justify-content: space-between; gap: 8px; padding: 8px 4px 0; border-top: 1px solid #332329; color: #76676a; font: 8px var(--font-mono); text-transform: uppercase; }
+.silhouette-meta b { color: #b7a6a0; font-weight: 500; }
+.silhouette-dead svg { filter: grayscale(1) contrast(.8); opacity: .5; }
+@keyframes wound-pulse { 50% { r: 13px; fill: rgba(190, 38, 65, .38); } }
+
+.character-sex-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.character-sex-picker button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  color: #9c8b88;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: #0e0a0b;
+  cursor: pointer;
+}
+.character-sex-picker button span { font: 20px Georgia, serif; }
+.character-sex-picker button.active { color: #ecd8b4; border-color: #8e394a; background: rgba(128, 30, 48, .18); box-shadow: inset 0 -2px #a52d42; }
+
+/* Ficha de classe e disciplinas */
+.power-card {
+  --power-accent: #b13b51;
+  --power-light: #ec98a5;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--power-accent) 58%, #30262a);
+  border-radius: 3px 17px 3px 10px;
+  background: linear-gradient(145deg, #160d10, #090708 72%);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .36), inset 0 0 0 1px rgba(255, 255, 255, .018);
+}
+.power-werewolf { --power-accent: #9b763c; --power-light: #e0c07c; }
+.power-haunted { --power-accent: #477f89; --power-light: #9ad7dc; }
+.power-hunter { --power-accent: #9a7137; --power-light: #ecc37b; }
+.power-hero { position: relative; display: flex; align-items: flex-end; min-height: 146px; overflow: hidden; isolation: isolate; }
+.power-hero-art {
+  position: absolute;
+  inset: -8% 0;
+  z-index: -3;
+  background: url("/art/vale-silente/archetype-atlas.png") 0% 0% / 200% 200% no-repeat;
+  filter: saturate(.75) contrast(1.08) brightness(.74);
+  transform: scale(1.02);
+  transition: transform 5s ease;
+}
+.power-card:hover .power-hero-art { transform: scale(1.075); }
+.power-werewolf .power-hero-art { background-position: 100% 0%; }
+.power-haunted .power-hero-art { background-position: 0% 100%; }
+.power-hunter .power-hero-art { background-position: 100% 100%; }
+.power-hero-shade { position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(8, 5, 7, .94), rgba(8, 5, 7, .3) 70%), linear-gradient(0deg, #0b0709 0%, transparent 76%); }
+.power-hero::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(112deg, transparent 62%, color-mix(in srgb, var(--power-accent) 20%, transparent)); box-shadow: inset 0 -1px color-mix(in srgb, var(--power-accent) 48%, transparent); }
+.power-sigil { position: absolute; top: 13px; left: 13px; display: grid; place-items: center; width: 36px; height: 36px; color: var(--power-light); border: 1px solid currentColor; border-radius: 50%; background: rgba(6, 4, 5, .58); box-shadow: 0 0 22px color-mix(in srgb, var(--power-accent) 34%, transparent), inset 0 0 12px color-mix(in srgb, var(--power-accent) 20%, transparent); font: 700 14px Georgia, serif; }
+.power-sigil::before, .power-sigil::after { content: ""; position: absolute; inset: 4px; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); transform: rotate(45deg); }
+.power-sigil::after { inset: 9px; transform: rotate(-45deg); }
+.power-identity { min-width: 0; padding: 62px 14px 14px; }
+.power-identity > span { color: var(--power-light); font: 700 8px var(--font-mono); letter-spacing: .2em; text-transform: uppercase; }
+.power-identity > strong { display: block; margin-top: 3px; color: #f2e1c9; font: 700 23px/1 var(--font-head); letter-spacing: .065em; text-transform: uppercase; text-shadow: 0 2px 9px #000; }
+.power-identity > em { display: block; overflow: hidden; max-width: 230px; margin-top: 5px; color: #a99995; font: italic 10px Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
+.power-resource { position: absolute; top: 10px; right: 10px; display: grid; justify-items: end; min-width: 86px; padding: 8px 9px; border: 1px solid color-mix(in srgb, var(--power-accent) 50%, transparent); background: rgba(7, 5, 6, .72); backdrop-filter: blur(8px); }
+.power-resource > span { color: #827277; font: 700 7px var(--font-mono); letter-spacing: .17em; text-transform: uppercase; }
+.power-resource > strong { color: var(--power-light); font: 700 20px/1 var(--font-head); }
+.power-resource > strong small { color: #766b6d; font: 9px var(--font-mono); }
+.power-resource > div { display: flex; gap: 3px; margin-top: 5px; }
+.power-resource i { width: 11px; height: 3px; background: #35272b; transform: skewX(-18deg); }
+.power-resource i.filled { background: var(--power-accent); box-shadow: 0 0 6px color-mix(in srgb, var(--power-accent) 65%, transparent); }
+.power-danger .power-resource { animation: resource-warning 1.35s ease-in-out infinite; }
+.power-danger .power-resource i.filled { background: #d74258; }
+.power-effects { display: flex; gap: 5px; overflow-x: auto; padding: 8px 10px; border-bottom: 1px solid #312127; }
+.power-effects > span { flex: 0 0 auto; display: grid; grid-template-columns: auto auto; gap: 1px 5px; padding: 5px 7px; color: #9fb9a4; border: 1px solid #385040; background: rgba(30, 58, 38, .16); font: 8px var(--font-mono); text-transform: uppercase; }
+.power-effects b { color: #acd9b2; }
+.power-effects small { grid-column: 1 / -1; color: #617366; }
+.power-effects .warded { color: #a9c9d0; border-color: #365a63; background: rgba(25, 61, 69, .18); }
+.power-effects .warded b { color: #a7dbe2; }
+.power-actions { display: grid; gap: 6px; padding: 10px; }
+.power-actions > button { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 58px; padding: 7px 9px; color: #bdb0aa; text-align: left; border: 1px solid #39282e; border-radius: 2px 9px 2px 2px; background: linear-gradient(100deg, rgba(41, 24, 29, .64), rgba(12, 9, 10, .9)); cursor: pointer; transition: border-color .18s, background .18s, transform .18s; }
+.power-actions > button:hover:not(:disabled) { border-color: var(--power-accent); background: linear-gradient(100deg, color-mix(in srgb, var(--power-accent) 19%, #130c0f), #0d090a); transform: translateX(2px); }
+.power-actions > button:disabled { opacity: .42; cursor: not-allowed; filter: grayscale(.7); }
+.power-action-mark { display: grid; place-items: center; width: 32px; height: 32px; color: var(--power-light); border: 1px solid color-mix(in srgb, var(--power-accent) 65%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--power-accent) 12%, transparent); font-size: 13px; box-shadow: inset 0 0 10px color-mix(in srgb, var(--power-accent) 18%, transparent); }
+.power-action-copy { min-width: 0; }
+.power-action-copy b { display: block; color: #e1d0ba; font: 600 12px var(--font-head); letter-spacing: .055em; text-transform: uppercase; }
+.power-action-copy small { display: -webkit-box; margin-top: 3px; overflow: hidden; color: #84787a; font: 9px/1.35 var(--font-mono); -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.power-action-cost { display: grid; justify-items: end; max-width: 72px; }
+.power-action-cost b { color: var(--power-light); font: 700 15px var(--font-head); }
+.power-action-cost small { color: #74686b; font: 7px/1.25 var(--font-mono); text-align: right; text-transform: uppercase; }
+.power-lore-trigger { display: flex; align-items: center; justify-content: space-between; width: calc(100% - 20px); margin: 0 10px 10px; padding: 8px 10px; color: #88797b; border: 0; border-top: 1px solid #352329; border-bottom: 1px solid #352329; background: none; cursor: pointer; font: 700 8px var(--font-mono); letter-spacing: .13em; text-transform: uppercase; }
+.power-lore-trigger:hover { color: var(--power-light); border-color: var(--power-accent); }
+.power-lore-trigger i { color: var(--power-light); font: normal 18px/1 Georgia, serif; }
+.power-lore { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 10px 10px; animation: lore-open .28s ease-out both; }
+.power-lore > p { grid-column: 1 / -1; margin: 0 0 3px; padding: 8px; color: #a59894; border-left: 2px solid var(--power-accent); background: rgba(255, 255, 255, .018); font: italic 11px/1.45 Georgia, serif; }
+.power-lore article { min-width: 0; padding: 8px; border: 1px solid #302226; background: rgba(16, 11, 13, .72); }
+.power-lore article > span { display: block; color: #705e63; font: 700 7px var(--font-mono); letter-spacing: .15em; }
+.power-lore article > b { display: block; margin-top: 3px; color: #ccbca9; font: 600 10px var(--font-head); text-transform: uppercase; }
+.power-lore article > small { display: block; margin-top: 3px; color: #817476; font: 9px/1.4 var(--font-mono); }
+.power-lore .power-lore-bane { border-color: #53262e; }
+.power-lore .power-lore-bane > span, .power-lore .power-lore-bane > b { color: #ce6573; }
+.power-lore .power-lore-compulsion { border-color: #5d4a2f; }
+.power-lore .power-lore-compulsion > span, .power-lore .power-lore-compulsion > b { color: #d5ac69; }
+.power-act-warning { display: flex; align-items: center; gap: 7px; padding: 8px 10px; color: #7e7072; border-top: 1px solid #2d2024; background: #0b0809; font: 8px var(--font-mono); }
+.power-act-warning i { width: 6px; height: 6px; border-radius: 50%; background: var(--power-accent); box-shadow: 0 0 8px var(--power-accent); animation: voice-pulse 1.8s infinite; }
+
+/* Estado anterior ao despertar: quatro destinos respiram sob a pele. */
+.awakening-card { position: relative; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; min-height: 128px; overflow: hidden; padding: 15px; border: 1px solid #493039; border-radius: 3px 16px 3px 9px; background: radial-gradient(circle at 12% 50%, rgba(135, 27, 48, .18), transparent 30%), linear-gradient(125deg, #160d11, #080607); box-shadow: 0 15px 35px rgba(0, 0, 0, .32); }
+.awakening-card > div:nth-child(2) { align-self: center; position: relative; z-index: 1; }
+.awakening-card span { color: #a75060; font: 700 8px var(--font-mono); letter-spacing: .17em; }
+.awakening-card strong { display: block; margin-top: 4px; color: #ead9c0; font: 700 17px/1.1 var(--font-head); text-transform: uppercase; }
+.awakening-card p { margin: 6px 0 0; color: #918387; font: italic 10px/1.45 Georgia, serif; }
+.awakening-ring { position: relative; align-self: center; width: 60px; height: 60px; border: 1px solid #743244; border-radius: 50%; box-shadow: 0 0 20px rgba(141, 37, 59, .2), inset 0 0 18px rgba(141, 37, 59, .15); animation: awakening-turn 14s linear infinite; }
+.awakening-ring::before, .awakening-ring::after { content: ""; position: absolute; inset: 8px; border: 1px solid #493039; transform: rotate(45deg); }
+.awakening-ring::after { inset: 17px; border-radius: 50%; background: radial-gradient(circle, #a4354c 0 8%, transparent 11%); }
+.awakening-ring i { position: absolute; left: 50%; top: -3px; width: 5px; height: 5px; border-radius: 50%; background: #c85b70; box-shadow: 0 0 8px #c85b70; transform-origin: 0 33px; }
+.awakening-ring i:nth-child(2) { transform: rotate(120deg); }
+.awakening-ring i:nth-child(3) { transform: rotate(240deg); }
+.awakening-signs { position: absolute; right: -4px; bottom: -8px; display: flex; gap: 8px; opacity: .14; color: #d8c298; font: 700 28px Georgia, serif; transform: rotate(-4deg); }
+
+/* Tela cinematográfica de ato e revelação de chefe. */
+.horror-cinematic { position: fixed; z-index: 190; inset: 0; display: grid; place-items: center; overflow: hidden; pointer-events: none; background: #030203; animation: cinematic-shell 4.4s ease both; }
+.horror-cinematic-boss { animation-duration: 5.2s; }
+.horror-cinematic-art { position: absolute; inset: -5%; background-repeat: no-repeat; filter: saturate(.72) contrast(1.14) brightness(.62); animation: cinematic-camera 5.2s cubic-bezier(.15, .7, .2, 1) both; }
+.horror-cinematic-boss .horror-cinematic-art { filter: saturate(.82) contrast(1.2) brightness(.54); }
+.horror-cinematic-rain { position: absolute; inset: -35%; opacity: .23; background: repeating-linear-gradient(103deg, transparent 0 13px, rgba(220, 229, 226, .3) 14px, transparent 15px 27px); animation: cinematic-rain .4s linear infinite; }
+.horror-cinematic-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 10%, rgba(4, 2, 3, .34) 53%, #030203 100%), linear-gradient(90deg, rgba(3, 2, 3, .88), transparent 40%); box-shadow: inset 0 0 140px #000; }
+.horror-cinematic-copy { position: relative; width: min(760px, calc(100vw - 42px)); padding-left: clamp(18px, 7vw, 90px); text-shadow: 0 3px 20px #000; animation: cinematic-copy .8s .58s both; }
+.horror-cinematic-copy > span { color: #c15b69; font: 700 10px var(--font-mono); letter-spacing: .36em; }
+.horror-cinematic-copy > strong { display: block; max-width: 680px; margin-top: 8px; color: #f1dfc3; font: 700 clamp(38px, 7vw, 84px)/.9 var(--font-head); letter-spacing: .055em; text-transform: uppercase; }
+.horror-cinematic-copy > em { display: block; margin-top: 12px; color: #bca9a2; font: italic clamp(13px, 2vw, 20px) Georgia, serif; }
+.horror-cinematic-copy > i { display: block; width: min(390px, 72vw); height: 1px; margin-top: 18px; background: linear-gradient(90deg, #aa2d43, transparent); box-shadow: 0 0 10px #aa2d43; transform-origin: left; animation: cinematic-line 1.2s .85s both; }
+.horror-cinematic-copy > small { display: block; max-width: 520px; margin-top: 12px; color: #8f8181; font: 10px/1.5 var(--font-mono); }
+.horror-cinematic-boss .horror-cinematic-copy > span { color: #eb6678; }
+.horror-cinematic-boss .horror-cinematic-copy > strong { color: #f2d2be; }
+
+@keyframes horror-grain { 0% { transform: translate(0); } 25% { transform: translate(3%, -2%); } 50% { transform: translate(-2%, 3%); } 75% { transform: translate(1%, 2%); } }
+@keyframes boss-card-breathe { 50% { opacity: .42; box-shadow: inset 0 0 45px rgba(168, 23, 48, .26); } }
+@keyframes resource-warning { 50% { border-color: #d74258; box-shadow: 0 0 18px rgba(215, 66, 88, .26); } }
+@keyframes lore-open { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes awakening-turn { to { transform: rotate(360deg); } }
+@keyframes cinematic-shell { 0% { opacity: 0; } 7%, 82% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+@keyframes cinematic-camera { from { opacity: 0; transform: scale(1.16); } 14% { opacity: 1; } to { opacity: .9; transform: scale(1.02) translateX(-1.5%); } }
+@keyframes cinematic-rain { to { transform: translate(-12px, 24px); } }
+@keyframes cinematic-copy { from { opacity: 0; transform: translateX(-24px); filter: blur(7px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes cinematic-line { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Controles de voz e narrador */
+.hud-tools { align-items: center; }
+.game-immersive .narrator-toggle,
+.game-immersive .voice-trigger { width: auto; min-width: 34px; padding: 0 9px; gap: 6px; font: 600 10px var(--font-head); text-transform: uppercase; letter-spacing: .08em; }
+.game-immersive .hud-icon.is-live { color: #efcf9c; border-color: #8b3949; background: rgba(123, 27, 45, .22); box-shadow: 0 0 14px rgba(151, 31, 53, .18); }
+.voice-room { position: relative; }
+.voice-popover {
+  position: absolute;
+  z-index: 90;
+  top: calc(100% + 13px);
+  right: 0;
+  width: 310px;
+  padding: 14px;
+  border: 1px solid #70414c;
+  border-radius: 2px 10px 2px 10px;
+  background: linear-gradient(155deg, rgba(29, 18, 22, .98), rgba(8, 6, 7, .99));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .75);
+}
+.voice-popover::before { content: ""; position: absolute; right: 18px; top: -7px; width: 12px; height: 12px; border-left: 1px solid #70414c; border-top: 1px solid #70414c; background: #1b1115; transform: rotate(45deg); }
+.voice-title { display: flex; align-items: center; gap: 7px; color: #e6d5c3; font: 700 13px var(--font-head); text-transform: uppercase; letter-spacing: .11em; }
+.voice-title > button { margin-left: auto; padding: 0; color: #87787b; border: 0; background: none; cursor: pointer; font-size: 20px; }
+.voice-title > span { width: 8px; height: 8px; border-radius: 50%; background: #6a5960; }
+.voice-title > .voice-pulse { background: #bd344d; box-shadow: 0 0 10px #bd344d; animation: voice-pulse 1.6s infinite; }
+.voice-popover p { margin: 8px 0 12px; color: #8f8083; font-size: 11px; line-height: 1.45; }
+.voice-error { padding: 7px; margin-bottom: 8px; color: #f0a0aa; border: 1px solid rgba(189, 52, 77, .35); background: rgba(189, 52, 77, .08); font-size: 11px; }
+.voice-members { display: flex; flex-direction: column; gap: 7px; padding: 10px; border-block: 1px solid #342329; color: #b7a7a5; font-size: 11px; }
+.voice-members span { display: flex; align-items: center; gap: 7px; }
+.voice-members i { width: 6px; height: 6px; border-radius: 50%; background: #67565b; }
+.voice-members i.is-connected { background: #8dc391; box-shadow: 0 0 7px #6da772; }
+.voice-members i.is-muted { background: #b68a4f; }
+.voice-members em { color: #706267; font-style: italic; }
+.voice-actions { display: flex; gap: 7px; margin-top: 11px; }
+@keyframes voice-pulse { 50% { opacity: .45; transform: scale(.72); } }
+
+/* Revelação do D20 — o número vem do motor do servidor */
+.dice-reveal {
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  place-items: center;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(22, 10, 14, .5), transparent 43%);
+  animation: dice-overlay 3.6s ease both;
+}
+.dice-smoke { position: absolute; width: 420px; height: 280px; border-radius: 50%; background: radial-gradient(ellipse, rgba(151, 31, 53, .2), transparent 65%); filter: blur(24px); animation: dice-smoke 2.2s ease-out both; }
+.d20-stage { width: 154px; height: 154px; perspective: 700px; filter: drop-shadow(0 22px 24px rgba(0, 0, 0, .72)); }
+.d20-die {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: #f2e4c7;
+  clip-path: polygon(50% 0, 87% 18%, 100% 58%, 76% 94%, 24% 94%, 0 58%, 13% 18%);
+  background:
+    linear-gradient(150deg, transparent 49%, rgba(231, 202, 155, .33) 50%, transparent 51%),
+    linear-gradient(30deg, transparent 49%, rgba(231, 202, 155, .2) 50%, transparent 51%),
+    radial-gradient(circle at 45% 35%, #8f2b3d, #350e19 65%, #16080d);
+  border: 1px solid #d5bb8b;
+  animation: d20-roll 1.45s cubic-bezier(.12, .7, .17, 1) both;
+  transform-style: preserve-3d;
+}
+.d20-die::before, .d20-die::after { content: ""; position: absolute; inset: 20%; border: 1px solid rgba(232, 204, 160, .35); transform: rotate(45deg); }
+.d20-die::after { inset: 30%; transform: rotate(-45deg); }
+.d20-die span { position: relative; z-index: 2; color: #fff0d4; font: 700 46px Georgia, serif; text-shadow: 0 2px 2px #000, 0 0 18px rgba(255, 225, 173, .4); }
+.dice-copy { position: relative; margin-top: 14px; text-align: center; text-transform: uppercase; animation: dice-copy .5s 1.05s both; }
+.dice-copy small { display: block; color: #b49f8d; font: 600 10px var(--font-mono); letter-spacing: .2em; }
+.dice-copy strong { display: block; margin: 5px 0 2px; color: #e6c99a; font: 700 27px var(--font-head); letter-spacing: .15em; }
+.dice-copy span { color: #9c8b83; font: 11px var(--font-mono); }
+.dice-failure .d20-die { background: radial-gradient(circle at 45% 35%, #55242c, #250d13 65%, #100609); }
+.dice-failure .dice-copy strong { color: #d15467; }
+@keyframes d20-roll {
+  0% { opacity: 0; transform: translateY(-180px) rotateX(20deg) rotateY(0) rotateZ(0) scale(.55); }
+  45% { opacity: 1; transform: translateY(20px) rotateX(580deg) rotateY(430deg) rotateZ(210deg) scale(1.05); }
+  70% { transform: translateY(-9px) rotateX(704deg) rotateY(710deg) rotateZ(350deg) scale(.98); }
+  100% { transform: translateY(0) rotateX(720deg) rotateY(720deg) rotateZ(360deg) scale(1); }
+}
+@keyframes dice-copy { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes dice-smoke { from { opacity: 0; transform: scale(.5); } 50% { opacity: 1; } to { opacity: .3; transform: scale(1.4); } }
+@keyframes dice-overlay { 0%, 88% { opacity: 1; } 100% { opacity: 0; } }
+
+@media (max-width: 1120px) {
+  .game-immersive .game-body { grid-template-columns: minmax(0, 1fr) 370px; }
+  .lineage-badge { min-width: 42px; }
+  .lineage-badge > span:nth-child(2), .lineage-badge > i { display: none; }
+}
+
+@media (max-width: 900px) {
+  .game-immersive .game-body { grid-template-columns: 1fr; }
+  .game-immersive .hud { height: 60px; min-height: 60px; }
+  .game-immersive .game-side { border-left: 0; border-top: 1px solid #4b2932; }
+  .voice-popover { position: fixed; top: 68px; right: 10px; width: min(340px, calc(100vw - 20px)); }
+}
+
+@media (max-width: 560px) {
+  .game-immersive .body-grid { grid-template-columns: 1fr; }
+  .human-silhouette { position: relative; width: min(230px, 100%); margin-inline: auto; }
+  .power-hero { min-height: 132px; }
+  .power-identity { padding-left: 11px; }
+  .power-identity > strong { max-width: 230px; font-size: 19px; }
+  .power-action-copy small { -webkit-line-clamp: 1; }
+  .power-lore { grid-template-columns: 1fr; }
+  .power-lore > p { grid-column: 1; }
+  .awakening-card { grid-template-columns: 48px minmax(0, 1fr); padding: 12px; }
+  .awakening-ring { width: 46px; height: 46px; }
+  .awakening-ring i { transform-origin: 0 26px; }
+  .horror-cinematic-copy { padding-left: 9px; }
+  .horror-cinematic-copy > small { font-size: 9px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .d20-die, .dice-reveal, .dice-copy, .dice-smoke, .voice-pulse,
+  .scene-card-noise, .scene-card-boss::after, .power-danger .power-resource,
+  .power-act-warning i, .awakening-ring, .horror-cinematic,
+  .horror-cinematic-art, .horror-cinematic-rain, .horror-cinematic-copy,
+  .horror-cinematic-copy > i { animation: none !important; }
+  .power-card:hover .power-hero-art { transform: none; }
+}

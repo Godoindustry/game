@@ -103,7 +103,12 @@ describe("Rodadas cooperativas", () => {
   it("cada jogador resolve a própria ação na hora, sem esperar o parceiro", async () => {
     const { owner, guest, id } = await startedCoop();
     const s0 = await owner.client.get(`/api/campaigns/${id}/state`);
-    expect(s0.body.event.participants).toHaveLength(2);
+    // Ato I: cada um acorda num ponto do vale — só o dono está nos destroços.
+    expect(s0.body.event.participants).toHaveLength(1);
+    expect(s0.body.me.status.locationId).toBe("destrocos");
+    const g0 = await guest.client.get(`/api/campaigns/${id}/state`);
+    expect(g0.body.me.status.locationId).toBe("mata");
+    expect(g0.body.event?.participating ?? false).toBe(false);
     const r1 = await act(owner.client, id, "escolha_evento", { choiceId: "vs_despertar.gritar" });
     expect(r1.status).toBe(200);
     expect(r1.body.state.campaign.round).toBe(2); // resolveu sem esperar o Beto

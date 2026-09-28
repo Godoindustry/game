@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/client/api";
 import { AppShell, ENDING_LABEL, Spinner } from "@/client/ui";
 import { toastError, useSession } from "@/client/session";
+import { AVATAR_ICON, FriendStatus, useFriends } from "@/client/friends";
 
 interface CampaignItem {
   id: string;
@@ -19,11 +20,47 @@ interface CampaignItem {
   ending: string | null;
   endingType: string | null;
   updatedAt: string;
+  difficulty: { key: string; label: string };
 }
+
+interface DifficultyOption { key: string; label: string; description: string }
 
 function campaignHref(c: CampaignItem): string {
   if (c.status === "lobby") return c.characterName ? `/campanha/${c.id}/lobby` : `/campanha/${c.id}/personagem`;
   return `/campanha/${c.id}/jogar`;
+}
+
+function OnlineFriends() {
+  const { data } = useFriends();
+  if (!data) return null;
+  const online = data.friends.filter((f) => f.online);
+  return (
+    <section className="stack">
+      <div className="row-between">
+        <h2 className="h2">Amigos online <span className="chip chip-green mono">{online.length}</span></h2>
+        <Link href="/amigos" className="small">
+          {data.incoming.length > 0 ? `${data.incoming.length} pedido(s) de amizade →` : "Gerenciar amigos →"}
+        </Link>
+      </div>
+      {online.length === 0 ? (
+        <p className="muted small" style={{ margin: 0 }}>
+          {data.friends.length === 0 ? "Adicione amigos pelo código para ver quando estão online." : "Nenhum amigo online agora."}
+        </p>
+      ) : (
+        <div className="grid-3">
+          {online.map((f) => (
+            <div key={f.userId} className="panel panel-tight row" style={{ gap: 10, flexWrap: "nowrap" }}>
+              <span className="item-icon" style={{ fontSize: 18 }}>{AVATAR_ICON[f.avatar] ?? "•"}</span>
+              <span className="stack" style={{ gap: 2, minWidth: 0 }}>
+                <strong>{f.displayName}</strong>
+                <FriendStatus f={f} />
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
 }
 
 function Dashboard() {
@@ -32,19 +69,22 @@ function Dashboard() {
   const [list, setList] = useState<CampaignItem[] | null>(null);
   const [name, setName] = useState("Noite no Vale");
   const [mode, setMode] = useState<"solo" | "coop">("solo");
+  const [difficulty, setDifficulty] = useState("medio");
+  const [difficulties, setDifficulties] = useState<DifficultyOption[]>([]);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => api<CampaignItem[]>("GET", "/api/campaigns").then(setList).catch(toastError), []);
   useEffect(() => {
     void load();
+    api<DifficultyOption[]>("GET", "/api/meta/difficulties").then(setDifficulties).catch(toastError);
   }, [load]);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      const r = await api<{ id: string }>("POST", "/api/campaigns", { name, mode });
+      const r = await api<{ id: string }>("POST", "/api/campaigns", { name, mode, difficulty });
       router.push(`/campanha/${r.id}/personagem`);
     } catch (err) {
       toastError(err);
@@ -91,6 +131,18 @@ function Dashboard() {
               ))}
             </div>
           </div>
+          <div className="field">
+            <span className="label">Dificuldade</span>
+            <div className="row" style={{ gap: 6 }}>
+              {difficulties.map((d) => (
+                <button type="button" key={d.key} aria-pressed={difficulty === d.key} onClick={() => setDifficulty(d.key)}
+                  className={`btn btn-sm ${difficulty === d.key ? (d.key === "insano" ? "btn-danger" : "btn-primary") : ""}`}>
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            <span className="small muted">{difficulties.find((d) => d.key === difficulty)?.description}</span>
+          </div>
           <button className="btn btn-primary" disabled={busy || name.trim().length < 3}>
             {busy ? <Spinner /> : "Criar e montar personagem"}
           </button>
@@ -108,6 +160,8 @@ function Dashboard() {
         </form>
       </div>
 
+      <OnlineFriends />
+
       <section className="stack">
         <h2 className="h2">Em andamento</h2>
         {!list ? (
@@ -123,7 +177,7 @@ function Dashboard() {
                   <span className={`chip ${c.status === "active" ? "chip-green" : "chip-amber"}`}>{c.status === "active" ? "Em jogo" : "Lobby"}</span>
                 </div>
                 <span className="small muted">
-                  {c.mode === "solo" ? "Solo" : `Cooperativo · ${c.members}/${c.maxPlayers}`} {c.role === "owner" && "· você é o admin"}
+                  {c.mode === "solo" ? "Solo" : `Cooperativo · ${c.members}/${c.maxPlayers}`} · {c.difficulty.label} {c.role === "owner" && "· você é o admin"}
                 </span>
                 <span className="small">{c.characterName ? `Personagem: ${c.characterName}${c.alive === false ? " (morto)" : ""}` : "Personagem ainda não criado"}</span>
               </Link>

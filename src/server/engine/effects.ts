@@ -14,7 +14,11 @@ import type { Rng } from "./rng";
 import { hasExperience } from "./character";
 import { addItem, countItem, hasItem, itemDef, removeItem } from "./inventory";
 import { clamp, clothingWaterResistance, initialBleeding, isSheltered, kill, passTime } from "./physiology";
-import { applyBite } from "./vampire";
+import { applyBite, applyHaunt, applyLycanthropy, cureDisease } from "./vampire";
+import { LINEAGES, lineageCheckModifier, lineageOf } from "./lineage";
+import { rulesFor } from "./difficulty";
+import { NIGHT_END, NIGHT_START } from "./constants";
+import { addBuff, awaken, classCheckModifier, powerOf, setClass } from "./powers";
 
 export interface EffectContext {
   world: WorldState;
@@ -40,14 +44,34 @@ export function checkChance(char: CharacterState, check: CheckDef, worldMinute: 
   chance -= Math.max(0, char.status.stress - 60) / 2;
   if (char.status.energy < 20) chance -= 10;
   if (char.status.fatigue > 85) chance -= 8;
-  void worldMinute;
+  // Linhagem (vampiro, lobisomem, assombrado) e dificuldade da sala.
+  const night = char.rules ? isNightAt(char.rules.startMinuteOfDay, worldMinute) : undefined;
+  chance += lineageCheckModifier(char, check.attr, night);
+  // Classe: disciplina passiva, perdição e poderes ativos em curso.
+  chance += classCheckModifier(char, check.attr, worldMinute);
+  chance -= rulesFor(char.rules?.difficulty).dcShift * 5;
   return Math.round(clamp(chance, 5, 95));
 }
 
+export type Crit = "critical_success" | "critical_failure" | null;
+
 export function rollCheck(char: CharacterState, check: CheckDef, rng: Rng, worldMinute: number) {
   const chance = checkChance(char, check, worldMinute);
-  const roll = Math.floor(rng() * 100);
-  return { success: roll < chance, chance, roll };
+  // D20 real: a chance percentual da ficha vira uma dificuldade (CD) em passos de 5%.
+  // 20 natural sempre passa; 1 natural sempre falha (no INSANO, 1 e 2).
+  // Inverte a amostra para preservar a sequência determinística das campanhas
+  // antigas (nelas, números baixos do RNG já representavam bons resultados).
+  const roll = 20 - Math.floor(rng() * 20);
+  const target = 21 - Math.ceil(chance / 5);
+  const critFailMax = rulesFor(char.rules?.difficulty).critFailMax;
+  const crit: Crit = roll === 20 ? "critical_success" : roll <= critFailMax ? "critical_failure" : null;
+  const success = crit === "critical_success" || (crit !== "critical_failure" && roll >= target);
+  return { success, chance, roll, target, crit };
+}
+
+function isNightAt(startMinuteOfDay: number, worldMinute: number): boolean {
+  const m = (startMinuteOfDay + worldMinute) % 1440;
+  return m >= NIGHT_START || m < NIGHT_END;
 }
 
 // ---------- Requisitos ----------
@@ -68,12 +92,19 @@ export function meetsRequirements(
     return { ok: false, reason: "Você não tem o item necessário." };
   }
   for (const f of req.flagsAll ?? []) if (!world.flags[f]) return { ok: false, reason: "Ainda não é possível." };
+  if (req.flagsAny && !req.flagsAny.some((f) => world.flags[f])) {
+    return { ok: false, reason: "A história ainda não chegou a este ponto." };
+  }
   for (const f of req.flagsNone ?? []) if (world.flags[f]) return { ok: false, reason: "Não é mais possível." };
   if (req.cluesAny && !req.cluesAny.some((c) => world.clues.includes(c))) {
     return { ok: false, reason: "Você não sabe o suficiente para isso." };
   }
   if (req.atShelter && !isSheltered(world, content, char.status.locationId)) {
     return { ok: false, reason: "Você não está sob abrigo." };
+  }
+  if (req.lineage && !req.lineage.includes(lineageOf(char))) {
+    // Aparece trancada de propósito: o jogador descobre que existe um caminho para quem "é outra coisa".
+    return { ok: false, reason: `Só um ${req.lineage.map((l) => LINEAGES[l].label).join(" ou ")} poderia fazer isso.` };
   }
   return { ok: true };
 }
@@ -232,9 +263,62 @@ function applyEffect(char: CharacterState, e: Effect, ctx: EffectContext): void 
       ctx.applied.push(`mordida ${b.level}/3`);
       break;
     }
+    case "haunt": {
+      const h = applyHaunt(char, ctx.minute);
+      ctx.lines.push(...h.lines);
+      ctx.applied.push(h.turned ? "linhagem: assombrado" : "assombro +1");
+      break;
+    }
+    case "cure":
+      if (cureDisease(char, e.key)) ctx.applied.push(`curado: ${e.key}`);
+      break;
+    case "awaken": {
+      const before = lineageOf(char);
+      ctx.lines.push(...awaken(char, e.lineage, ctx.minute));
+      if (before !== lineageOf(char)) ctx.applied.push(`linhagem: ${e.lineage}`);
+      break;
+    }
+    case "setClass": {
+      const r = setClass(char, e.classId);
+      if (r.line) ctx.lines.push(r.line);
+      if (r.ok) ctx.applied.push(`classe: ${e.classId}`);
+      break;
+    }
+    case "buff":
+      addBuff(char, e.attr, e.bonus, ctx.minute + e.minutes);
+      ctx.applied.push(`${e.attr} +${e.bonus}% por ${e.minutes} min`);
+      break;
+    case "ward": {
+      const p = powerOf(char);
+      p.wardUntil = Math.max(p.wardUntil, ctx.minute + e.minutes);
+      ctx.applied.push(`proteção ${e.minutes} min`);
+      break;
+    }
+    case "healWounds": {
+      let n = 0;
+      for (const w of char.wounds) {
+        if (!w.healed && w.bleedingRate > 0) {
+          w.bleedingRate = 0;
+          n++;
+        }
+      }
+      if (n) ctx.applied.push(`sangramento estancado (${n})`);
+      break;
+    }
+    case "resource": {
+      const p = powerOf(char);
+      p.resource = clamp(p.resource + e.delta, 0, 5);
+      break;
+    }
     case "painkiller":
       char.health.painkillerUntil = ctx.minute + e.minutes;
       break;
+    case "lycanthropy": {
+      const l = applyLycanthropy(char, ctx.minute);
+      ctx.lines.push(...l.lines);
+      ctx.applied.push("linhagem: lobisomem");
+      break;
+    }
     case "fire": {
       const loc = world.locations[s.locationId];
       if (loc) loc.fireUntilMinute = Math.max(loc.fireUntilMinute, ctx.minute) + e.minutes;

@@ -14,6 +14,11 @@ import { Tutorial, restartTutorial } from "@/client/game/Tutorial";
 import { useAudio, useHealthAudio, SFX } from "@/client/game/useAudio";
 import { useAmbience } from "@/client/game/ambience";
 import { GameWorld } from "@/client/world/GameWorld";
+import { CampaignDirector, D20Overlay, HorrorCinematics, LineageBadge, NarratorVoice, SceneCard } from "@/client/game/Immersion";
+import { RoomVoice } from "@/client/game/RoomVoice";
+import { SurvivorPortrait } from "@/client/game/Portrait";
+import { usePresence } from "@/client/presence";
+import { PowerCard } from "@/client/game/PowerCard";
 
 type Tab = "acoes" | "diario" | "grupo";
 
@@ -37,6 +42,9 @@ export default function PlayPage() {
   const [panel, setPanel] = useState<"char" | "bag" | "map" | null>(null);
   const [endClosed, setEndClosed] = useState(false);
   const { play, toggle, enabled } = useAudio();
+
+  // Amigos veem "Em partida" enquanto esta tela estiver aberta.
+  usePresence(user ? "playing" : null, id);
 
   // Alertas automáticos de saúde (sangue, hipotermia, etc.)
   useHealthAudio(state?.me);
@@ -128,7 +136,7 @@ export default function PlayPage() {
   });
 
   return (
-    <div className="game">
+    <div className="game game-immersive">
 
       {/* ── HUD superior ──────────────────────────────────────────────── */}
       <header className="hud">
@@ -173,6 +181,8 @@ export default function PlayPage() {
 
         {/* Som e tutorial */}
         <div className="hud-tools">
+          <NarratorVoice state={state} />
+          {state.campaign.mode === "coop" && <RoomVoice campaignId={id} compact />}
           <button
             className="hud-icon"
             onClick={toggle}
@@ -186,6 +196,8 @@ export default function PlayPage() {
             ?
           </button>
         </div>
+
+        {me && <LineageBadge me={me} />}
 
         {/* Status salvo */}
         <div className="hud-block hide-mobile" style={{ alignItems: "flex-end" }}>
@@ -208,7 +220,7 @@ export default function PlayPage() {
             title={me.name}
             data-tut-id="avatar"
           >
-            {me.name.slice(0, 1).toUpperCase()}
+            <SurvivorPortrait id={me.id} name={me.name} />
             {/* ECG inline */}
             <EcgLine alive={me.alive} injured={isInjured} />
             {/* Dot de status */}
@@ -267,6 +279,9 @@ export default function PlayPage() {
             {/* ABA: Ações */}
             {tab === "acoes" && (
               <div className="stack">
+                <SceneCard state={state} />
+                <CampaignDirector state={state} onOpenMap={() => setPanel("map")} />
+                {me && me.alive && !finished && <PowerCard me={me} acts={state.acts} busy={busy || !!state.pending} onAct={act} />}
                 {finished && (
                   <div className="ok-box">
                     Campanha encerrada.{" "}
@@ -389,6 +404,8 @@ export default function PlayPage() {
       {(finished || dead) && !endClosed && (
         <EndScreen state={state} onClose={() => setEndClosed(true)} />
       )}
+      <HorrorCinematics state={state} />
+      <D20Overlay roll={state.lastRoll} />
     </div>
   );
 }

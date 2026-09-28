@@ -2,7 +2,7 @@
  * Base para provedores de LLM: monta prompts curtos e pede SEMPRE um JSON pequeno.
  * Subclasses só implementam `complete()`.
  */
-import type { AIProvider, ClueInput, IntentInput, NarrativeInput, NpcInput, ProviderCall, ProviderResult } from "../types";
+import type { AIProvider, ClueInput, CreatureInput, IntentInput, NarrativeInput, NpcInput, ProviderCall, ProviderResult } from "../types";
 import { VOICE_TAGS } from "@/shared/voiceTags";
 
 /** Tags de expressão para o narrador de voz (lista fechada; tags fora dela são removidas depois). */
@@ -59,6 +59,18 @@ export abstract class PromptedProvider implements AIProvider {
   generateClueDescription(input: ClueInput, call: ProviderCall) {
     return this.json(
       `${RULES} Reescreva a pista em 1 ou 2 frases atmosféricas (máx. 240 caracteres), sem acrescentar informação nova. Formato: {"text": "..."}`,
+      JSON.stringify(input),
+      call,
+    );
+  }
+
+  decideCreatureAttitude(input: CreatureInput, call: ProviderCall) {
+    return this.json(
+      `${RULES} Você é o instinto de uma criatura sobrenatural num horror gótico ao estilo Mundo das Trevas: sombrio, contido, sem gore gratuito. ` +
+        `Escolha UMA atitude de "allowedAttitudes" coerente com a criatura, a noite, a linhagem do jogador e "aggression" (0 = hesita, 1 = caça sem piedade). ` +
+        `Criaturas reconhecem os seus: um jogador Vampiro raramente é atacado por morcegos-vampiro; um Assombrado não assusta as almas. ` +
+        `Depois descreva em 1 ou 2 frases (máx. 240 caracteres), na segunda pessoa, o que a criatura faz — sem dizer se o jogador foi ferido nem o resultado. ` +
+        `${VOICE_RULE} Formato: {"attitude": "...", "line": "..."}`,
       JSON.stringify(input),
       call,
     );

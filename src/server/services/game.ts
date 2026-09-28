@@ -25,12 +25,17 @@ import { meetsRequirements } from "../engine/effects";
 import { computeScore } from "../engine/setup";
 import { inventorySummary, itemDef, loadRatio } from "../engine/inventory";
 import { clockLabel, dayNumber, fireActive, isNight, isSheltered, locationTemp } from "../engine/physiology";
-import { aiClassifyIntent, aiNarrative, aiNpcReply } from "../ai/service";
+import { aiClassifyIntent, aiCreatureAttitude, aiNarrative, aiNpcReply } from "../ai/service";
 import { bodyCondition, conditionLine, conditionWords } from "../engine/condition";
 import { currentObjective, urgentNeed } from "../engine/objective";
 import { stripVoiceTags, toVoiceText } from "@/shared/voiceTags";
-import { nightEncounter } from "../engine/vampire";
+import { CREATURE_ATTITUDES, encounterBlocked, fallbackAttitude, nightEncounter, type CreatureAttitude } from "../engine/vampire";
 import { rngFor } from "../engine/rng";
+import { LINEAGES, lineageOf, lineageProgress } from "../engine/lineage";
+import { difficultyOf, rulesFor } from "../engine/difficulty";
+import { powerView } from "../engine/powers";
+import { CLASS_BY_ID } from "../engine/classes";
+import { campaignStory } from "../engine/story";
 
 /** Ações que recebem uma linha de ambientação (IA ou texto de reserva sobre o corpo). */
 const NARRATED: ActionInput["type"][] = ["mover", "examinar", "procurar", "escolha_evento", "dormir", "descansar", "coletar_lenha", "montar_abrigo"];
@@ -151,6 +156,34 @@ export async function encounter(user: SessionUser, campaignId: string, input: un
   const charId = await myCharacterId(campaignId, user.id);
   const db = getDb();
   const content = getScenario(camp.scenario_id);
+
+  // 1) Fora da transação: se vai haver encontro, a IA decide a ATITUDE (lista fechada) e escreve a cena.
+  const world0 = await loadWorld(campaignId);
+  const chars0 = await loadCampaignCharacters(campaignId);
+  const char0 = chars0.find((c) => c.id === charId);
+  if (!char0) throw notFound("Personagem não encontrado.");
+  const blocked = encounterBlocked(char0, world0, content);
+  if (blocked) return { happened: false, reason: blocked, bitten: false, level: 0, attitude: null, turned: null };
+  const rng = rngFor(world0.seed, world0.minute, charId, "noite");
+  const rules = rulesFor(difficultyOf(world0.flags));
+  const fallback = fallbackAttitude(kind, world0, rng);
+  const ai = await aiCreatureAttitude(
+    { userId: user.id, campaignId },
+    {
+      creature: kind === "morcego" ? "morcego-vampiro" : "alma na névoa",
+      allowedAttitudes: [...CREATURE_ATTITUDES[kind]],
+      difficulty: rules.label,
+      aggression: rules.aggression,
+      isNight: true,
+      locationName: content.locations[char0.status.locationId]?.name ?? "",
+      playerLineage: LINEAGES[lineageOf(char0)].label,
+      playerCondition: char0.alive ? conditionWords(bodyCondition(char0)).slice(0, 4) : [],
+      groupSize: chars0.filter((c) => c.alive && c.status.locationId === char0.status.locationId).length,
+    },
+    fallback,
+  );
+
+  // 2) Na transação: a regra aplica a mecânica da atitude escolhida.
   let result: ReturnType<typeof nightEncounter> | null = null;
   await db.tx(async () => {
     await db.lock(`campaign:${campaignId}`);
@@ -158,15 +191,21 @@ export async function encounter(user: SessionUser, campaignId: string, input: un
     const chars = await loadCampaignCharacters(campaignId);
     const char = chars.find((c) => c.id === charId);
     if (!char) throw notFound("Personagem não encontrado.");
-    result = nightEncounter(char, world, content, kind, rngFor(world.seed, world.minute, charId, "noite"), newId);
+    result = nightEncounter(char, world, content, kind, rngFor(world.seed, world.minute, charId, "noite-ataque"), newId, ai.attitude as CreatureAttitude);
     if (!result.happened) return;
     await saveCharacter(char);
     await saveWorld(world);
+    if (ai.line) await addLog(campaignId, charId, world.minute, "narrative", ai.line);
     for (const line of result.lines) await addLog(campaignId, charId, world.minute, "narrative", line);
-    if (result.died) await addLog(campaignId, charId, world.minute, "death", `${char.name} não é mais humano.`);
+    if (result.turned) {
+      await addLog(campaignId, null, world.minute, "party", `🩸 ${char.name} despertou a linhagem ${LINEAGES[result.turned].label}.`);
+    }
   });
   const r = result as ReturnType<typeof nightEncounter> | null;
-  return { happened: !!r?.happened, reason: r?.reason ?? null, bitten: !!r?.bitten, level: r?.level ?? 0 };
+  return {
+    happened: !!r?.happened, reason: r?.reason ?? null, bitten: !!r?.bitten, level: r?.level ?? 0,
+    attitude: r?.attitude ?? null, turned: r?.turned ?? null,
+  };
 }
 
 // ---------- Sincronização / pausa ----------
@@ -321,6 +360,7 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
       if (narratives[actionId]) await addLog(campaignId, char.id, world.minute, rep.actionType === "conversar" ? "npc" : "narrative", narratives[actionId]);
       if (chars.length > 1) await addLog(campaignId, null, world.minute, "party", `${char.name}: ${rep.summary}`);
     }
+    for (const n of result.notes) await addLog(campaignId, n.characterId, world.minute, "narrative", n.text);
     for (const c of chars) await saveCharacter(c);
     await saveWorld(world, clueFinder);
     if (result.resolvedEvent) {
@@ -364,6 +404,14 @@ async function grantRoundAchievements(chars: CharacterState[], world: WorldState
     if (world.clues.length >= 5) await unlockAchievement(c.userId, "investigador", campaignId);
     if (world.clues.length >= 10) await unlockAchievement(c.userId, "verdade", campaignId);
     if (!c.alive && c.deathCause && /ravina/i.test(c.deathCause)) await unlockAchievement(c.userId, "queda", campaignId);
+    // Chefes (flags da campanha: o grupo vence junto). unlockAchievement ignora repetidas.
+    if (c.alive) {
+      if (world.flags.mae_caida) await unlockAchievement(c.userId, "mae_caida", campaignId);
+      if (world.flags.ambar_caido || world.flags.ambar_aliado || world.flags.ambar_alfa) await unlockAchievement(c.userId, "lobo_ambar", campaignId);
+      if (world.flags.tavares_resolvido) await unlockAchievement(c.userId, "tavares", campaignId);
+      if (world.flags.iara_em_paz) await unlockAchievement(c.userId, "iara_paz", campaignId);
+      if (world.flags.pacto_sangue && lineageOf(c) === "vampire") await unlockAchievement(c.userId, "pacto", campaignId);
+    }
   }
 }
 
@@ -426,8 +474,19 @@ export async function getState(user: SessionUser, campaignId: string) {
       WHERE campaign_id = ? AND (character_id IS NULL OR character_id = ?) ORDER BY id DESC LIMIT 60`,
     campaignId, me?.id ?? "",
   );
+  const lastResolution = me
+    ? await db.get<{ action_id: string; effects: string; success: number | null }>(
+        "SELECT action_id, effects, success FROM action_resolutions WHERE campaign_id = ? AND character_id = ? ORDER BY created_at DESC LIMIT 1",
+        campaignId, me.id,
+      )
+    : undefined;
+  const rollEffect = [...json<string[]>(lastResolution?.effects, [])]
+    .reverse()
+    .find((effect) => /\[d20:\d+:\d+\]/.test(effect));
+  const rollMatch = rollEffect?.match(/^teste ([^:]+): (sucesso|falha).*\[d20:(\d+):(\d+)\]/);
   const myPending = me ? actions.find((a) => a.character_id === me.id) : undefined;
   const loc = me ? me.status.locationId : content.startLocation;
+  const story = campaignStory(world, content, activeEvent?.eventId ?? null);
   const canAct = !!me && me.alive && camp.status === "active" && !myPending;
   const vctx = me ? { char: me, world, content, activeEvent } : null;
   const check = (input: ActionInput) => {
@@ -454,13 +513,34 @@ export async function getState(user: SessionUser, campaignId: string) {
       night: isNight(content, world.minute),
       temperature: Math.round(locationTemp(world, content, loc, world.minute)),
       weather: world.flags.chovendo ? ("chuva" as const) : ("seco" as const),
+      difficulty: { key: difficultyOf(world.flags), label: rulesFor(difficultyOf(world.flags)).label },
       roundDeadlineAt: camp.round_deadline_at,
       paused: camp.status === "active" && isPaused(camp),
       savedAt: camp.updated_at,
       version: camp.version,
       serverTime: nowIso(),
     },
-    me: me ? characterView(me, content, world, inEvent, check) : null,
+    me: me
+      ? {
+          ...characterView(me, content, world, inEvent, check),
+          // Classe, disciplinas e recurso (Fome/Fúria/Eco/Obsessão), com as ações prontas para enviar.
+          power: {
+            ...powerView(me, world.minute),
+            // Mostra a ficha inteira mesmo durante um evento; `check` mantém as
+            // ações bloqueadas até a decisão narrativa ser resolvida.
+            actions: [
+              ...(me.power?.classId ? CLASS_BY_ID[me.power.classId].powers : []).map((pw) => ({
+                type: "usar_poder", label: pw.name, params: { power: pw.id }, ...check({ type: "usar_poder", params: { power: pw.id } }),
+              })),
+              ...(["vampire", "werewolf"].includes(lineageOf(me)) && me.power?.classId
+                ? [{ type: "alimentar_se", label: lineageOf(me) === "vampire" ? "Caçar e se alimentar" : "Caçar como a fera", params: {}, ...check({ type: "alimentar_se", params: {} }) }]
+                : []),
+            ],
+          },
+        }
+      : null,
+    // Ato I → todos com classe (`ato2`) → grupo reunido (`encontro_feito`) = Ato II.
+    acts: { allAwakened: !!world.flags.ato2, reunited: !!world.flags.encontro_feito, meetingLocation: content.meetingLocation ?? null },
     party: chars.map((c) => ({
       characterId: c.id,
       name: c.name,
@@ -475,6 +555,18 @@ export async function getState(user: SessionUser, campaignId: string) {
     })),
     map: {
       image: "/assets/mapa-vale-silente.png",
+      regions: (content.regions ?? []).map((region) => ({
+        id: region.id,
+        title: region.title,
+        subtitle: region.subtitle,
+        art: "/art/vale-silente/phase-atlas.png",
+        artPosition: region.artPosition,
+        unlocked:
+          region.unlockAct <= (story.phase?.index ?? 1)
+          || region.locationIds.some((id) => world.locations[id]?.discovered || world.locations[id]?.visited),
+        current: region.locationIds.includes(loc),
+        locationIds: region.locationIds.filter((id) => world.locations[id]?.discovered),
+      })),
       locations: Object.values(content.locations)
         .filter((l) => world.locations[l.id]?.discovered)
         .map((l) => ({
@@ -488,6 +580,7 @@ export async function getState(user: SessionUser, campaignId: string) {
           fire: fireActive(world, l.id),
           shelter: world.locations[l.id].shelterBuilt || !!l.properties.naturalShelter || !!l.properties.indoor,
           danger: l.dangerLevel,
+          regionId: content.regions?.find((region) => region.locationIds.includes(l.id))?.id ?? null,
         })),
       links: content.links
         .filter((k) => world.locations[k.from]?.discovered && world.locations[k.to]?.discovered)
@@ -559,7 +652,17 @@ export async function getState(user: SessionUser, campaignId: string) {
           }
         : null,
     objective: me && me.alive && camp.status === "active" ? currentObjective(me, world, content) : null,
+    story,
     urgent: me && camp.status === "active" ? urgentNeed(me) : null,
+    lastRoll: lastResolution && rollMatch
+      ? {
+          id: lastResolution.action_id,
+          attribute: rollMatch[1],
+          value: Number(rollMatch[3]),
+          target: Number(rollMatch[4]),
+          success: rollMatch[2] === "sucesso",
+        }
+      : null,
     clues: world.clues.map((k) => content.clues[k]).filter(Boolean),
     log: logRows
       .reverse()
@@ -588,6 +691,17 @@ function characterView(
   inEvent: boolean,
   check: (i: ActionInput) => { available: boolean; reason: string | null; minutes: number },
 ) {
+  const lineageKey = lineageOf(c);
+  const lineageInfo = LINEAGES[lineageKey];
+  const awakening = lineageProgress(c);
+  const lineage = {
+    ...lineageInfo,
+    label: lineageKey === "human" && awakening ? `Humano · ${awakening.toward === "vampire" ? "sangue marcado" : "vozes na névoa"}` : lineageInfo.label,
+    description: lineageKey === "human" && awakening ? (awakening.toward === "vampire" ? "Algo frio cresce a cada mordida." : "As vozes ficam mais próximas a cada toque.") : lineageInfo.description,
+    revealed: lineageKey !== "human",
+    progress: awakening?.progress ?? (lineageKey === "human" ? 0 : 1),
+    max: awakening?.max ?? 1,
+  };
   const itemActions = (invId: string) => {
     if (inEvent) return [];
     const out: { type: string; label: string; params: Record<string, unknown>; available: boolean; reason: string | null; minutes: number }[] = [];
@@ -622,13 +736,14 @@ function characterView(
     alive: c.alive,
     deathCause: c.deathCause,
     profile: c.profile,
+    lineage,
     attributes: c.attrs,
     status: c.status,
     health: {
       ...c.health,
       diseases: c.health.diseases.map((d) => ({
         key: d.key,
-        label: d.key === "gastroenterite" ? "Gastroenterite" : d.key === "mordida" ? `Mordida (${d.level ?? 1}/3) · sede escura` : "Febre",
+        label: d.key === "gastroenterite" ? "Gastroenterite" : d.key === "mordida" ? `Mordida (${d.level ?? 1}/${c.rules ? rulesFor(c.rules.difficulty).turnAt : 3}) · sede escura` : d.key === "licantropia" ? "Marca lunar · linhagem desperta" : d.key === "assombro" ? `Assombro (${d.level ?? 1}/3) · vozes na névoa` : d.key === "fe" ? "Marca da fé · caçador" : "Febre",
       })),
       painkillerActive: c.health.painkillerUntil > world.minute,
     },

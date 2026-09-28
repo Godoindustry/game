@@ -2,7 +2,7 @@
  * Provedor determinístico sem rede (padrão em desenvolvimento e testes).
  * Os modos de falha simulam problemas reais para testar o fallback.
  */
-import type { AIProvider, ClueInput, IntentInput, NarrativeInput, NpcInput, ProviderCall, ProviderResult } from "../types";
+import type { AIProvider, ClueInput, CreatureInput, IntentInput, NarrativeInput, NpcInput, ProviderCall, ProviderResult } from "../types";
 
 export type MockMode = "ok" | "error" | "timeout" | "invalid" | "death_claim" | "unsafe";
 
@@ -66,6 +66,13 @@ export class MockProvider implements AIProvider {
 
   generateClueDescription(input: ClueInput, call: ProviderCall) {
     return this.respond({ text: input.clueText }, call);
+  }
+
+  decideCreatureAttitude(input: CreatureInput, call: ProviderCall) {
+    // Determinístico: agressivo ataca, senão a primeira atitude "branda" da lista.
+    const attitude = input.aggression >= 0.5 ? input.allowedAttitudes[0] : input.allowedAttitudes[input.allowedAttitudes.length - 1];
+    const line = input.isNight ? "[whispers] Algo se move no limite da sua luz — e decide." : "Algo observa de longe.";
+    return this.respond({ attitude, line }, call);
   }
 
   classifyPlayerIntent(input: IntentInput, call: ProviderCall) {

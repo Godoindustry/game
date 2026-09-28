@@ -13,7 +13,8 @@ import { rngFor } from "./rng";
 import { passTime, type Activity } from "./physiology";
 import { resolveAction } from "./actions";
 import { applyChoiceOutcome, choiceById, eventById, findTriggeredEvent, tallyChoice } from "./events";
-import type { EffectContext } from "./effects";
+import { applyEffects, type EffectContext } from "./effects";
+import { ACT_TWO_LINE, checkActTwo, tickPowers } from "./powers";
 
 export interface RoundAction extends ActionInput {
   id: string;
@@ -40,6 +41,8 @@ export interface RoundResult {
   newEvent: { event: EventDef; participants: string[] } | null;
   deaths: { characterId: string; cause: string }[];
   ended: { key: string; type: "victory" | "defeat" } | null;
+  /** Linhas narrativas de fora das ações (Fome subindo, compulsões, virada de ato). */
+  notes: { characterId: string; text: string }[];
 }
 
 export function resolveRound(input: RoundInput): RoundResult {
@@ -118,6 +121,25 @@ export function resolveRound(input: RoundInput): RoundResult {
     if (idle > 0) passTime(c, world, content, startMinute + (spent.get(c.id) ?? 0), idle, "idle");
   }
 
+  // 3b. Poderes: recurso (Fome/Fúria/Eco/Obsessão), compulsões e a virada para o Ato II.
+  const notes: RoundResult["notes"] = [];
+  for (const c of chars) {
+    if (!c.alive) continue;
+    const mine = actions.find((a) => a.characterId === c.id);
+    const t = tickPowers(c, startMinute + roundMinutes, roundMinutes, mine?.activity ?? "idle");
+    for (const text of t.lines) notes.push({ characterId: c.id, text });
+    if (t.compulsion) {
+      const ctx = makeCtx(c.id, "compulsao");
+      ctx.minute = startMinute + roundMinutes;
+      applyEffects(c, t.compulsion.effects, ctx);
+      notes.push({ characterId: c.id, text: `【Compulsão: ${t.compulsion.name}】 ${t.compulsion.text}` });
+    }
+  }
+  world.minute = startMinute + roundMinutes;
+  if (checkActTwo(world, chars, content)) {
+    for (const c of chars.filter((x) => x.alive)) notes.push({ characterId: c.id, text: ACT_TWO_LINE });
+  }
+
   // 4. Relógio, mortes e finais
   world.minute = startMinute + roundMinutes;
   world.round = round + 1;
@@ -138,7 +160,7 @@ export function resolveRound(input: RoundInput): RoundResult {
     if (newEvent) world.eventHistory[newEvent.event.id] = world.minute;
   }
 
-  return { reports, roundMinutes, resolvedEvent, newEvent, deaths, ended };
+  return { reports, roundMinutes, resolvedEvent, newEvent, deaths, ended, notes };
 }
 
 /** Ação automática/segura para quem não respondeu no prazo (multiplayer). */

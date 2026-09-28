@@ -28,7 +28,10 @@ describe("Criação de personagem e atributos", () => {
   it("aceita ficha com exatamente 24 pontos e aplica bônus de profissão", () => {
     const v = validateCharacterSheet(VALID_SHEET);
     expect(v.ok).toBe(true);
-    if (v.ok) expect(v.finalAttributes.medicina).toBe(4); // enfermagem +1
+    if (v.ok) {
+      expect(v.finalAttributes.medicina).toBe(4); // enfermagem +1
+      expect(v.sheet.sex).toBe("feminino");
+    }
   });
   it("rejeita pontos a mais, a menos, acima do máximo e campos extras", () => {
     const a = VALID_SHEET.attributes;

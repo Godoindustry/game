@@ -8,7 +8,7 @@ import { getDb, nowIso } from "../db/database";
 import { getConfig, type AppConfig } from "../config";
 import { newId, sha256 } from "../services/ids";
 import { isPremium } from "../services/premium";
-import type { AIProvider, ClueInput, IntentInput, NarrativeInput, NpcInput, ProviderResult } from "./types";
+import type { AIProvider, ClueInput, CreatureInput, IntentInput, NarrativeInput, NpcInput, ProviderResult } from "./types";
 import { MockProvider } from "./providers/mock";
 import { OpenAICompatibleProvider } from "./providers/openaiCompatible";
 import { AnthropicProvider } from "./providers/anthropic";
@@ -45,6 +45,14 @@ export function createProvider(c: AppConfig): AIProvider | null {
                 name: "openrouter",
                 headers: { "HTTP-Referer": c.APP_URL, "X-Title": "Linha de Sobrevivencia" },
               })
+            : null,
+        cerebras: () =>
+          c.CEREBRAS_API_KEY
+            ? new OpenAICompatibleProvider("https://api.cerebras.ai/v1", c.CEREBRAS_API_KEY, c.CEREBRAS_MODEL, { name: "cerebras" })
+            : null,
+        mistral: () =>
+          c.MISTRAL_API_KEY
+            ? new OpenAICompatibleProvider("https://api.mistral.ai/v1", c.MISTRAL_API_KEY, c.MISTRAL_MODEL, { name: "mistral", jsonMode: true })
             : null,
         gemini: () =>
           c.GEMINI_API_KEY
@@ -100,7 +108,7 @@ export function passesFilter(text: string): boolean {
 
 // ---------- Núcleo ----------
 interface RunSpec<I, O> {
-  purpose: "narrative" | "npc" | "clue" | "intent";
+  purpose: "narrative" | "npc" | "clue" | "intent" | "creature";
   input: I;
   schema: z.ZodType<O>;
   call: (p: AIProvider, input: I, signal: AbortSignal) => Promise<ProviderResult>;
@@ -270,6 +278,34 @@ export async function aiClueDescription(ctx: AIContext, input: ClueInput): Promi
     cacheable: true,
   });
   return r.value ? { text: sanitizeText(r.value.text, 300), source: r.source } : { text: input.clueText, source: "fallback" };
+}
+
+const creatureSchema = z.object({ attitude: z.string().max(40), line: z.string().min(1).max(600) });
+
+/**
+ * Atitude de uma criatura/NPC hostil. A IA só escolhe dentro de `allowedAttitudes`;
+ * atitude fora da lista, texto inseguro ou que "decide" ferimentos/mortes → fallback.
+ */
+export async function aiCreatureAttitude(
+  ctx: AIContext,
+  input: CreatureInput,
+  fallback: string,
+): Promise<{ attitude: string; line: string | null; source: AISource }> {
+  const r = await run(ctx, {
+    purpose: "creature",
+    input,
+    schema: creatureSchema,
+    call: (p, i, signal) => p.decideCreatureAttitude(i, { maxTokens: maxTokens(), signal }),
+    validate: (o) => {
+      if (!input.allowedAttitudes.includes(o.attitude)) return false;
+      const t = stripVoiceTags(sanitizeText(o.line, 300));
+      return passesFilter(t) && !MECHANIC_CLAIM.test(t) && !DEATH_CLAIM.test(t);
+    },
+    cacheable: false,
+  });
+  return r.value
+    ? { attitude: r.value.attitude, line: toVoiceText(sanitizeText(r.value.line, 300)), source: r.source }
+    : { attitude: fallback, line: null, source: "fallback" };
 }
 
 /** Classificador por palavras-chave: fallback determinístico e primeira linha de defesa. */

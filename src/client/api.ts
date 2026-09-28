@@ -38,7 +38,12 @@ async function ensureCsrf(): Promise<string> {
   return csrf;
 }
 
-export async function api<T = unknown>(method: "GET" | "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
+export async function api<T = unknown>(
+  method: "GET" | "POST" | "PATCH" | "DELETE",
+  path: string,
+  body?: unknown,
+  opts: { keepalive?: boolean } = {},
+): Promise<T> {
   const headers: Record<string, string> = {};
   if (method !== "GET") {
     headers["x-csrf-token"] = await ensureCsrf();
@@ -50,6 +55,7 @@ export async function api<T = unknown>(method: "GET" | "POST" | "PATCH" | "DELET
       method,
       headers,
       credentials: "same-origin",
+      keepalive: opts.keepalive, // permite o envio terminar mesmo com a aba fechando
       body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
     });
   } catch {

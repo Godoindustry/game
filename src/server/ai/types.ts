@@ -33,6 +33,19 @@ export interface IntentInput {
   allowedIntents: string[];
 }
 
+/** Criaturas, bichos e chefes: a IA escolhe UMA atitude da lista e escreve a cena. */
+export interface CreatureInput {
+  creature: string; // "morcego-vampiro", "alma na névoa"…
+  allowedAttitudes: string[];
+  difficulty: string; // rótulo: Fácil … INSANO
+  aggression: number; // 0..1 — tendência pedida pela dificuldade
+  isNight: boolean;
+  locationName: string;
+  playerLineage: string; // Humano, Vampiro, Lobisomem, Assombrado
+  playerCondition: string[]; // palavras, sem números
+  groupSize: number;
+}
+
 export interface ProviderCall {
   maxTokens: number;
   signal: AbortSignal;
@@ -53,4 +66,5 @@ export interface AIProvider {
   generateNpcResponse(input: NpcInput, call: ProviderCall): Promise<ProviderResult>;
   generateClueDescription(input: ClueInput, call: ProviderCall): Promise<ProviderResult>;
   classifyPlayerIntent(input: IntentInput, call: ProviderCall): Promise<ProviderResult>;
+  decideCreatureAttitude(input: CreatureInput, call: ProviderCall): Promise<ProviderResult>;
 }

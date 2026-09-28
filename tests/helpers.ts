@@ -95,6 +95,7 @@ export async function registered(name = "Jogador", ip?: string) {
 
 export const VALID_SHEET = {
   name: "Ana Ribeiro",
+  sex: "feminino",
   age: 32,
   heightCm: 168,
   weightKg: 62,

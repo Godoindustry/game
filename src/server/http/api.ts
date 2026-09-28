@@ -3,17 +3,21 @@ import { Router, sessionCookie, clearSessionCookie, csrfCookie, serializeCookie,
 import * as auth from "../services/auth";
 import * as campaigns from "../services/campaigns";
 import * as game from "../services/game";
+import * as voice from "../services/voice";
 import * as profile from "../services/profile";
 import * as admin from "../services/admin";
+import * as friends from "../services/friends";
+import * as tts from "../services/tts";
 import { listAchievements, ranking } from "../services/achievements";
 import { earlySlotsUsed } from "../services/premium";
 import { getConfig } from "../config";
 import { initDb } from "../db/database";
 import { bootDatabase } from "../db/seed";
 import { PROFESSIONS } from "../engine/character";
-import { ATTRIBUTE_KEYS, BODY_TYPES, CONDITIONINGS, EXPERIENCES } from "../engine/types";
+import { ATTRIBUTE_KEYS, BODY_TYPES, CONDITIONINGS, EXPERIENCES, SEXES } from "../engine/types";
 import { ATTR_MAX_CREATION, ATTR_MIN, ATTR_POINTS_TO_DISTRIBUTE, MAX_EXPERIENCES } from "../engine/constants";
 import { AVATARS } from "../services/profile";
+import { DIFFICULTIES, DIFFICULTY_RULES } from "../engine/difficulty";
 
 const u = (ctx: Ctx) => ctx.user!;
 const ua = (ctx: Ctx) => ctx.req.headers.get("user-agent");
@@ -31,6 +35,7 @@ function buildRouter(): Router {
     attributes: ATTRIBUTE_KEYS,
     professions: Object.entries(PROFESSIONS).map(([id, p]) => ({ id, label: p.label, bonus: p.bonus })),
     bodyTypes: BODY_TYPES,
+    sexes: SEXES,
     conditionings: CONDITIONINGS,
     experiences: EXPERIENCES,
     points: ATTR_POINTS_TO_DISTRIBUTE,
@@ -39,6 +44,9 @@ function buildRouter(): Router {
     maxExperiences: MAX_EXPERIENCES,
     avatars: AVATARS,
   }));
+  r.get("/api/meta/difficulties", () =>
+    DIFFICULTIES.map((key) => ({ key, label: DIFFICULTY_RULES[key].label, description: DIFFICULTY_RULES[key].description })),
+  );
 
   // ---------- Autenticação ----------
   r.get("/api/auth/csrf", (ctx) => {
@@ -59,6 +67,7 @@ function buildRouter(): Router {
     return { user };
   }, { rate: "auth" });
   r.post("/api/auth/logout", async (ctx) => {
+    if (ctx.user) await friends.setOffline(ctx.user.id);
     await auth.logout(ctx.cookies.ls_session);
     ctx.setCookies.push(clearSessionCookie());
     return { ok: true };
@@ -97,6 +106,13 @@ function buildRouter(): Router {
   r.get("/api/achievements", (ctx) => listAchievements(u(ctx).id), { auth: true });
   r.get("/api/ranking", () => ranking(50), { auth: true });
 
+  // ---------- Amigos e presença ----------
+  r.get("/api/friends", (ctx) => friends.listFriends(u(ctx)), { auth: true });
+  r.post("/api/friends/requests", async (ctx) => friends.sendRequest(u(ctx), await ctx.body()), { auth: true, rate: "action" });
+  r.post("/api/friends/requests/:id", async (ctx) => friends.respondRequest(u(ctx), ctx.params.id, await ctx.body()), { auth: true });
+  r.delete("/api/friends/:userId", (ctx) => friends.removeFriend(u(ctx), ctx.params.userId), { auth: true });
+  r.post("/api/presence", async (ctx) => friends.heartbeat(u(ctx), await ctx.body()), { auth: true });
+
   // ---------- Campanhas ----------
   r.get("/api/campaigns", (ctx) => campaigns.listMyCampaigns(u(ctx)), { auth: true });
   r.post("/api/campaigns", async (ctx) => {
@@ -120,6 +136,7 @@ function buildRouter(): Router {
     const res = await game.submitAction(u(ctx), ctx.params.id, await ctx.body());
     return { ...res, state: await game.getState(u(ctx), ctx.params.id) };
   }, { auth: true, rate: "action" });
+  r.get("/api/campaigns/:id/log/:logId/voice", (ctx) => tts.logVoice(u(ctx), ctx.params.id, ctx.params.logId), { auth: true, raw: true, rate: "api" });
   r.post("/api/campaigns/:id/encounter", async (ctx) => {
     const res = await game.encounter(u(ctx), ctx.params.id, await ctx.body());
     return { ...res, state: await game.getState(u(ctx), ctx.params.id) };
@@ -128,6 +145,9 @@ function buildRouter(): Router {
     await game.cancelAction(u(ctx), ctx.params.id);
     return game.getState(u(ctx), ctx.params.id);
   }, { auth: true });
+  r.post("/api/campaigns/:id/voice/exchange", async (ctx) =>
+    voice.exchange(u(ctx), ctx.params.id, await ctx.body()),
+  { auth: true, rate: "api" });
 
   // ---------- Administração (ADM MASTER) ----------
   r.get("/api/admin/stats", () => admin.stats(), { master: true });
@@ -186,4 +206,5 @@ export function resetApiForTests(): void {
   const g = globalThis as G;
   g.__lsBoot = undefined;
   g.__lsRouter = undefined;
+  voice.resetVoiceForTests();
 }

@@ -39,7 +39,7 @@ describe("Bússola de objetivo", () => {
     world.flags.estacao_aberta = true;
     const o = currentObjective(char, world, content)!;
     expect(o.stepIndex).toBe(2);
-    expect(o.label).toMatch(/rádio/);
+    expect(o.label).toMatch(/Tavares/);
   });
 
   it("troca para a rota do sinal quando ela está mais adiantada", () => {
@@ -50,16 +50,18 @@ describe("Bússola de objetivo", () => {
     expect(o.stepIndex).toBe(1);
   });
 
-  it("não aponta para um local ainda escondido", () => {
+  it("não aponta para o observatório enquanto o mapa final estiver escondido", () => {
     const { char, world } = setup();
     world.flags.busca_ativa = true;
     addItem(char, content, randomUUID, "sinalizador", 1);
+    world.flags.tavares_resolvido = true;
+    world.flags.iara_em_paz = true;
     const o = currentObjective(char, world, content)!;
-    expect(o.stepIndex).toBe(2);
-    expect(world.locations.rochedo.discovered).toBe(false);
-    expect(o.targetLocationId).toBe("penhasco");
-    world.locations.rochedo.discovered = true;
-    expect(currentObjective(char, world, content)!.targetLocationId).toBe("rochedo");
+    expect(o.stepIndex).toBe(3);
+    expect(world.locations.observatorio.discovered).toBe(false);
+    expect(o.targetLocationId).toBeNull();
+    world.locations.observatorio.discovered = true;
+    expect(currentObjective(char, world, content)!.targetLocationId).toBe("observatorio");
   });
 
   it("sangramento tem prioridade sobre sede", () => {

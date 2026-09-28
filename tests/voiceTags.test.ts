@@ -58,6 +58,7 @@ describe("Tags de expressão (voz)", () => {
       generateNpcResponse: async () => ({ data: null }),
       generateClueDescription: async () => ({ data: null }),
       classifyPlayerIntent: async () => ({ data: null }),
+      decideCreatureAttitude: async () => ({ data: null }),
     };
     setProvider(fake);
     const r = await aiNarrative(

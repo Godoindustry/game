@@ -2,6 +2,7 @@
 import { Drawer, EcgLine, Meter, formatMinutes } from "../ui";
 import { ATTR_LABEL, PART_LABEL, SLOT_LABEL, WOUND_LABEL } from "../labels";
 import type { GameState } from "./useGame";
+import { BodySilhouette } from "./BodySilhouette";
 
 type Me = NonNullable<GameState["me"]>;
 
@@ -13,103 +14,6 @@ function tempColor(t: number) {
   if (t > 38)  return "var(--amber)";   // febril
   if (t > 39)  return "var(--red)";     // febre alta
   return "var(--green)";                // normal
-}
-
-function partColor(me: Me, part: string): string {
-  const wounds = me.wounds.filter((x) => x.bodyPart === part);
-  if (!wounds.length) return "var(--line-2)";
-  if (wounds.some((x) => x.bleedingRate > 0)) return "var(--red)";
-  const worst = Math.max(...wounds.map((x) => x.severity));
-  return worst >= 2 ? "#c0541a" : "var(--amber)";
-}
-
-function partStroke(me: Me, part: string): string {
-  const wounds = me.wounds.filter((x) => x.bodyPart === part);
-  if (!wounds.length) return "var(--line-3)";
-  if (wounds.some((x) => x.bleedingRate > 0)) return "#ff4444";
-  return "var(--amber)";
-}
-
-// ── Diagrama corporal aprimorado ──────────────────────────────────────────
-function BodyDiagram({ me }: { me: Me }) {
-  const hurtParts = new Set(me.wounds.map((w) => w.bodyPart));
-  return (
-    <svg
-      className="body-svg"
-      viewBox="0 0 60 124"
-      width="108"
-      aria-label="Condição dos membros do personagem"
-    >
-      {/* Cabeça */}
-      <circle
-        cx="30" cy="11" r="9.5"
-        fill={partColor(me, "cabeca")} stroke={partStroke(me, "cabeca")}
-        strokeWidth="1"
-      />
-      {/* Olhos — fechados se estiver crítico */}
-      <line x1="26" y1="10.5" x2="28" y2="10.5" stroke="var(--bg)" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="32" y1="10.5" x2="34" y2="10.5" stroke="var(--bg)" strokeWidth="1.2" strokeLinecap="round" />
-
-      {/* Tronco */}
-      <rect
-        x="18" y="23" width="24" height="38" rx="4"
-        fill={partColor(me, "torso")} stroke={partStroke(me, "torso")}
-        strokeWidth="1"
-      />
-      {/* Detalhe: símbolo de coração no tronco se saudável */}
-      {!hurtParts.has("torso") && (
-        <text x="30" y="41" textAnchor="middle" fontSize="8" fill="var(--faint)">♥</text>
-      )}
-      {/* Indicador de sangramento no tronco */}
-      {me.wounds.filter(w => w.bodyPart === "torso" && w.bleedingRate > 0).length > 0 && (
-        <text x="30" y="41" textAnchor="middle" fontSize="8" fill="var(--red)">●</text>
-      )}
-
-      {/* Braço direito (esquerda visual) */}
-      <rect
-        x="5.5" y="24" width="11" height="36" rx="4"
-        fill={partColor(me, "braco_dir")} stroke={partStroke(me, "braco_dir")}
-        strokeWidth="1"
-      />
-      {/* Braço esquerdo (direita visual) */}
-      <rect
-        x="43.5" y="24" width="11" height="36" rx="4"
-        fill={partColor(me, "braco_esq")} stroke={partStroke(me, "braco_esq")}
-        strokeWidth="1"
-      />
-
-      {/* Cintura */}
-      <rect x="18" y="60" width="24" height="6" rx="2" fill="var(--panel-2)" stroke="var(--line)" strokeWidth="0.8" />
-
-      {/* Perna direita (esquerda visual) */}
-      <rect
-        x="18" y="67" width="11" height="52" rx="4"
-        fill={partColor(me, "perna_dir")} stroke={partStroke(me, "perna_dir")}
-        strokeWidth="1"
-      />
-      {/* Perna esquerda (direita visual) */}
-      <rect
-        x="31" y="67" width="11" height="52" rx="4"
-        fill={partColor(me, "perna_esq")} stroke={partStroke(me, "perna_esq")}
-        strokeWidth="1"
-      />
-
-      {/* Indicador de sangramento nas pernas */}
-      {me.wounds.filter(w => w.bodyPart === "perna_dir" && w.bleedingRate > 0).map((_, i) => (
-        <circle key={i} cx="23" cy={85 + i * 10} r="1.5" fill="var(--red)" opacity="0.8" />
-      ))}
-      {me.wounds.filter(w => w.bodyPart === "perna_esq" && w.bleedingRate > 0).map((_, i) => (
-        <circle key={i} cx="37" cy={85 + i * 10} r="1.5" fill="var(--red)" opacity="0.8" />
-      ))}
-
-      {/* Legenda de cores */}
-      <g transform="translate(0, 122)">
-        <circle cx="6" cy="-2" r="2" fill="var(--green)" />
-        <circle cx="16" cy="-2" r="2" fill="var(--amber)" />
-        <circle cx="26" cy="-2" r="2" fill="var(--red)" />
-      </g>
-    </svg>
-  );
 }
 
 // ── Painel de estado visual do personagem (resumo lateral) ────────────────
@@ -194,6 +98,20 @@ export function CharacterPanel({
         {/* Estado geral */}
         <VitalSummaryBadge me={me} />
 
+        <section className={`character-lineage character-lineage-${me.lineage.key}`}>
+          <div className="character-lineage-art" aria-hidden="true" />
+          <div>
+            <span>LINHAGEM</span>
+            <strong>{me.lineage.label}</strong>
+            <p>{me.lineage.description}</p>
+            {!me.lineage.revealed && me.lineage.progress > 0 && (
+              <div className="lineage-progress" aria-label={`Marca sobrenatural ${me.lineage.progress} de ${me.lineage.max}`}>
+                {Array.from({ length: me.lineage.max }, (_, i) => <i key={i} className={i < me.lineage.progress ? "filled" : ""} />)}
+              </div>
+            )}
+          </div>
+        </section>
+
         {/* Sinais vitais */}
         <section className="stack-sm">
           <div className="label" style={{ marginBottom: 4 }}>Sinais vitais</div>
@@ -243,7 +161,7 @@ export function CharacterPanel({
         <section className="stack-sm">
           <div className="label" style={{ marginBottom: 4 }}>Corpo e ferimentos</div>
           <div className="body-grid">
-            <BodyDiagram me={me} />
+            <BodySilhouette me={me} />
             <div className="stack-sm">
               {me.wounds.length === 0 && (
                 <div style={{

@@ -9,6 +9,7 @@ import type { Rng } from "./rng";
 import { hasItem } from "./inventory";
 import { isNight, isSheltered } from "./physiology";
 import { applyEffects, meetsRequirements, rollCheck, type EffectContext } from "./effects";
+import { lineageOf } from "./lineage";
 
 function eventEligibleFor(
   ev: EventDef,
@@ -16,6 +17,7 @@ function eventEligibleFor(
   world: WorldState,
   content: GameContent,
   rng: Rng,
+  alive: CharacterState[] = [char],
 ): boolean {
   const t = ev.trigger;
   if (t.start) return false;
@@ -29,6 +31,7 @@ function eventEligibleFor(
   if (t.night && !isNight(content, world.minute)) return false;
   if (t.day && isNight(content, world.minute)) return false;
   for (const f of t.flagsAll ?? []) if (!world.flags[f]) return false;
+  if (t.flagsAny && !t.flagsAny.some((f) => world.flags[f])) return false;
   for (const f of t.flagsNone ?? []) if (world.flags[f]) return false;
   if (t.afterEvent && world.eventHistory[t.afterEvent] === undefined) return false;
   if (t.hasItem && !hasItem(char, t.hasItem)) return false;
@@ -42,6 +45,11 @@ function eventEligibleFor(
     const val = k === "health" ? char.health.health : char.status[k as "bodyTemp"];
     if (val > (v as number)) return false;
   }
+  if (t.cluesAny && !t.cluesAny.some((c) => world.clues.includes(c))) return false;
+  if (t.diseaseAny && !char.health.diseases.some((d) => t.diseaseAny!.includes(d.key))) return false;
+  if (t.lineageAny && !t.lineageAny.includes(lineageOf(char))) return false;
+  if (t.classNone && (lineageOf(char) === "human" || char.power?.classId)) return false;
+  if (t.partyTogether && alive.some((c) => c.status.locationId !== char.status.locationId)) return false;
   if (t.chance !== undefined && rng() >= t.chance) return false;
   return true;
 }
@@ -58,7 +66,7 @@ export function findTriggeredEvent(
   for (const char of alive) {
     const rng = rngForChar(char.id);
     for (const ev of events) {
-      if (!eventEligibleFor(ev, char, world, content, rng)) continue;
+      if (!eventEligibleFor(ev, char, world, content, rng, alive)) continue;
       const participants = ev.locationId
         ? alive.filter((c) => c.status.locationId === char.status.locationId).map((c) => c.id)
         : [char.id];
@@ -113,7 +121,7 @@ export function applyChoiceOutcome(
   if (!o.check) return { success: null };
   const roll = rollCheck(char, o.check, ctx.rng, ctx.minute);
   const branch = roll.success ? o.success : o.failure;
-  ctx.applied.push(`teste ${o.check.attr}: ${roll.success ? "sucesso" : "falha"} (${roll.chance}%)`);
+  ctx.applied.push(`teste ${o.check.attr}: ${roll.success ? "sucesso" : "falha"} (${roll.chance}%) [d20:${roll.roll}:${roll.target}]`);
   if (branch) {
     ctx.lines.push(branch.text);
     applyEffects(char, branch.effects, ctx);

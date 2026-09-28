@@ -8,6 +8,7 @@
 import * as Phaser from "phaser";
 import type { DayPhase } from "../game/Scene";
 import { buildLayout, entryPoint, hashString, isBlocked, PROPS, T, W, H, type Hotspot, type Layout } from "./layout";
+import { handlePadButtons, readGamepad } from "./gamepad";
 
 // ── Contrato com o React ─────────────────────────────────────────────────────
 export interface WorldView {
@@ -408,6 +409,12 @@ export class WorldScene extends Phaser.Scene {
     }
     ix += this.joy.x;
     iy += this.joy.y;
+    // Controle (gamepad): anda com o analógico; botões abrem/navegam os menus React.
+    const pad = readGamepad();
+    if (pad && !handlePadButtons(pad, () => this.pressA())) {
+      ix += pad.x;
+      iy += pad.y;
+    }
     if (ix || iy) this.tapTarget = null;
 
     let auto: { x: number; y: number } | null = null;

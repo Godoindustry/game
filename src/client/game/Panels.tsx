@@ -5,6 +5,7 @@ import { formatMinutes, Spinner } from "../ui";
 import { ACTION_LABEL, useNow, type GameState } from "./useGame";
 import { useAudio, deathAudioId, SFX } from "./useAudio";
 import { LocationScene, Typewriter, dayPhase, sceneProps } from "./Scene";
+import { SurvivorPortrait } from "./Portrait";
 
 type Act = (type: string, params?: Record<string, unknown>) => void;
 
@@ -381,13 +382,7 @@ export function PartyList({ state }: { state: GameState }) {
           >
             <div className="row-between" style={{ flexWrap: "nowrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                {/* Indicador de cor do jogador */}
-                <div style={{
-                  width: 8, height: 8, borderRadius: "50%",
-                  background: p.alive ? color : "var(--faint)",
-                  flexShrink: 0,
-                  boxShadow: p.alive ? `0 0 6px ${color}` : undefined,
-                }} />
+                <SurvivorPortrait id={p.characterId} name={p.name} className={p.alive ? "" : "portrait-dead"} />
                 <div style={{ minWidth: 0 }}>
                   <div className="small" style={{ fontWeight: 600 }}>
                     {p.name}

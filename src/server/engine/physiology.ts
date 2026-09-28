@@ -8,6 +8,7 @@
 import type { CharacterState, GameContent, WorldState, Wound } from "./types";
 import { itemDef, encumbranceMultiplier } from "./inventory";
 import { NIGHT_END, NIGHT_START } from "./constants";
+import { difficultyOf, rulesFor } from "./difficulty";
 
 export type Activity = "idle" | "light" | "walk" | "heavy" | "rest" | "sleep";
 
@@ -149,6 +150,7 @@ export function passTime(
   const resist = 1.15 - char.attrs.resistencia * 0.04;
   const cond = { sedentario: 1.12, moderado: 1, atletico: 0.88 }[char.profile.conditioning];
   const load = encumbranceMultiplier(char, content);
+  const diff = rulesFor(difficultyOf(world.flags));
   let elapsed = 0;
   const warned = new Set<string>();
   const note = (key: string, text: string) => {
@@ -169,8 +171,8 @@ export function passTime(
     const biteThirst = bite ? 1 + 0.4 * (bite.level ?? 1) : 1;
 
     // Necessidades
-    s.hunger = clamp(s.hunger + r.hunger * hr * (s.bodyTemp < 36 ? 1.25 : 1), 0, 100);
-    s.thirst = clamp(s.thirst + r.thirst * hr * (gastro ? 1.7 : 1) * biteThirst * (activity === "walk" ? load : 1), 0, 100);
+    s.hunger = clamp(s.hunger + r.hunger * hr * diff.drain * (s.bodyTemp < 36 ? 1.25 : 1), 0, 100);
+    s.thirst = clamp(s.thirst + r.thirst * hr * diff.drain * (gastro ? 1.7 : 1) * biteThirst * (activity === "walk" ? load : 1), 0, 100);
     if (r.energy < 0) {
       const mult = resist * cond * (activity === "walk" || activity === "heavy" ? load : 1) * (s.fatigue >= 85 ? 1.3 : 1);
       s.energy = clamp(s.energy + r.energy * mult * hr - (gastro ? 2 * hr : 0), 0, 100);
@@ -182,7 +184,7 @@ export function passTime(
       s.fatigue = clamp(s.fatigue - 14 * hr, 0, 100);
       s.awakeMinutes = 0;
     } else {
-      s.fatigue = clamp(s.fatigue + (activity === "rest" ? 1.5 : 4.5) * hr, 0, 100);
+      s.fatigue = clamp(s.fatigue + (activity === "rest" ? 1.5 : 4.5) * hr * diff.drain, 0, 100);
       s.awakeMinutes += dt;
     }
 
@@ -226,10 +228,12 @@ export function passTime(
       if (!h.diseases.some((d) => d.key === "febre")) h.diseases.push({ key: "febre", startedAt: now, until: now + 1440 });
     }
     // Dormir junto ao fogo acelera a cura da mordida (o calor espanta o frio que ela deixa).
-    if (bite && activity === "sleep" && fireActive(world, s.locationId)) bite.until -= dt * 3;
+    // (Não vale para quem já virou vampiro: a linhagem é permanente.)
+    if (bite && bite.until !== Number.MAX_SAFE_INTEGER && activity === "sleep" && fireActive(world, s.locationId)) bite.until -= dt * 3;
     if (bite) note("mordida", "As marcas no pescoço latejam. A sede não passa com água.");
     h.diseases = h.diseases.filter((d) => d.until > now && !(d.key === "febre" && h.infection < 40));
 
+    for (const k of Object.keys(damage)) damage[k] *= diff.damage;
     const totalDamage = Object.values(damage).reduce((a, b) => a + b, 0);
     h.health -= totalDamage;
 

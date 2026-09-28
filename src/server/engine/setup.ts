@@ -53,6 +53,7 @@ export function initCharacter(
     diedAtMinute: null,
     attrs,
     profile: {
+      sex: sheet.sex,
       age: sheet.age,
       heightCm: sheet.heightCm,
       weightKg: sheet.weightKg,

@@ -3,9 +3,11 @@
  * Salvar é sempre "estado completo" dentro de uma transação: é o autosave.
  */
 import { getDb, json, nowIso } from "../db/database";
-import type { ActiveEvent, Attributes, CharacterState, Disease, GroundItem, InvItem, WorldState, Wound } from "../engine/types";
+import type { ActiveEvent, Attributes, CharacterState, Disease, GroundItem, InvItem, PowerBuff, WorldState, Wound } from "../engine/types";
 import { ATTRIBUTE_KEYS } from "../engine/types";
 import { newId } from "./ids";
+import { difficultyOf } from "../engine/difficulty";
+import { getScenario } from "../content/valeSilente";
 
 // ---------- Mundo ----------
 export async function loadWorld(campaignId: string): Promise<WorldState> {
@@ -96,7 +98,7 @@ export async function saveWorld(world: WorldState, clueFinder: Record<string, st
 // ---------- Personagens ----------
 interface CharRow {
   id: string; user_id: string; name: string; age: number; height_cm: number; weight_kg: number; body_type: string;
-  conditioning: string; profession: string; experiences: string; alive: number; death_cause: string | null; died_at_minute: number | null;
+  sex: string; conditioning: string; profession: string; experiences: string; alive: number; death_cause: string | null; died_at_minute: number | null;
 }
 
 export async function loadCharacter(characterId: string): Promise<CharacterState | null> {
@@ -121,6 +123,10 @@ export async function loadCharacter(characterId: string): Promise<CharacterState
     "SELECT * FROM wounds WHERE character_id = ? ORDER BY created_at_minute, id",
     characterId,
   );
+  const pw = await db.get<{ class_id: string | null; resource: number; buffs: string; ward_until: number; clock: number }>(
+    "SELECT class_id, resource, buffs, ward_until, clock FROM character_powers WHERE character_id = ?",
+    characterId,
+  );
   return {
     id: c.id,
     userId: c.user_id,
@@ -130,6 +136,7 @@ export async function loadCharacter(characterId: string): Promise<CharacterState
     diedAtMinute: c.died_at_minute === null ? null : Number(c.died_at_minute),
     attrs: Object.fromEntries(ATTRIBUTE_KEYS.map((k) => [k, Number(attrs[k])])) as Attributes,
     profile: {
+      sex: (c.sex || "masculino") as CharacterState["profile"]["sex"],
       age: c.age,
       heightCm: c.height_cm,
       weightKg: c.weight_kg,
@@ -180,13 +187,22 @@ export async function loadCharacter(characterId: string): Promise<CharacterState
       wetness: Number(i.wetness),
       contaminated: !!i.contaminated,
     })),
+    power: pw
+      ? { classId: pw.class_id, resource: Number(pw.resource), buffs: json<PowerBuff[]>(pw.buffs, []), wardUntil: Number(pw.ward_until), clock: Number(pw.clock) }
+      : undefined,
   };
 }
 
 export async function loadCampaignCharacters(campaignId: string): Promise<CharacterState[]> {
-  const ids = await getDb().all<{ id: string }>("SELECT id FROM characters WHERE campaign_id = ? ORDER BY id", campaignId);
+  const db = getDb();
+  const ids = await db.all<{ id: string }>("SELECT id FROM characters WHERE campaign_id = ? ORDER BY id", campaignId);
+  const camp = await db.get<{ scenario_id: string; flags: string }>("SELECT scenario_id, flags FROM campaigns WHERE id = ?", campaignId);
+  // Regras da sala: dificuldade (testes D20) e relógio (poderes de linhagem de dia/noite).
+  const rules = camp
+    ? { difficulty: difficultyOf(json(camp.flags, {})), startMinuteOfDay: getScenario(camp.scenario_id).startMinuteOfDay }
+    : undefined;
   const chars = await Promise.all(ids.map((r) => loadCharacter(r.id)));
-  return chars.filter((c): c is CharacterState => c !== null);
+  return chars.filter((c): c is CharacterState => c !== null).map((c) => (rules ? { ...c, rules } : c));
 }
 
 /** Cria as linhas de um personagem novo (ficha + estado inicial). */
@@ -198,9 +214,9 @@ export async function insertCharacter(
   const db = getDb();
   const now = nowIso();
   await db.run(
-    `INSERT INTO characters(id,user_id,campaign_id,name,age,height_cm,weight_kg,body_type,conditioning,profession,knowledge,fears,history,personality,experiences,alive,created_at,updated_at)
-     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`,
-    char.id, char.userId, campaignId, char.name, char.profile.age, char.profile.heightCm, char.profile.weightKg, char.profile.bodyType,
+    `INSERT INTO characters(id,user_id,campaign_id,name,sex,age,height_cm,weight_kg,body_type,conditioning,profession,knowledge,fears,history,personality,experiences,alive,created_at,updated_at)
+     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`,
+    char.id, char.userId, campaignId, char.name, char.profile.sex, char.profile.age, char.profile.heightCm, char.profile.weightKg, char.profile.bodyType,
     char.profile.conditioning, char.profile.profession, sheet.knowledge, sheet.fears, sheet.history, sheet.personality,
     JSON.stringify(char.profile.experiences), now, now,
   );
@@ -215,6 +231,15 @@ export async function insertCharacter(
 export async function saveCharacter(char: CharacterState): Promise<void> {
   const db = getDb();
   const now = nowIso();
+  if (char.power) {
+    const p = char.power;
+    await db.run(
+      `INSERT INTO character_powers(character_id,class_id,resource,buffs,ward_until,clock,updated_at) VALUES(?,?,?,?,?,?,?)
+       ON CONFLICT(character_id) DO UPDATE SET class_id=excluded.class_id, resource=excluded.resource, buffs=excluded.buffs,
+         ward_until=excluded.ward_until, clock=excluded.clock, updated_at=excluded.updated_at`,
+      char.id, p.classId, Math.round(p.resource), JSON.stringify(p.buffs), Math.round(p.wardUntil), Math.round(p.clock), now,
+    );
+  }
   const s = char.status;
   const h = char.health;
   await db.run("UPDATE characters SET alive=?, death_cause=?, died_at_minute=?, updated_at=? WHERE id=?", +char.alive, char.deathCause, char.diedAtMinute, now, char.id);

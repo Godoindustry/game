@@ -2,6 +2,8 @@
  * Tipos do motor de regras. O motor é puro: recebe estado + conteúdo + RNG,
  * devolve o novo estado e um relatório. Não conhece banco, HTTP nem IA.
  */
+import type { Difficulty } from "./difficulty";
+import type { LineageKey } from "./lineage";
 
 export const ATTRIBUTE_KEYS = [
   "forca",
@@ -25,6 +27,9 @@ export type Experience = (typeof EXPERIENCES)[number];
 
 export const BODY_TYPES = ["magro", "medio", "robusto", "acima_do_peso"] as const;
 export type BodyType = (typeof BODY_TYPES)[number];
+
+export const SEXES = ["masculino", "feminino"] as const;
+export type Sex = (typeof SEXES)[number];
 
 export const CONDITIONINGS = ["sedentario", "moderado", "atletico"] as const;
 export type Conditioning = (typeof CONDITIONINGS)[number];
@@ -135,7 +140,7 @@ export interface Wound {
   healed: boolean;
 }
 
-export type DiseaseKey = "gastroenterite" | "febre" | "mordida";
+export type DiseaseKey = "gastroenterite" | "febre" | "mordida" | "licantropia" | "assombro" | "fe";
 export interface Disease {
   key: DiseaseKey;
   startedAt: number;
@@ -166,6 +171,7 @@ export interface HealthState {
 }
 
 export interface CharacterProfile {
+  sex: Sex;
   age: number;
   heightCm: number;
   weightKg: number;
@@ -188,6 +194,28 @@ export interface CharacterState {
   health: HealthState;
   wounds: Wound[];
   inventory: InvItem[];
+  /** Regras da sala (dificuldade e relógio), anexadas ao carregar; ausente = Médio, sem efeito de dia/noite. */
+  rules?: { difficulty: Difficulty; startMinuteOfDay: number };
+  /** Classe e recurso sobrenatural (ausente = ainda sem classe). Ver engine/powers.ts. */
+  power?: PowerState;
+}
+
+export interface PowerBuff {
+  attr: AttributeKey;
+  bonus: number;
+  /** Minuto do mundo em que o efeito acaba. */
+  until: number;
+}
+
+export interface PowerState {
+  classId: string | null;
+  /** Fome / Fúria / Eco / Obsessão: 0..5. No máximo, dispara a compulsão. */
+  resource: number;
+  buffs: PowerBuff[];
+  /** Até este minuto, criaturas da noite não se aproximam. */
+  wardUntil: number;
+  /** Minutos acumulados para o recurso subir (vampiro) ou descer (descanso). */
+  clock: number;
 }
 
 // ---------- Mundo ----------
@@ -288,6 +316,15 @@ export type Effect =
   | { op: "time"; minutes: number }
   | { op: "disease"; key: DiseaseKey; chanceAttr?: AttributeKey; base?: number }
   | { op: "bite" } // mordida de vampiro (acumula; na 3ª o personagem se transforma)
+  | { op: "haunt" } // toque de alma (acumula; no 3º desperta o Assombrado)
+  | { op: "cure"; key: DiseaseKey } // remove a doença — nunca uma linhagem já desperta
+  | { op: "awaken"; lineage: Exclude<LineageKey, "human"> } // desperta a linhagem na hora
+  | { op: "setClass"; classId: string } // escolhe clã/tribo/ordem/credo (uma vez)
+  | { op: "buff"; attr: AttributeKey; bonus: number; minutes: number } // bônus temporário em testes
+  | { op: "ward"; minutes: number } // criaturas da noite não se aproximam
+  | { op: "healWounds" } // estanca todos os sangramentos
+  | { op: "resource"; delta: number } // Fome/Fúria/Eco/Obsessão
+  | { op: "lycanthropy" }
   | { op: "painkiller"; minutes: number }
   | { op: "fire"; minutes: number }
   | { op: "kill"; cause: string }
@@ -316,9 +353,13 @@ export interface ChoiceRequirements {
   hasAnyItem?: string[];
   hasAnyCategory?: ItemCategory[];
   flagsAll?: string[];
+  /** Pelo menos uma destas flags precisa estar ativa. */
+  flagsAny?: string[];
   flagsNone?: string[];
   cluesAny?: string[];
   atShelter?: boolean;
+  /** Só personagens destas linhagens (ex.: escolha exclusiva de Vampiro). */
+  lineage?: LineageKey[];
 }
 
 export interface ChoiceDef {
@@ -337,6 +378,7 @@ export interface EventTrigger {
   night?: boolean;
   day?: boolean;
   flagsAll?: string[];
+  flagsAny?: string[];
   flagsNone?: string[];
   afterEvent?: string;
   hasItem?: string;
@@ -346,6 +388,16 @@ export interface EventTrigger {
   notSheltered?: boolean;
   openSky?: boolean;
   cooldownMinutes?: number;
+  /** Pelo menos uma destas pistas já encontrada. */
+  cluesAny?: string[];
+  /** O personagem tem pelo menos uma destas doenças/marcas (ex.: "mordida"). */
+  diseaseAny?: DiseaseKey[];
+  /** O personagem é de uma destas linhagens. */
+  lineageAny?: LineageKey[];
+  /** Linhagem desperta, mas classe ainda não escolhida. */
+  classNone?: boolean;
+  /** Todos os personagens vivos estão no mesmo local (o grupo reunido). */
+  partyTogether?: boolean;
 }
 
 export interface EventDef {
@@ -392,6 +444,7 @@ export interface ObjectiveCondition {
   hasAnyItem?: string[];
   hasAllItems?: string[];
   flagsAll?: string[];
+  flagsAny?: string[];
   eventSeen?: string;
 }
 
@@ -410,6 +463,64 @@ export interface ObjectiveRoute {
   steps: ObjectiveStep[];
 }
 
+// ---------- Direção da campanha ----------
+/** Condição coletiva de história. Todos os campos presentes precisam valer (E). */
+export interface StoryCondition {
+  flagsAll?: string[];
+  flagsAny?: string[];
+  cluesAny?: string[];
+  eventsAny?: string[];
+  visitedAny?: string[];
+  visitedAll?: string[];
+  minMinute?: number;
+  ending?: boolean;
+}
+
+export interface StoryMilestoneDef {
+  id: string;
+  label: string;
+  condition: StoryCondition;
+}
+
+export interface CampaignActDef {
+  id: string;
+  title: string;
+  subtitle: string;
+  briefing: string;
+  /** Janela acumulada estimada de sessão, em minutos reais. */
+  targetRealMinutes: [number, number];
+  regionId: string;
+  artPosition: string;
+  milestones: StoryMilestoneDef[];
+  completeWhen: StoryCondition;
+}
+
+export interface CampaignRegionDef {
+  id: string;
+  title: string;
+  subtitle: string;
+  locationIds: string[];
+  artPosition: string;
+  unlockAct: number;
+}
+
+export interface BossStageDef {
+  label: string;
+  condition: StoryCondition;
+}
+
+export interface BossPresentationDef {
+  id: string;
+  title: string;
+  epithet: string;
+  eventIds: string[];
+  locationIds: string[];
+  artPosition: string;
+  introducedWhen: StoryCondition;
+  stages: BossStageDef[];
+  resolvedWhen: StoryCondition;
+}
+
 export interface StartItem {
   itemId: string;
   container: Container;
@@ -421,6 +532,12 @@ export interface GameContent {
   scenarioId: string;
   title: string;
   startLocation: string;
+  /** Ato I: cada jogador acorda num ponto diferente (1º = dono da sala). Ausente = todos em startLocation. */
+  startLocations?: string[];
+  /** Texto do despertar de quem começa em cada local (com tags de voz). */
+  startIntros?: Record<string, string>;
+  /** Ato II: onde o grupo transformado se reencontra (revelado quando `ato2` liga). */
+  meetingLocation?: string;
   startMinuteOfDay: number;
   items: Record<string, ItemDef>;
   locations: Record<string, LocationDef>;
@@ -433,6 +550,10 @@ export interface GameContent {
   startingInventory: StartItem[];
   professionKits: Record<string, StartItem[]>;
   objectives?: ObjectiveRoute[];
+  acts?: CampaignActDef[];
+  regions?: CampaignRegionDef[];
+  bosses?: BossPresentationDef[];
+  targetRealMinutes?: [number, number];
 }
 
 // ---------- Ações ----------
@@ -460,6 +581,8 @@ export const ACTION_TYPES = [
   "conversar",
   "escolha_evento",
   "esperar",
+  "usar_poder",
+  "alimentar_se",
 ] as const;
 export type ActionType = (typeof ACTION_TYPES)[number];
 

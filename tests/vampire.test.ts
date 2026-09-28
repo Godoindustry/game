@@ -68,8 +68,9 @@ describe("Criaturas da noite", () => {
       nightEncounter(char, world, content, "morcego", bite, randomUUID);
       world.minute += ENCOUNTER_COOLDOWN_MINUTES;
     }
-    expect(char.alive).toBe(false);
-    expect(char.deathCause).toMatch(/terceira vez/);
+    expect(char.alive).toBe(true);
+    expect(char.deathCause).toBeNull();
+    expect(char.health.diseases.find((d) => d.key === "mordida")?.level).toBe(3);
   });
 
   it("a mordida aumenta a sede (sede escura)", () => {

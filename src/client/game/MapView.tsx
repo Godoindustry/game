@@ -4,6 +4,7 @@
  * Visão radar: grade topográfica, névoa de guerra, marcadores táticos, personagens.
  */
 import { useNow, type GameState } from "./useGame";
+import { useState } from "react";
 import { dayPhase } from "./Scene";
 import { PixelCanvas } from "./PixelCanvas";
 
@@ -28,6 +29,12 @@ export function MapView({
   const temp = state.campaign.temperature;
   const phase = dayPhase(state.campaign.clock);
   const rain = state.campaign.weather === "chuva";
+  const currentRegion = map.regions.find((region) => region.current)?.id ?? map.regions[0]?.id ?? null;
+  const [pickedRegion, setPickedRegion] = useState<string | null>(null);
+  const regionId = map.regions.some((region) => region.id === pickedRegion && region.unlocked) ? pickedRegion : currentRegion;
+  const visibleLocations = regionId ? map.locations.filter((location) => location.regionId === regionId) : map.locations;
+  const visibleLocationIds = new Set(visibleLocations.map((location) => location.id));
+  const visibleLinks = map.links.filter((link) => visibleLocationIds.has(link.from) && visibleLocationIds.has(link.to));
 
   const pos = (id: string) => {
     const l = map.locations.find((x) => x.id === id);
@@ -53,6 +60,23 @@ export function MapView({
 
   return (
     <div className={`map-wrap map-phase-${phase}`} data-tut-id="map">
+      {map.regions.length > 0 && (
+        <div className="map-region-tabs" aria-label="Mapas da campanha">
+          {map.regions.map((region) => (
+            <button
+              key={region.id}
+              type="button"
+              className={`${region.id === regionId ? "active" : ""} ${region.unlocked ? "" : "locked"}`}
+              disabled={!region.unlocked}
+              aria-pressed={region.id === regionId}
+              onClick={() => setPickedRegion(region.id)}
+            >
+              <i style={{ backgroundImage: `url(${region.art})`, backgroundPosition: region.artPosition }} />
+              <span><b>{region.title}</b><small>{region.unlocked ? region.subtitle : "Mapa ainda oculto"}</small></span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="map-stage">
         <div className="map-inner">
 
@@ -118,7 +142,7 @@ export function MapView({
               {/* Máscara de névoa de guerra */}
               <mask id="fog-of-war">
                 <rect x="0" y="0" width="100" height={H} fill="white" />
-                {map.locations.map((l) => (
+                {visibleLocations.map((l) => (
                   <circle
                     key={l.id}
                     cx={l.x}
@@ -153,7 +177,7 @@ export function MapView({
             />
 
             {/* Trilhas / caminhos */}
-            {map.links.map((k) => {
+            {visibleLinks.map((k) => {
               const a = pos(k.from);
               const b = pos(k.to);
               if (!a || !b) return null;
@@ -200,7 +224,7 @@ export function MapView({
             })}
 
             {/* Locais do mapa */}
-            {map.locations.map((l) => {
+            {visibleLocations.map((l) => {
               const y = (l.y / 100) * H;
               const isHere = l.id === here;
               const isSel = l.id === selected;
@@ -316,6 +340,7 @@ export function MapView({
 
             {/* Marcadores dos jogadores */}
             {party.map((p, i) => {
+              if (regionId && map.locations.find((location) => location.id === p.locationId)?.regionId !== regionId) return null;
               const base = pos(p.locationId);
               if (!base || !p.alive) return null;
               const a = p.isMe ? meXY(base) : base;
@@ -363,6 +388,7 @@ export function MapView({
 
           {/* Informações de status sobrepostas */}
           <div className="map-status">
+            <div className="map-region-name">{map.regions.find((region) => region.id === regionId)?.title ?? "Vale Silente"}</div>
             <div>DIA {state.campaign.day} · {state.campaign.clock}</div>
             <div style={{ color: night ? "var(--blue-2)" : "var(--amber-2)" }}>
               {night ? "◑ NOITE" : "○ DIA"} · {temp}°C

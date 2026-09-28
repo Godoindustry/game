@@ -3,6 +3,7 @@ import { Barlow_Condensed, Inter, JetBrains_Mono, Press_Start_2P, VT323 } from "
 import "./globals.css";
 import "./retro.css";
 import "./world.css";
+import "./immersive.css";
 import { Toasts } from "@/client/ui";
 import { Pwa } from "@/client/Pwa";
 

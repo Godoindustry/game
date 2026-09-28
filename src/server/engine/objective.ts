@@ -9,6 +9,7 @@ function holds(char: CharacterState, world: WorldState, c: ObjectiveCondition): 
   if (c.hasAnyItem && !c.hasAnyItem.some((i) => hasItem(char, i))) return false;
   if (c.hasAllItems && !c.hasAllItems.every((i) => hasItem(char, i))) return false;
   if (c.flagsAll && !c.flagsAll.every((f) => !!world.flags[f])) return false;
+  if (c.flagsAny && !c.flagsAny.some((f) => !!world.flags[f])) return false;
   if (c.eventSeen && world.eventHistory[c.eventSeen] === undefined) return false;
   return true;
 }

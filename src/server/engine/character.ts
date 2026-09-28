@@ -7,6 +7,7 @@ import { z } from "zod";
 import {
   ATTRIBUTE_KEYS,
   BODY_TYPES,
+  SEXES,
   CONDITIONINGS,
   EXPERIENCES,
   type AttributeKey,
@@ -46,6 +47,7 @@ const attrShape = Object.fromEntries(
 
 export const characterSheetSchema = z.strictObject({
   name: text(40).pipe(z.string().min(2, "Nome muito curto")),
+  sex: z.enum(SEXES).default("masculino"),
   age: z.number().int().min(18).max(80),
   heightCm: z.number().int().min(140).max(210),
   weightKg: z.number().int().min(40).max(160),

@@ -15,7 +15,7 @@ import type { WorldCallbacks, WorldScene, WorldView } from "./engine";
 type Act = (type: string, params?: Record<string, unknown>) => void;
 type Option = { key: string; label: string; minutes: number; available: boolean; reason: string | null; run: () => void };
 
-const NPC_SPRITE: Record<string, number> = { piloto: 8 };
+const NPC_SPRITE: Record<string, number> = { piloto: 8, tavares: 11, anselmo: 20, iara: 23 };
 
 function fmtMin(m: number) {
   if (m < 60) return `${m} min`;

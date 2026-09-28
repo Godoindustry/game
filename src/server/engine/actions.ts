@@ -15,6 +15,9 @@ import type {
   WorldState,
 } from "./types";
 import { CONTAINERS } from "./types";
+import { powerOf, resourceName, validateFeed, validatePower } from "./powers";
+import { RESOURCE_MAX, powerById } from "./classes";
+import { lineageOf } from "./lineage";
 import { ACTION_MINUTES, FIRE_DURATION_MINUTES, PAINKILLER_MINUTES, SLEEP_OPTIONS_HOURS } from "./constants";
 import {
   accessMinutes,
@@ -88,6 +91,14 @@ export function validateAction(ctx: ValidateContext, action: ActionInput): Valid
       return { ok: true, minutes: ACTION_MINUTES.procurar, activity: "light" };
     case "esperar":
       return { ok: true, minutes: ACTION_MINUTES.esperar, activity: "idle" };
+    case "usar_poder": {
+      const v = validatePower(char, world, content, p.power);
+      return v.ok ? { ok: true, minutes: v.minutes, activity: "light" } : v;
+    }
+    case "alimentar_se": {
+      const v = validateFeed(char, world, content);
+      return v.ok ? { ok: true, minutes: v.minutes, activity: "walk" } : v;
+    }
     case "descansar":
       return { ok: true, minutes: ACTION_MINUTES.descansar, activity: "rest" };
     case "dormir": {
@@ -316,6 +327,7 @@ export function resolveAction(
         if (found >= 2 || !locState || (locState.loot[idx] ?? 0) <= 0) return;
         if (entry.requiresExamined && !locState.examined) return;
         const r = rollCheck(char, { attr: "percepcao", base: entry.base }, ctx.rng, ctx.minute);
+        ctx.applied.push(`teste percepcao: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
         if (!r.success) return;
         const qty = Math.min(entry.qty, locState.loot[idx]);
         locState.loot[idx] -= qty;
@@ -346,6 +358,7 @@ export function resolveAction(
       if (risky) {
         const base = (night && !light ? 70 : 85) - link.risk * 10;
         const r = rollCheck(char, { attr: "agilidade", base }, ctx.rng, ctx.minute);
+        ctx.applied.push(`teste agilidade: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
         if (!r.success) {
           const part = ctx.rng() < 0.5 ? "perna_esq" : "perna_dir";
           applyEffects(char, [{ op: "wound", part, type: night && !light ? "entorse" : "contusao", severity: 1 }], ctx);
@@ -375,6 +388,42 @@ export function resolveAction(
       report.success = true;
       report.summary = "Aguardou.";
       break;
+    case "usar_poder": {
+      const def = powerById(char.power?.classId, String(action.params.power ?? ""))!;
+      pass(minutes, "light");
+      ctx.lines.push(def.text);
+      applyEffects(char, def.effects, ctx);
+      const pw = powerOf(char);
+      pw.resource = Math.min(RESOURCE_MAX, pw.resource + def.cost);
+      ctx.applied.push(`${resourceName(char)} +${def.cost}`);
+      report.success = true;
+      report.summary = `Usou ${def.name}.`;
+      tags.push(`power:${def.id}`);
+      break;
+    }
+    case "alimentar_se": {
+      pass(minutes, "walk");
+      const vampire = lineageOf(char) === "vampire";
+      const r = rollCheck(char, { attr: vampire ? "furtividade" : "percepcao", base: 50 }, ctx.rng, ctx.minute);
+      ctx.applied.push(`teste ${vampire ? "furtividade" : "percepcao"}: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
+      const pw = powerOf(char);
+      if (r.success) {
+        // Corte da Crista (Paladar de Rei): sangue de bicho sacia menos.
+        const relief = char.power?.classId === "corte_da_crista" ? 1 : 2;
+        pw.resource = Math.max(0, pw.resource - relief);
+        char.status.hunger = Math.max(0, char.status.hunger - 15);
+        ctx.lines.push(vampire
+          ? "[hungry] Uma capivara na beira da água. Você é mais rápido do que ela. [pause] Quando termina, a Fome recua — e o gosto de ferro fica."
+          : "[growls] Você caça como a fera caça: em silêncio, depois de uma vez. A Fúria assenta no peito, satisfeita.");
+        ctx.applied.push(`${resourceName(char)} −${relief}`);
+      } else {
+        char.status.stress = Math.min(100, char.status.stress + 8);
+        ctx.lines.push("A presa sente você antes. Folhas balançam, e depois nada. A caçada fica para outra hora.");
+      }
+      report.success = r.success;
+      report.summary = r.success ? "Caçou e se alimentou." : "A caçada falhou.";
+      break;
+    }
     case "dormir": {
       pass(minutes, "sleep");
       if (!char.alive) break;
@@ -458,7 +507,7 @@ export function resolveAction(
       if (useBandage) {
         removeItem(char, "atadura", 1);
         const r = rollCheck(char, { attr: "medicina", base: 55, experience: ["medicina"] }, ctx.rng, ctx.minute);
-        ctx.applied.push(`teste medicina: ${r.success ? "sucesso" : "falha"} (${r.chance}%)`);
+        ctx.applied.push(`teste medicina: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
         if (r.success) {
           w.bleedingRate = 0;
           w.bandaged = true;
@@ -488,7 +537,7 @@ export function resolveAction(
       pass(minutes, "heavy");
       if (!char.alive) break;
       const r = rollCheck(char, { attr: "improviso", base: 50, experience: ["sobrevivencia"], itemBonus: { corda: 15, manta_termica: 10 } }, ctx.rng, ctx.minute);
-      ctx.applied.push(`teste improviso: ${r.success ? "sucesso" : "falha"} (${r.chance}%)`);
+      ctx.applied.push(`teste improviso: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
       if (r.success && locState) {
         locState.shelterBuilt = true;
         ctx.lines.push("Galhos, folhas e o que você tinha à mão: um abrigo baixo, mas que corta o vento.");
@@ -516,7 +565,7 @@ export function resolveAction(
       const woodPenalty = wood.wetness > 50 ? -30 : 0;
       const wetPenalty = char.status.wetness > 60 ? -10 : 0;
       const r = rollCheck(char, { attr: "improviso", base: 55 + woodPenalty + wetPenalty, experience: ["sobrevivencia"] }, ctx.rng, ctx.minute);
-      ctx.applied.push(`teste improviso: ${r.success ? "sucesso" : "falha"} (${r.chance}%)`);
+      ctx.applied.push(`teste improviso: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
       if (igniter.durability !== null) applyEffects(char, [{ op: "itemDurability", item: igniter.itemId, delta: -1 }], ctx);
       else applyEffects(char, [{ op: "useCharge", item: igniter.itemId }], ctx);
       if (r.success) {
@@ -636,7 +685,7 @@ export function resolveAction(
           if (rule.check) {
             const r = rollCheck(char, rule.check, ctx.rng, ctx.minute);
             const b = r.success ? rule.success : rule.failure;
-            ctx.applied.push(`teste ${rule.check.attr}: ${r.success ? "sucesso" : "falha"} (${r.chance}%)`);
+            ctx.applied.push(`teste ${rule.check.attr}: ${r.success ? "sucesso" : "falha"} (${r.chance}%) [d20:${r.roll}:${r.target}]`);
             if (b) {
               ctx.lines.push(b.text);
               applyEffects(char, b.effects, ctx);
