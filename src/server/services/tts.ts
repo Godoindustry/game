@@ -12,12 +12,19 @@ import { notFound } from "./errors";
 import type { SessionUser } from "./auth";
 import { requireMember } from "./campaigns";
 import { narrationForLog } from "./narrationPack";
+import { mediaUrl } from "./media";
 import { getScenario } from "../content/valeSilente";
 import { stripVoiceTags, toVoiceText } from "@/shared/voiceTags";
 import { normalizeSpeechPerformance, speechStyle, splitSpeech, type SpeechTone } from "@/shared/speech";
 import { concatWav, geminiKeys, resolveVoiceProfile, synthesizeGeminiSpeech } from "./geminiTts";
+import { kvLock, kvUnlock } from "../kv";
 
 const MAX_TEXT_CHARS = 2_000;
+/** Trava de geração por frase. Maior que o timeout do TTS, para não liberar antes da synthesis. */
+const TTS_LOCK_MS = 45_000;
+/** Quanto esperar o áudio de outra instância antes de gerar o próprio. Curto de propósito. */
+const TTS_LOCK_WAIT_MS = 2_500;
+const TTS_LOCK_POLL_MS = 350;
 
 interface LogVoiceRow {
   text: string;
@@ -73,13 +80,8 @@ export function recordedVoiceAsset(row: RecordedVoiceRow): string | null {
   // As duas falas gravadas do desconhecido não servem para Anselmo, Tavares etc.
   if (row.kind === "npc" || speaker.startsWith("npc:")) return null;
 
-  if (/rádio|radio|frequência|transmiss|chiado|sinal/.test(source)) return "/audio/narrador/event-radio.mp3";
-  if (/fogueira|chama|fogo|crepita/.test(source)) return "/audio/narrador/event-fogueira.mp3";
-  if (/descans|dorm|sono|fecha.+olhos/.test(source)) return "/audio/narrador/action-descansando.mp3";
-  if (/abrigo|cabana/.test(source)) return "/audio/narrador/event-abrigo.mp3";
-  if (/rastro|pegada|lama|carcaça|passos/.test(source)) return "/audio/narrador/event-rastros.mp3";
-  if (/ferimento|atadura|sangr|curativo/.test(source)) return "/audio/narrador/action-tratando.mp3";
-  if (/colet|vasculh|procur|examinar/.test(source)) return "/audio/narrador/action-coletando.mp3";
+  // Nada de frase gravada "parecida" para o narrador: "você encontrou pegadas na lama" sobre
+  // um texto que só cita passos soa errado. A narração de verdade vem do pacote gerado.
   return null;
 }
 
@@ -90,7 +92,7 @@ function recordedVoiceResponse(row: RecordedVoiceRow): Response {
   return new Response(null, {
     status: 307,
     headers: {
-      Location: asset,
+      Location: mediaUrl(asset),
       "Cache-Control": "private, max-age=31536000, immutable",
       "X-Voice-Source": "recorded",
     },
@@ -209,6 +211,15 @@ async function generateChunk(
   }
 }
 
+/**
+ * Gera (ou reaproveita) um trecho de áudio.
+ *
+ * Duas camadas evitam chamar o Gemini mais de uma vez para a mesma frase:
+ * o cache no banco e um "single-flight". O single-flight local cobre requisições na
+ * mesma instância; a trava no KV cobre instâncias diferentes, que era o jeito de
+ * gastar cota duplicada em produção. Se a trava falhar, geramos mesmo assim — o
+ * jogador nunca fica esperando por um erro de infraestrutura.
+ */
 async function chunkAudio(
   user: SessionUser,
   campaignId: string,
@@ -227,12 +238,39 @@ async function chunkAudio(
 
   const pending = inflight().get(cacheKey);
   if (pending) return { value: await pending, source: "inflight" };
-  const promise = generateChunk(user, campaignId, cacheKey, transcript, style, profile, scene, context);
+
+  const generate = () => generateChunk(user, campaignId, cacheKey, transcript, style, profile, scene, context);
+  const lock = await kvLock(`ls:tts:${cacheKey}`, TTS_LOCK_MS);
+  if (!lock) {
+    // Outra instância está sintetizando o MESMO trecho. Duplicar a chamada gasta cota da
+    // Gemini e devolve áudio mais tarde para os dois, então espera o resultado dela: um
+    // orçamento curto e fixo, e depois gera o seu. Ninguém fica pendurado esperando a IA.
+    const waited = await waitForAudio(cacheKey, TTS_LOCK_WAIT_MS);
+    if (waited) {
+      await logTts(user.id, campaignId, cacheKey, transcript.length, "cache_hit", waited.model);
+      return { value: waited, source: "cache" };
+    }
+    return { value: await generate(), source: "generated" };
+  }
+
+  const promise = generate();
   inflight().set(cacheKey, promise);
   try {
     return { value: await promise, source: "generated" };
   } finally {
     if (inflight().get(cacheKey) === promise) inflight().delete(cacheKey);
+    await kvUnlock(`ls:tts:${cacheKey}`, lock);
+  }
+}
+
+/** Espera o trecho aparecer no cache, com orçamento fixo. Nunca lança. */
+async function waitForAudio(cacheKey: string, budgetMs: number): Promise<CachedAudio | null> {
+  const deadline = Date.now() + budgetMs;
+  for (;;) {
+    const hit = await cachedAudio(cacheKey);
+    if (hit) return hit;
+    if (Date.now() >= deadline) return null;
+    await new Promise((r) => setTimeout(r, TTS_LOCK_POLL_MS));
   }
 }
 
@@ -278,7 +316,7 @@ export async function logVoice(user: SessionUser, campaignId: string, logId: str
   if (generated.length === 1) {
     return new Response(null, {
       status: 307,
-      headers: { Location: generated[0], "Cache-Control": "private, max-age=31536000, immutable", "X-Voice-Source": "narracao" },
+      headers: { Location: mediaUrl(generated[0]), "Cache-Control": "private, max-age=31536000, immutable", "X-Voice-Source": "narracao" },
     });
   }
   if (generated.length > 1) {

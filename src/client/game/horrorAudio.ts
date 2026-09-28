@@ -220,22 +220,22 @@ export function useHorrorAudio(state: GameState | null, enabled: boolean) {
     audioDirector().setBed(bedSound, 1, bedCat);
   }, [bedSound, bedCat]);
 
-  // Ruídos naturais ficam raros e espaçados. Se houver fala, o mixer os mantém ao fundo.
+  // Ruídos da mata: só ao ar livre e à noite, raros (45–90 s). Passos soltos com o jogador
+  // parado, ou galhos dentro do avião, soavam sem sentido.
+  const outdoorsAtNight = !!state?.campaign.night && !state?.here.indoor;
   useEffect(() => {
-    if (!enabled || !playing) return;
-    const pool: readonly string[] = state?.campaign.night
-      ? [...HORROR.cenario.galhos, HORROR.lobo.distante, ...HORROR.cenario.passos]
-      : [...HORROR.cenario.galhos, ...HORROR.cenario.passos];
+    if (!enabled || !playing || !outdoorsAtNight) return;
+    const pool: readonly string[] = [...HORROR.cenario.galhos, HORROR.lobo.distante];
     let timer = 0;
     const schedule = () => {
       timer = window.setTimeout(() => {
         audioDirector().sting(pick(pool), 0.42);
         schedule();
-      }, 14_000 + Math.random() * 16_000);
+      }, 45_000 + Math.random() * 45_000);
     };
     schedule();
     return () => window.clearTimeout(timer);
-  }, [enabled, playing, state?.campaign.night]);
+  }, [enabled, playing, outdoorsAtNight]);
 
   // Sai da tela: para tudo. Adiado para a remontagem imediata do React (StrictMode) não
   // calar a primeira narração.

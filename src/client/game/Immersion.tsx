@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type { GameState } from "./useGame";
 import { narrateSequence, stopNarration, VOICE_STATUS_EVENT, type VoiceStatus } from "./narrator";
 import { DICE, playCue } from "./choiceSfx";
+import { LOCAL_ROLL_EVENT, isEchoOfLocalRoll } from "./localDice";
+import { HAPTIC, vibrate } from "./mobile";
+import { ATTR_LABEL } from "../labels";
 
 /** Quanto tempo o resultado do D20 fica no topo; a cena falada espera isso. */
 export const D20_REVEAL_MS = 3_400;
@@ -312,24 +315,49 @@ export function NarratorVoice({ state }: { state: GameState }) {
 }
 
 /** Cartão curto no topo: mostra o resultado sem cobrir as opções; um toque fecha. */
-export function D20Overlay({ roll }: { roll: Roll }) {
+export function D20Overlay({ roll: serverRoll }: { roll: Roll }) {
   const initial = useRef<string | null | undefined>(undefined);
-  const [visible, setVisible] = useState(false);
+  const [roll, setRoll] = useState<NonNullable<Roll> | null>(null);
+  const hideTimer = useRef<number | undefined>(undefined);
+  const soundTimer = useRef<number | undefined>(undefined);
 
+  const show = (next: NonNullable<Roll>, soundDelayMs: number) => {
+    window.clearTimeout(hideTimer.current);
+    window.clearTimeout(soundTimer.current);
+    // O som do resultado entra depois do dado rolando (um efeito corta o outro).
+    soundTimer.current = window.setTimeout(() => {
+      playCue(next.success ? DICE.success : DICE.failure);
+      if (next.crit) vibrate(next.crit === "critical_success" ? HAPTIC.criticalSuccess : HAPTIC.criticalFailure);
+    }, soundDelayMs);
+    setRoll(next);
+    hideTimer.current = window.setTimeout(() => setRoll(null), D20_REVEAL_MS);
+  };
+
+  // Dado rolado no aparelho: aparece no toque, sem esperar a rede.
+  useEffect(() => {
+    const onLocal = (event: Event) => show((event as CustomEvent<NonNullable<Roll>>).detail, 650);
+    window.addEventListener(LOCAL_ROLL_EVENT, onLocal);
+    return () => {
+      window.removeEventListener(LOCAL_ROLL_EVENT, onLocal);
+      window.clearTimeout(hideTimer.current);
+      window.clearTimeout(soundTimer.current);
+    };
+  }, []);
+
+  // Dado do servidor (modo server, ou outro aparelho): mostra, salvo se for o eco do local.
   useEffect(() => {
     if (initial.current === undefined) {
-      initial.current = roll?.id ?? null;
+      initial.current = serverRoll?.id ?? null;
       return;
     }
-    if (!roll || initial.current === roll.id) return;
-    initial.current = roll.id;
-    playCue(roll.success ? DICE.success : DICE.failure);
-    setVisible(true);
-    const timer = window.setTimeout(() => setVisible(false), D20_REVEAL_MS);
+    if (!serverRoll || initial.current === serverRoll.id) return;
+    initial.current = serverRoll.id;
+    if (isEchoOfLocalRoll(serverRoll)) return;
+    const timer = window.setTimeout(() => show(serverRoll, 0), 0);
     return () => window.clearTimeout(timer);
-  }, [roll]);
+  }, [serverRoll]);
 
-  if (!visible || !roll) return null;
+  if (!roll) return null;
 
   const advLabel = roll.advantage ? "VANTAGEM" : roll.disadvantage ? "DESVANTAGEM" : "";
   const sign = (roll.modifier ?? 0) >= 0 ? "+" : "";
@@ -340,13 +368,13 @@ export function D20Overlay({ roll }: { roll: Roll }) {
       className={`dice-reveal ${roll.success ? "dice-success" : "dice-failure"} ${roll.crit ? "dice-critical" : ""}`}
       role="status"
       aria-live="polite"
-      onClick={() => setVisible(false)}
+      onClick={() => setRoll(null)}
     >
       <div className="d20-stage">
         <div className="d20-die"><span>{roll.value}</span></div>
       </div>
       <div className="dice-copy">
-        <small>TESTE DE {roll.attribute.replaceAll("_", " ").toUpperCase()}{advLabel && ` · ${advLabel}`}</small>
+        <small>TESTE DE {(ATTR_LABEL[roll.attribute]?.label ?? roll.attribute).toUpperCase()}{advLabel && ` · ${advLabel}`}</small>
         <strong>
           {roll.crit === "critical_success" ? "SUCESSO CRÍTICO!" : roll.crit === "critical_failure" ? "FALHA CRÍTICA" : roll.success ? "SUCESSO" : "FALHA"}
         </strong>

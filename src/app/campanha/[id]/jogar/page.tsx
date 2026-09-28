@@ -122,48 +122,37 @@ export default function PlayPage() {
       <header className="hud">
         {/* Voltar */}
         <Link href="/painel" aria-label="Voltar ao painel">
-          <Logo size={30} />
+          <Logo size={26} />
         </Link>
 
-        {/* Nome da campanha */}
-        <div className="hud-block hide-mobile" style={{ maxWidth: 200, overflow: "hidden" }}>
-          <span
-            className="label"
-            style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}
-          >
+        {/* Info da campanha - compacto */}
+        <div className="hud-block hide-mobile" style={{ maxWidth: 180, overflow: "hidden" }}>
+          <span className="label" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
             {state.campaign.name}
           </span>
           <span className="tiny muted">
-            {state.campaign.mode === "solo" ? "Solo" : "Cooperativo"} · rodada {state.campaign.round}
+            {state.campaign.mode === "solo" ? "Solo" : "Coop"} · R{state.campaign.round}
           </span>
         </div>
 
         <div className="spacer" />
 
-        {/* Relógio do jogo */}
+        {/* Relógio principal - destaque */}
         <div className="hud-block" style={{ alignItems: "center" }} data-tut-id="clock">
           <span className="hud-clock">{state.campaign.clock}</span>
-          <span className="tiny muted" style={{ display: "flex", gap: 6 }}>
+          <span className="tiny muted" style={{ display: "flex", gap: 8 }}>
             <span>DIA {state.campaign.day}</span>
             <span style={{ color: state.campaign.night ? "var(--blue-2)" : "var(--amber)", fontWeight: 500 }}>
-              {state.campaign.night ? "◑ Noite" : "○ Dia"}
+              {state.campaign.night ? "● Noite" : "● Dia"}
             </span>
-            <span>{state.campaign.temperature}°C</span>
           </span>
         </div>
 
-        {/* Bússola de objetivo */}
-        {!finished && !dead && (
-          <ObjectiveCompass state={state} onShow={() => { setPanel("map"); setTab("acoes"); }} />
-        )}
-
         <div className="spacer" />
 
-        {/* Som e tutorial */}
-        <div className="hud-tools">
+        {/* Controles essenciais apenas */}
+        <div className="hud-tools" style={{ gap: 6 }}>
           <NarratorVoice state={state} />
-          <AudioSettings />
-          {state.campaign.mode === "coop" && <RoomVoice campaignId={id} compact />}
           <button
             className="hud-icon"
             onClick={toggle}
@@ -175,21 +164,15 @@ export default function PlayPage() {
           </button>
         </div>
 
-        {me && <LineageBadge me={me} />}
-
-        {/* Status salvo */}
+        {/* Status salvo - minimal */}
         <div className="hud-block hide-mobile" style={{ alignItems: "flex-end" }}>
-          {state.campaign.paused && !finished ? (
-            <span className="chip chip-amber" style={{ animation: "chip-blink 1.5s ease-in-out infinite" }}>
-              ⏸ Pausada
-            </span>
-          ) : (
-            <span className="chip chip-green">● Salvo</span>
-          )}
+          <span className={`chip ${state.campaign.paused && !finished ? "chip-amber" : "chip-green"}`} style={{ fontSize: 10 }}>
+            {state.campaign.paused && !finished ? "⏸ Pausada" : "● Salvo"}
+          </span>
           <span className="hud-save">{saved}</span>
         </div>
 
-        {/* Avatar do personagem */}
+        {/* Avatar - sem ECG inline, sem pulso no dot */}
         {me && (
           <button
             className={`avatar-btn ${avatarClass(me)}`}
@@ -199,16 +182,7 @@ export default function PlayPage() {
             data-tut-id="avatar"
           >
             <SurvivorPortrait id={me.id} name={me.name} />
-            {/* ECG inline */}
-            <EcgLine alive={me.alive} injured={isInjured} />
-            {/* Dot de status */}
-            <span
-              className="dot"
-              style={{
-                background: dotColor,
-                animation: isAlert ? "chip-blink 1s ease-in-out infinite" : undefined,
-              }}
-            />
+            <span className="dot" style={{ background: dotColor }} />
           </button>
         )}
       </header>
@@ -230,13 +204,11 @@ export default function PlayPage() {
         <aside className="game-side">
           {/* Abas */}
           <div className="side-tabs" role="tablist">
-            {(
-              [
-                ["acoes",  "Ações"],
-                ["diario", "Diário"],
-                ["grupo",  state.campaign.mode === "coop" ? "Grupo" : "Status"],
-              ] as [Tab, string][]
-            ).map(([t, l]) => (
+            {([
+              ["acoes", "Ações"],
+              ["diario", "Diário"],
+              ["grupo", state.campaign.mode === "coop" ? "Grupo" : "Status"],
+            ] as [Tab, string][]).map(([t, l]) => (
               <button
                 key={t}
                 role="tab"
@@ -255,8 +227,8 @@ export default function PlayPage() {
             {/* ABA: Ações */}
             {tab === "acoes" && (
               <div className="stack">
-                <CampaignDirector state={state} onOpenMap={() => setPanel("map")} />
                 {me && me.alive && !finished && <PowerCard me={me} acts={state.acts} busy={busy || !!state.pending} onAct={act} />}
+
                 {(finished || dead) && (
                   <div className={finished ? "ok-box" : "error-box"} style={{ textAlign: dead && !finished ? "center" : undefined }}>
                     {dead && !finished && <div style={{ fontSize: 18, marginBottom: 4 }}>☠</div>}
@@ -270,31 +242,18 @@ export default function PlayPage() {
                   </div>
                 )}
 
-
                 {/* Atalhos rápidos */}
                 {me && !finished && (
-                  <div className="row" style={{ gap: 6 }}>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => setPanel("bag")}
-                      style={{ flex: 1 }}
-                      data-tut-id="bag"
-                    >
-                      🎒 Mochila · {me.load.weightKg}kg
+                  <div className="action-grid" data-tut-id="actions" style={{ marginTop: 4 }}>
+                    <button className="action-btn" onClick={() => setPanel("bag")} data-tut-id="bag">
+                      <span className="t">🎒 Mochila</span>
+                      <span className="d">{me.load.weightKg}kg</span>
                     </button>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => setPanel("char")}
-                      style={{ flex: 1 }}
-                    >
-                      Personagem
+                    <button className="action-btn" onClick={() => setPanel("char")}>
+                      <span className="t">Personagem</span>
                     </button>
                   </div>
                 )}
-
-                {/* Preview das últimas mensagens */}
-                <div className="label" style={{ marginTop: 8 }}>Últimas mensagens</div>
-                <Feed log={state.log.slice(-4)} clues={[]} autoScroll={false} />
               </div>
             )}
 

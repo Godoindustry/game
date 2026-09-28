@@ -5,7 +5,7 @@
  * pode ferir um personagem e poupar outro.
  */
 import type { CharacterState, ChoiceDef, EventDef, GameContent, WorldState } from "./types";
-import type { Rng } from "./rng";
+import { diceRng, type Rng } from "./rng";
 import { hasItem } from "./inventory";
 import { isNight, isSheltered } from "./physiology";
 import { applyEffects, applyRollLog, meetsRequirements, rollCheck, type EffectContext } from "./effects";
@@ -109,6 +109,8 @@ export function applyChoiceOutcome(
   char: CharacterState,
   choice: ChoiceDef,
   ctx: EffectContext,
+  /** Faces do D20 rolado no aparelho (modo DICE_AUTHORITY=client); ausente = servidor rola. */
+  dice?: number[] | null,
 ): { success: boolean | null } {
   const req = meetsRequirements(char, ctx.world, ctx.content, choice.requirements);
   if (!req.ok) {
@@ -119,7 +121,7 @@ export function applyChoiceOutcome(
   if (o.text) ctx.lines.push(o.text);
   applyEffects(char, o.effects, ctx);
   if (!o.check) return { success: null };
-  const roll = rollCheck(char, o.check, ctx.rng, ctx.minute, ctx.content);
+  const roll = rollCheck(char, o.check, dice ? diceRng(dice, ctx.rng) : ctx.rng, ctx.minute, ctx.content);
   const branch = roll.success ? o.success : o.failure;
   applyRollLog(ctx, o.check.attr, roll);
   if (branch) {

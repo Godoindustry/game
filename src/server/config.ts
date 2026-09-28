@@ -78,6 +78,9 @@ const schema = z.object({
 
   // Voz: áudios humanos gravados por padrão; Gemini TTS é opcional. Nunca usa voz do navegador.
   TTS_PROVIDER: z.enum(["recorded", "gemini"]).default("recorded"),
+  // D20: "client" = o aparelho rola e mostra na hora (mais fluido; o servidor só aplica as regras);
+  // "server" = o servidor rola (à prova de trapaça, mas o resultado espera a resposta da rede).
+  DICE_AUTHORITY: z.enum(["client", "server"]).default("client"),
   GEMINI_TTS_MODELS: z.string().default("gemini-3.8-flash-tts,gemini-3.8-flash-lite-tts,gemini-3.1-flash-tts-preview"),
   TTS_SPEECH_LEVEL: z.enum(["beginner", "advanced"]).default("advanced"),
   // Mantidos apenas para o gerador legado de áudios fixos em public/audio.
@@ -93,6 +96,26 @@ const schema = z.object({
 
   FREE_MAX_ACTIVE_CAMPAIGNS: z.coerce.number().int().positive().default(3),
   PREMIUM_MAX_ACTIVE_CAMPAIGNS: z.coerce.number().int().positive().default(12),
+
+  // ===== Integrações gratuitas (todas opcionais) =====
+  // Sem qualquer uma delas o jogo funciona igual: cada serviço cai no fallback local.
+
+  // Armazenamento distribuído (Upstash Redis, plano gratuito via REST).
+  // Resolve o estado que hoje vive só na memória do processo e quebra em multi-instância.
+  UPSTASH_REDIS_REST_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+
+  // Tempo real do cooperativo (Supabase Realtime). Precisa do mesmo projeto do banco.
+  // As três juntas: sem a URL/chave não há canal, e sem o segredo não há token — por isso
+  // nunca existe um modo "público", que abriria a campanha de qualquer um.
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_ANON_KEY: z.string().optional(),
+  SUPABASE_JWT_SECRET: z.string().optional(),
+
+  // CDN de imagens e áudio (Cloudinary, 25 créditos/mês no plano gratuito).
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof schema>;

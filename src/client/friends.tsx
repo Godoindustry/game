@@ -22,9 +22,8 @@ export interface FriendsData {
   onlineCount: number;
 }
 
-export const AVATAR_ICON: Record<string, string> = {
-  bussola: "🧭", radio: "📻", lanterna: "🔦", mochila: "🎒", fogueira: "🔥", mapa: "🗺️", corda: "🪢", cruz: "✚",
-};
+/** Emojis dos ícones clássicos; para desenhar qualquer avatar (inclusive criaturas) use <Avatar>. */
+export { CLASSIC_ICON as AVATAR_ICON } from "@/shared/avatars";
 
 const POLL_MS = 20_000;
 

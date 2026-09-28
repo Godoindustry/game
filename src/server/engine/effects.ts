@@ -38,6 +38,18 @@ export function checkChance(char: CharacterState, check: CheckDef, worldMinute: 
   return r.chance;
 }
 
+/** O que o aparelho precisa para resolver o D20 sozinho (mesmas regras de rollCheck). */
+export function checkPreview(char: CharacterState, check: CheckDef, worldMinute: number, content?: GameContent) {
+  const r = rollCheck(char, check, () => 0, worldMinute, content);
+  return {
+    chance: r.chance,
+    target: r.target,
+    modifier: r.modifier,
+    disadvantage: r.disadvantage,
+    critFailMax: rulesFor(char.rules?.difficulty).critFailMax,
+  };
+}
+
 export type Crit = "critical_success" | "critical_failure" | null;
 
 export function rollCheck(char: CharacterState, check: CheckDef, rng: Rng, worldMinute: number, content?: GameContent) {

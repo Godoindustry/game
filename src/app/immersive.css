@@ -204,6 +204,23 @@
 .story-outcome.is-failure .story-outcome-kicker b { color: #f0a3ae; border-color: rgba(185, 55, 75, .6); }
 .story-outcome p { margin: 0; color: #ddd2c3; font: 15px/1.55 Georgia, serif; white-space: pre-line; }
 .story-outcome p + p { margin-top: 6px; color: #b5a99d; font-style: italic; }
+.story-outcome { scroll-margin-top: 72px; }
+/* O que mudou na ficha: vida, itens, ferimentos — o anúncio do mestre depois da jogada. */
+.story-changes { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.story-changes li { padding: 4px 9px; color: #ddd2c3; border: 1px solid rgba(221, 210, 195, .22); border-radius: 999px; background: rgba(0, 0, 0, .25); font: 600 11px/1.3 var(--font-mono); }
+.story-changes li.is-bad { color: #f0a3ae; border-color: rgba(185, 55, 75, .55); background: rgba(120, 20, 36, .22); }
+.story-changes li.is-good { color: #b7d4b6; border-color: rgba(119, 183, 126, .5); background: rgba(40, 90, 50, .2); }
+/* Multiplayer: quem ainda falta jogar a rodada. */
+.story-waiting { display: grid; gap: 4px; margin: 0 0 14px; padding: 10px 13px; color: #d6cabb; border-left: 3px solid #b18a50; background: rgba(177, 138, 80, .1); font: 14px/1.45 var(--font-body); }
+.story-waiting b { color: #efe2cd; }
+.story-waiting span { color: #d8c298; font-weight: 600; }
+.story-waiting small { color: #8f8587; font-size: 12px; }
+/* Guia das primeiras rodadas. */
+.story-guide { max-width: 980px; margin: 0 auto 12px; padding: 12px 16px; border: 1px dashed rgba(216, 194, 152, .45); border-radius: 2px 12px 2px 2px; background: rgba(20, 15, 12, .92); }
+.story-guide ol { margin: 4px 0 12px; padding-left: 20px; color: #d6cabb; font: 14px/1.5 var(--font-body); }
+.story-guide li + li { margin-top: 5px; }
+.story-guide b { color: #efe2cd; }
+.story-guide i { color: #d8c298; font-style: normal; font-weight: 700; }
 .story-decisions-heading .story-objective { max-width: 380px; color: #c9b58f; font: 12px/1.4 var(--font-body); font-style: normal; text-align: right; }
 .story-objective b { color: #d8c298; font-weight: 700; }
 .story-objective small { display: block; margin-top: 3px; color: #8f8587; font: italic 11px/1.4 Georgia, serif; }
@@ -1001,8 +1018,25 @@
   .story-stage-topline span:nth-child(2) { display: none; }
   .story-stage-copy { left: 17px; right: 17px; bottom: 42px; }
   .story-stage-copy h1 { font-size: clamp(34px, 12vw, 51px); }
-  /* Celular: o texto empurra a altura da cena em vez de ser cortado. */
-  .story-mode .story-stage { display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; padding-top: 170px; }
+  /* Celular: o texto empurra a altura da cena em vez de ser cortado; a arte vira faixa curta
+     para as opções chegarem mais perto do polegar. */
+  .story-mode .story-stage { display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; padding-top: 118px; }
+  .story-stage-copy h1 { font-size: clamp(28px, 9vw, 40px); }
+  .story-rule { margin: 12px 0 9px; }
+  /* Bateria: sem câmera lenta nem "respiração" infinitas em tela pequena. */
+  .story-stage-art, .story-stage-breathe { animation: none; }
+  .story-guide ol { font-size: 13.5px; }
+  .story-outcome p.is-flavor:not(.is-open) { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; cursor: pointer; }
+  /* Piso de leitura no celular (auditoria em 360 px achou rótulos de 7–10 px): nada abaixo de
+     11 px; texto corrido com 12–13 px. */
+  .story-stage-topline { font-size: 11px; letter-spacing: .1em; }
+  .story-speaker, .story-stage-copy small, .story-outcome-kicker,
+  .story-decisions-heading span, .choice-roll, .awakening-card span,
+  .character-lineage span, .silhouette-meta { font-size: 11px; letter-spacing: .1em; }
+  .awakening-card p { font-size: 13px; }
+  /* Alvos de toque de 44 px no topo do jogo. */
+  .game-immersive .hud-icon { min-width: 44px; height: 44px; font-size: 16px; }
+  .game-immersive .hud > a { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
   .story-stage-copy { position: relative; left: auto; right: auto; bottom: auto; margin: 0 17px 34px; }
   .story-stage-copy p { font-size: 15px; line-height: 1.55; }
   .story-decisions-heading .story-objective { max-width: none; text-align: left; }

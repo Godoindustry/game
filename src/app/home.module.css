@@ -263,7 +263,12 @@
   .features { position: relative; right: auto; bottom: auto; left: auto; grid-template-columns: 1fr 1fr; width: calc(100% - 34px); margin: 0 auto 22px; }
   .features article { min-height: 66px; padding: 9px 11px; }
   .features strong { font-size: 14px; }
-  .features span { font-size: 7px; }
+  /* Piso de leitura no celular: a auditoria em 360 px achou rótulos de 6–9 px. */
+  .features span { font-size: 11px; letter-spacing: .04em; }
+  .brand b, .eyebrow, .secondaryAction, .transmission small { font-size: 11px; letter-spacing: .12em; }
+  .secondaryAction { min-height: 44px; }
+  .signal { font-size: 11px; letter-spacing: .16em; }
+  .login { display: inline-flex; align-items: center; min-height: 44px; font-size: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

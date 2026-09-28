@@ -41,12 +41,15 @@ export const PIXABAY_WANTED: Record<string, { search: string; where: string; sec
   "dado/falha": { search: "horror sting fail / suspense hit low", where: "Resultado do D20: falha", seconds: "1–2" },
 };
 
-/** Primeira regra que casar com o texto da escolha vence. */
+/**
+ * Primeira regra que casar com o texto da escolha vence. Só ações com som inequívoco:
+ * nada de "sair"/"seguir" genérico (tocava passo no mato dentro da cabine do avião).
+ */
 const CHOICE_RULES: [RegExp, SoundCue][] = [
   [/grit|chamar por|acenar|pedir ajuda/i, { want: "jogador/grito-socorro" }],
   [/uiv/i, { want: "lobo-de-ambar/uivo", vol: 0.7 }],
   [/cinto/i, { want: "cenario/cinto-fivela" }],
-  [/forçar|alavanca|cadeado|pular a cerca|quadriciclo/i, { want: "cenario/metal-forcando" }],
+  [/forçar a porta|forçar o cadeado|alavanca|pular a cerca|quadriciclo/i, { want: "cenario/metal-forcando" }],
   [/fogo|chama|fogueira|incendiar/i, { want: "cenario/fogueira-acender" }],
   [/sinalizador/i, { want: "cenario/sinalizador" }],
   [/rádio|sintoniz|frequência|fios/i, { want: "cenario/radio-chiado" }],
@@ -56,13 +59,12 @@ const CHOICE_RULES: [RegExp, SoundCue][] = [
   [/corr(a|er)|fug(a|ir)/i, { want: "jogador/respiracao-correndo", fallback: "cenario/passos-floresta" }],
   [/golpe|derrubar|acabar com isso|tomar a chave/i, { want: "jogador/golpe" }],
   [/imóvel|prender a respiração|deitar no chão|em silêncio/i, { want: "jogador/respiracao-contida" }],
-  [/árvore|mato|esconder|arbust/i, { want: "cenario/mato-arbusto" }],
+  [/subir na árvore|enfiar no mato|arbust/i, { want: "cenario/mato-arbusto" }],
   [/pedras/i, { want: "cenario/pedras" }],
   [/corda/i, { want: "cenario/corda" }],
   [/diário|mapa|lápide|ler /i, { want: "cenario/papel-folhear" }],
   [/enfaix|tratar|língua/i, { want: "jogador/gemido-dor" }],
   [/descans|fechar os olhos/i, { want: "jogador/suspiro-alivio-1" }],
-  [/seguir|caminhar|ir embora|sair|recuar|passar longe|descer/i, { want: "cenario/mato-passo" }],
 ];
 
 /** Eventos cujo som de chegada ainda falta (os que já existem ficam em horrorAudio.ts). */
@@ -94,6 +96,7 @@ export function playChoice(label: string): void {
 
 export const DICE: Record<"rolling" | "success" | "failure", SoundCue> = {
   rolling: { want: "dado/rolando" },
-  success: { want: "dado/sucesso", fallback: "jogador/suspiro-alivio-2", vol: 0.8 },
-  failure: { want: "dado/falha", fallback: "cenario/galho-quebrando-1" },
+  // Sem reserva: um suspiro ou galho quebrando no resultado do dado não faz sentido.
+  success: { want: "dado/sucesso", vol: 0.8 },
+  failure: { want: "dado/falha" },
 };

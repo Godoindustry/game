@@ -9,7 +9,7 @@
  * 5. Procura o próximo evento narrativo.
  */
 import type { ActionInput, ActionReport, ActiveEvent, CharacterState, EventDef, GameContent, WorldState } from "./types";
-import { rngFor } from "./rng";
+import { clientDice, rngFor } from "./rng";
 import { passTime, type Activity } from "./physiology";
 import { resolveAction } from "./actions";
 import { applyChoiceOutcome, choiceById, eventById, findTriggeredEvent, tallyChoice } from "./events";
@@ -82,7 +82,9 @@ export function resolveRound(input: RoundInput): RoundResult {
         if (votes.length > 1 && v.choiceId !== choice.id) {
           ctx.lines.push(`O grupo decidiu: “${choice.label}”.`);
         }
-        const res = applyChoiceOutcome(char, choice, ctx);
+        // O dado do aparelho só vale para a escolha que o próprio jogador votou.
+        const dice = v.choiceId === choice.id ? clientDice(v.action.params.d20) : null;
+        const res = applyChoiceOutcome(char, choice, ctx, dice);
         const rep = passTime(char, world, content, ctx.minute, choice.durationMinutes, "light");
         ctx.lines.push(...rep.notes);
         const total = choice.durationMinutes + ctx.extraMinutes;

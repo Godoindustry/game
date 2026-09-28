@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { api } from "@/client/api";
 import { AppShell, ENDING_LABEL, Spinner } from "@/client/ui";
 import { toastError, useSession, useToasts } from "@/client/session";
-import { AVATAR_ICON, FriendStatus, useFriends } from "@/client/friends";
+import { FriendStatus, useFriends } from "@/client/friends";
+import { Avatar } from "@/client/Avatar";
 
 interface CampaignItem {
   id: string;
@@ -50,7 +51,7 @@ function OnlineFriends() {
         <div className="grid-3">
           {online.map((f) => (
             <div key={f.userId} className="panel panel-tight row" style={{ gap: 10, flexWrap: "nowrap" }}>
-              <span className="item-icon" style={{ fontSize: 18 }}>{AVATAR_ICON[f.avatar] ?? "•"}</span>
+              <Avatar id={f.avatar} size={36} />
               <span className="stack" style={{ gap: 2, minWidth: 0 }}>
                 <strong>{f.displayName}</strong>
                 <FriendStatus f={f} />
@@ -214,7 +215,8 @@ function Dashboard() {
                   onClick={() => void remove(c)}
                   title={c.role === "owner" ? "Apagar campanha" : "Sair da campanha"}
                   aria-label={c.role === "owner" ? `Apagar a campanha ${c.name}` : `Sair da campanha ${c.name}`}
-                  style={{ position: "absolute", top: -10, right: -10, width: 28, height: 28, minWidth: 0, padding: 0, borderRadius: 999, background: "var(--bg, #0b0d0c)", lineHeight: 1 }}
+                  // right: 0 — com right negativo o botão saía 10 px da tela no celular (a página alargava).
+                  style={{ position: "absolute", top: -14, right: 0, width: 36, height: 36, minWidth: 0, padding: 0, borderRadius: 999, background: "var(--bg, #0b0d0c)", lineHeight: 1 }}
                 >
                   {removing === c.id ? "…" : c.role === "owner" ? "✕" : "↩"}
                 </button>

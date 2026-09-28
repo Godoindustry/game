@@ -1,6 +1,16 @@
+/**
+ * Sinalização efêmera para uma malha WebRTC. O servidor nunca recebe áudio:
+ * ele apenas encaminha ofertas/ICE entre membros autenticados da campanha.
+ *
+ * O estado fica no KV (Upstash) e não na memória do processo. Antes ele vivia num
+ * `Map` local, o que quebrava assim que a Vercel servia dois jogadores em instâncias
+ * diferentes: cada uma via SDP para o vácuo. Com o KV as instâncias compartilham a
+ * mesma sala; sem o KV, o `kv.ts` cai para memória e o comportamento local é o de antes.
+ */
 import { z } from "zod";
 import type { SessionUser } from "./auth";
 import { requireMember } from "./campaigns";
+import { kvDel, kvGet, kvListAppend, kvListTake, kvSet } from "../kv";
 
 const descriptionSchema = z.strictObject({
   type: z.enum(["offer", "answer"]),
@@ -26,72 +36,63 @@ const exchangeSchema = z.strictObject({
   signals: z.array(signalSchema).max(16).default([]),
 });
 
+/** Uma vez recebida, a oferta/candidata é entregue uma única vez. */
 type IncomingSignal = z.infer<typeof signalSchema> & { from: string };
-type VoiceMember = { campaignId: string; userId: string; displayName: string; lastSeen: number };
-type VoiceState = { members: Map<string, VoiceMember>; queues: Map<string, IncomingSignal[]> };
-type VoiceGlobal = typeof globalThis & { __lsVoice?: VoiceState };
+type VoiceMember = { userId: string; displayName: string; lastSeen: number };
+type Roster = { members: VoiceMember[] };
 
-const MEMBER_TTL_MS = 15_000;
+/** A sala morre sozinha se ninguém fizer `exchange` por este tempo. */
+const ROOM_TTL_SEC = 30;
+/** Mais generoso que a sala: um sinal não pode sumir porque o alvo demorou a responder. */
+const QUEUE_TTL_SEC = 20;
+const MAX_QUEUE = 64;
 
-function state(): VoiceState {
-  const g = globalThis as VoiceGlobal;
-  g.__lsVoice ??= { members: new Map(), queues: new Map() };
-  return g.__lsVoice;
-}
+const roomKey = (campaignId: string) => `ls:voice:room:${campaignId}`;
+const queueKey = (campaignId: string, userId: string) => `ls:voice:q:${campaignId}:${userId}`;
 
-function key(campaignId: string, userId: string) {
-  return `${campaignId}:${userId}`;
-}
-
-function prune(room: VoiceState, now: number) {
-  for (const [k, member] of room.members) {
-    if (now - member.lastSeen > MEMBER_TTL_MS) {
-      room.members.delete(k);
-      room.queues.delete(k);
-    }
-  }
+function alive(m: VoiceMember, now: number): boolean {
+  return now - m.lastSeen < ROOM_TTL_SEC * 1000;
 }
 
 /**
- * Sinalização efêmera para uma malha WebRTC. O servidor nunca recebe áudio:
- * ele apenas encaminha ofertas/ICE entre membros autenticados da campanha.
+ * Sinalização efêmera para uma malha WebRTC entre até 4 membros da campanha.
+ * O estado é compartilhado entre instâncias; o áudio nunca passa pelo servidor.
  */
 export async function exchange(user: SessionUser, campaignId: string, input: unknown) {
   await requireMember(user, campaignId);
   const data = exchangeSchema.parse(input);
-  const room = state();
   const now = Date.now();
-  prune(room, now);
-  const selfKey = key(campaignId, user.id);
+
+  const roster = (await kvGet<Roster>(roomKey(campaignId))) ?? { members: [] };
+  // Descarta quem sumiu — não depende de um "saiu" chegar.
+  const members = roster.members.filter((m) => alive(m, now));
 
   if (!data.active) {
-    room.members.delete(selfKey);
-    room.queues.delete(selfKey);
+    await leave(campaignId, user.id, members);
     return { selfId: user.id, peers: [], signals: [] };
   }
 
-  room.members.set(selfKey, { campaignId, userId: user.id, displayName: user.displayName, lastSeen: now });
+  const self: VoiceMember = { userId: user.id, displayName: user.displayName, lastSeen: now };
+  const present = members.filter((m) => m.userId !== user.id);
+  await kvSet(roomKey(campaignId), { members: [...present, self] } satisfies Roster, ROOM_TTL_SEC);
 
+  // Encaminha só para quem está na sala agora: nunca para um id arbitrário do corpo.
+  // `kvListAppend` e não ler-e-reescrever: dois membros negotiando ao mesmo tempo não podem
+  // se sobrescrever, senão uma oferta chega pela metade.
   for (const signal of data.signals) {
     if (signal.to === user.id) continue;
-    const targetKey = key(campaignId, signal.to);
-    const target = room.members.get(targetKey);
-    if (!target || target.campaignId !== campaignId) continue;
-    const queue = room.queues.get(targetKey) ?? [];
-    if (queue.length < 64) queue.push({ ...signal, from: user.id });
-    room.queues.set(targetKey, queue);
+    if (!present.some((m) => m.userId === signal.to)) continue;
+    await kvListAppend(queueKey(campaignId, signal.to), [{ ...signal, from: user.id } satisfies IncomingSignal], QUEUE_TTL_SEC, MAX_QUEUE);
   }
 
-  const signals = room.queues.get(selfKey) ?? [];
-  room.queues.set(selfKey, []);
-  const peers = [...room.members.values()]
-    .filter((member) => member.campaignId === campaignId && member.userId !== user.id)
-    .map((member) => ({ id: member.userId, name: member.displayName }));
-
+  const signals = await kvListTake<IncomingSignal>(queueKey(campaignId, user.id), MAX_QUEUE);
+  const peers = present.map((m) => ({ id: m.userId, name: m.displayName }));
   return { selfId: user.id, peers, signals };
 }
 
-export function resetVoiceForTests() {
-  const g = globalThis as VoiceGlobal;
-  g.__lsVoice = undefined;
+async function leave(campaignId: string, userId: string, members: VoiceMember[]): Promise<void> {
+  await kvDel(queueKey(campaignId, userId));
+  const rest = members.filter((m) => m.userId !== userId);
+  if (rest.length) await kvSet(roomKey(campaignId), { members: rest } satisfies Roster, ROOM_TTL_SEC);
+  else await kvDel(roomKey(campaignId));
 }

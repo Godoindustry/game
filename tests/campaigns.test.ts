@@ -100,7 +100,7 @@ describe("Rodadas cooperativas", () => {
     return { owner, guest: g, id };
   }
 
-  it("cada jogador resolve a própria ação na hora, sem esperar o parceiro", async () => {
+  it("a rodada só anda quando todos jogaram a sua vez, mesmo com o grupo separado", async () => {
     const { owner, guest, id } = await startedCoop();
     const s0 = await owner.client.get(`/api/campaigns/${id}/state`);
     // Ato I: cada um acorda num ponto do vale — só o dono está nos destroços.
@@ -111,15 +111,18 @@ describe("Rodadas cooperativas", () => {
     expect(g0.body.event?.participating ?? false).toBe(false);
     const r1 = await act(owner.client, id, "escolha_evento", { choiceId: "vs_despertar.gritar" });
     expect(r1.status).toBe(200);
-    expect(r1.body.state.campaign.round).toBe(2); // resolveu sem esperar o Beto
-    expect(r1.body.state.pending).toBeNull();
-    expect(r1.body.state.event?.title).not.toBe("Silêncio depois do impacto"); // no grupo, decide quem responde primeiro
-    const g = await guest.client.get(`/api/campaigns/${id}/state`);
-    expect(g.body.campaign.round).toBe(2);
-    expect(g.body.me.alive).toBe(true);
+    expect(r1.body.state.campaign.round).toBe(1); // espera o Beto jogar a vez dele
+    const r2 = await act(guest.client, id, "esperar");
+    expect(r2.status).toBe(200);
+    expect(r2.body.state.campaign.round).toBe(2);
+    const o = await owner.client.get(`/api/campaigns/${id}/state`);
+    expect(o.body.campaign.round).toBe(2);
+    expect(o.body.state?.pending ?? o.body.pending).toBeNull();
+    expect(o.body.event?.title).not.toBe("Silêncio depois do impacto");
+    expect(o.body.me.alive).toBe(true);
   });
 
-  it("quem não agiu não recebe ação automática: só vê o tempo passar", async () => {
+  it("antes do prazo da rodada, quem não agiu não recebe ação automática", async () => {
     const { owner, id } = await startedCoop();
     await act(owner.client, id, "escolha_evento", { choiceId: "vs_despertar.examinar" });
     const auto = await getDb().get<{ type: string }>("SELECT type FROM player_actions WHERE campaign_id = ? AND auto = 1", id);

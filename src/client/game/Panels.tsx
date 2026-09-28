@@ -6,6 +6,8 @@ import { ACTION_LABEL, useNow, type GameState } from "./useGame";
 import { LocationScene, Typewriter, dayPhase, sceneProps } from "./Scene";
 import { SurvivorPortrait } from "./Portrait";
 import { DICE, playChoice, playCue } from "./choiceSfx";
+import { dcLabel, faceNeeded, rollOnDevice } from "./localDice";
+import { ATTR_LABEL } from "../labels";
 
 type Act = (type: string, params?: Record<string, unknown>) => void;
 
@@ -59,20 +61,26 @@ export function EventCard({
         <div>
           {armedChoice?.roll ? (
             <div className="d20-challenge" role="group" aria-label={`Teste de ${armedChoice.roll.attribute}`}>
-              <span className="d20-challenge-kicker">TESTE DE {armedChoice.roll.attribute.replaceAll("_", " ")}</span>
+              <span className="d20-challenge-kicker">
+                TESTE DE {(ATTR_LABEL[armedChoice.roll.attribute]?.label ?? armedChoice.roll.attribute).toUpperCase()} · CD {armedChoice.roll.target} ({dcLabel(armedChoice.roll.target)})
+              </span>
               <button
                 className={`d20-throw ${busy ? "is-rolling" : ""}`}
                 disabled={busy || !armedChoice.available}
                 onClick={() => {
                   playCue(DICE.rolling);
-                  onAct("escolha_evento", { choiceId: armedChoice.id });
+                  // Modo client: o aparelho rola e mostra na hora; as faces vão junto com a escolha.
+                  const roll = armedChoice.roll!;
+                  const d20 = roll.client ? rollOnDevice(roll) : undefined;
+                  onAct("escolha_evento", d20 ? { choiceId: armedChoice.id, d20 } : { choiceId: armedChoice.id });
                 }}
               >
                 <span className="d20-throw-die" aria-hidden="true"><b>{busy ? "?" : "20"}</b></span>
                 <strong>{busy ? "ROLANDO..." : "ROLAR D20"}</strong>
               </button>
               <p>
-                <b>{armedChoice.roll.chance}% de chance</b> · o resultado é calculado pelo servidor.
+                Tire <b>{faceNeeded(armedChoice.roll)} ou mais</b> no d20 · seu bônus {armedChoice.roll.modifier >= 0 ? "+" : ""}{armedChoice.roll.modifier}
+                {armedChoice.roll.disadvantage && <> · <b>desvantagem</b> (rola 2, vale o menor)</>} · {armedChoice.roll.chance}% de chance
               </p>
               <button className="d20-choice-back" disabled={busy} onClick={() => setArmedRoll(null)}>
                 ← Escolher outra ação
@@ -96,7 +104,7 @@ export function EventCard({
                   <span style={{ display: "block", fontWeight: 500, fontSize: 14 }}>{c.label}</span>
                   {c.roll && (
                     <span className="choice-roll">
-                      D20 · {c.roll.attribute.replaceAll("_", " ")} · {c.roll.chance}%
+                      D20 · {ATTR_LABEL[c.roll.attribute]?.label ?? c.roll.attribute} · CD {c.roll.target} ({dcLabel(c.roll.target)}) · {c.roll.chance}%
                     </span>
                   )}
                   {c.reason && (

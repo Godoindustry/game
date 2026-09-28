@@ -2,17 +2,24 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
 
+// A CSP abre host externo só quando a integração existe de fato. Sem SUPABASE_URL não entra
+// wss:// de ninguém, e sem CLOUDINARY_CLOUD_NAME o app continua servindo tudo de /public —
+// nada de '*' na política por causa de um recurso opcional.
+const supabaseHost = process.env.SUPABASE_URL?.match(/^https?:\/\/([^/]+)/)?.[1];
+const realtimeOrigin = supabaseHost ? ` wss://${supabaseHost}` : "";
+const cloudinary = process.env.CLOUDINARY_CLOUD_NAME ? " https://res.cloudinary.com" : "";
+
 // CSP: React escapa todo texto e o app não usa dangerouslySetInnerHTML (defesa principal contra XSS).
 // 'unsafe-inline' em script-src é exigido pelos scripts inline do Next sem nonce; 'unsafe-eval' só em dev.
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  `img-src 'self' data: blob:${cloudinary}`,
   // A narração toca a partir de blob: (cache em IndexedDB); sem isto toda voz falha.
-  "media-src 'self' blob:",
+  `media-src 'self' blob:${cloudinary}`,
   "font-src 'self' data:",
-  `connect-src 'self'${isDev ? " ws: wss:" : ""}`,
+  `connect-src 'self'${realtimeOrigin}${isDev ? " ws: wss:" : ""}`,
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",

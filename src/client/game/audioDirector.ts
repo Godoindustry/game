@@ -13,6 +13,7 @@
  * então 1 = "volume certo da categoria"; o mixer multiplica por categoria e geral.
  */
 import { mixVolume, onMixChange, useMixer, type AudioCategory } from "../audioMixer";
+import { sfxUrl } from "./mediaBase";
 
 export type VoicePriority = "narracao" | "alerta";
 
@@ -182,7 +183,7 @@ export class AudioDirector {
     }
     this.bed = null;
     if (!sound) return;
-    const el = new Audio(`/audio/${sound}.mp3`);
+    const el = new Audio(sfxUrl(sound));
     el.loop = true;
     el.volume = 0;
     const bed = { sound, el, base, cat, fading: true };
@@ -207,7 +208,7 @@ export class AudioDirector {
     this.lastSting = now;
     try {
       this.stopSting();
-      const el = new Audio(`/audio/${sound}.mp3`);
+      const el = new Audio(sfxUrl(sound));
       el.volume = mixVolume("efeitos", base);
       this.currentSting = { el, base };
       const clear = () => {

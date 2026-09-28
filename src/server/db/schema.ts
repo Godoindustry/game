@@ -569,6 +569,59 @@ export function schemaTables(): string[] {
 }
 
 /**
+ * Regras do Realtime (canais privados de campanha). Publicadas no `setup.sql` para que
+ * rodar o SQL no Supabase já deixe o push pronto.
+ *
+ * A chave `anon` é pública e o JWT do cliente é assinado pelo servidor, então a RLS é a
+ * fronteira real: `campaign_members` não tem nenhuma política (é lida só pelo backend), e
+ * por isso a checagem de participação vai por uma função SECURITY DEFINER — sem ela, o
+ * `EXISTS` rodaria com RLS ligado e devolveria falso para todo mundo.
+ */
+const REALTIME_RLS_SQL = `
+-- Tempo real: só quem participa da campanha pode assinar o canal dela.
+-- O bloco só age se o Realtime estiver ligado no projeto: sem ele, este setup.sql continua
+-- válido e o jogo segue no polling (é o mesmo fallback de sempre).
+DO $realtime$
+BEGIN
+  IF to_regclass('realtime.messages') IS NULL THEN
+    RAISE NOTICE 'realtime.messages nao existe: ative o Realtime no projeto Supabase e rode este SQL de novo para liberar o canal privado de campanha.';
+    RETURN;
+  END IF;
+
+  -- \`campaign_members\` não tem nenhuma política (só o backend lê), então a checagem de
+  -- participação precisa de SECURITY DEFINER: com RLS ligado, o EXISTS veria zero linhas
+  -- e ninguém jamais poderia assinar o canal.
+  EXECUTE $fn$
+    CREATE OR REPLACE FUNCTION public.ls_realtime_can_read(topic text)
+    RETURNS boolean
+    LANGUAGE sql
+    SECURITY DEFINER
+    SET search_path = public
+    STABLE
+    AS $body$
+      SELECT EXISTS (
+        SELECT 1 FROM public.campaign_members m
+        WHERE m.campaign_id = split_part(topic, ':', 2)
+          AND m.user_id = (auth.jwt() ->> 'sub')
+      );
+    $body$;
+  $fn$;
+
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.ls_realtime_can_read(text) TO authenticated';
+  EXECUTE 'DROP POLICY IF EXISTS ls_realtime_campaign_read ON realtime.messages';
+  EXECUTE $pol$
+    CREATE POLICY ls_realtime_campaign_read ON realtime.messages
+    FOR SELECT TO authenticated
+    USING (
+      realtime.topic() LIKE 'campaign:%'
+      AND public.ls_realtime_can_read(realtime.topic())
+    );
+  $pol$;
+END
+$realtime$;
+`;
+
+/**
  * Versão PostgreSQL do schema. No Supabase o schema `public` é exposto pela API REST
  * para quem tem a chave anon (pública): por isso TODA tabela recebe RLS sem políticas —
  * a API REST não lê nada, e o backend (dono das tabelas) continua com acesso total.
@@ -580,5 +633,5 @@ export function schemaForPostgres(): string {
   const rls = schemaTables()
     .map((t) => `ALTER TABLE ${t} ENABLE ROW LEVEL SECURITY;`)
     .join("\n");
-  return `${body}\n${rls}\n`;
+  return `${body}\n${rls}\n${REALTIME_RLS_SQL}\n`;
 }

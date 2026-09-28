@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { api } from "@/client/api";
 import { AppShell, Spinner } from "@/client/ui";
 import { toastError, useSession, useToasts } from "@/client/session";
+import { Avatar } from "@/client/Avatar";
+import { CLASSIC_AVATARS, CREATURE_AVATARS, avatarName } from "@/shared/avatars";
 
 interface Profile {
   displayName: string;
@@ -20,6 +22,36 @@ const ICONS: Record<string, string> = {
   bussola: "🧭", radio: "📻", lanterna: "🔦", mochila: "🎒", fogueira: "🔥", mapa: "🗺️", corda: "🪢", cruz: "✚",
   estrela: "★", lua: "☾", helicoptero: "🚁", lupa: "🔎", chama: "🔥", tenda: "⛺", balao: "💬", grupo: "👥", caveira: "☠",
 };
+
+/** Grade rolável: criaturas do vale primeiro, depois os ícones clássicos. */
+function AvatarPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const option = (id: string) => (
+    <button
+      type="button"
+      key={id}
+      onClick={() => onChange(id)}
+      aria-pressed={value === id}
+      aria-label={avatarName(id)}
+      title={avatarName(id)}
+      style={{
+        display: "grid", placeItems: "center", width: 48, height: 48, padding: 0, cursor: "pointer",
+        borderRadius: 10, background: "transparent",
+        border: value === id ? "2px solid var(--amber-2, #d8c298)" : "2px solid transparent",
+      }}
+    >
+      <Avatar id={id} size={40} />
+    </button>
+  );
+  const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(48px, 1fr))", gap: 4 } as const;
+  return (
+    <div style={{ maxHeight: "min(360px, 50vh)", overflowY: "auto", padding: 4, borderRadius: 10, background: "rgba(0,0,0,.2)" }}>
+      <div className="label" style={{ margin: "4px 2px 6px" }}>Criaturas</div>
+      <div style={grid}>{CREATURE_AVATARS.map((a) => option(a.id))}</div>
+      <div className="label" style={{ margin: "12px 2px 6px" }}>Clássicos</div>
+      <div style={grid}>{CLASSIC_AVATARS.map((id) => option(id))}</div>
+    </div>
+  );
+}
 
 function ProfileView() {
   const fetchMe = useSession((s) => s.fetchMe);
@@ -72,14 +104,11 @@ function ProfileView() {
           </label>
           <div className="field">
             <span className="label">Ícone</span>
-            <div className="row">
-              {Object.keys(ICONS).slice(0, 8).map((a) => (
-                <button type="button" key={a} onClick={() => setForm({ ...form, avatar: a })} aria-pressed={form.avatar === a}
-                  className={`btn btn-sm ${form.avatar === a ? "btn-primary" : ""}`} style={{ minWidth: 44, fontSize: 18 }} aria-label={a}>
-                  {ICONS[a]}
-                </button>
-              ))}
+            <div className="row" style={{ gap: 12, alignItems: "center" }}>
+              <Avatar id={form.avatar} size={64} />
+              <span className="muted">{avatarName(form.avatar)}</span>
             </div>
+            <AvatarPicker value={form.avatar} onChange={(avatar) => setForm({ ...form, avatar })} />
           </div>
           <label className="field">
             <span className="label">Sobre você</span>

@@ -7,12 +7,14 @@ import * as voice from "../services/voice";
 import * as profile from "../services/profile";
 import * as admin from "../services/admin";
 import * as friends from "../services/friends";
+import * as realtime from "../services/realtime";
 import * as tts from "../services/tts";
 import { listAchievements, ranking } from "../services/achievements";
 import { earlySlotsUsed } from "../services/premium";
 import { getConfig } from "../config";
 import { initDb } from "../db/database";
 import { bootDatabase } from "../db/seed";
+import { resetKvForTests } from "../kv";
 import { PROFESSIONS } from "../engine/character";
 import { ATTRIBUTE_KEYS, BODY_TYPES, CONDITIONINGS, EXPERIENCES, SEXES } from "../engine/types";
 import { ATTR_MAX_CREATION, ATTR_MIN, ATTR_POINTS_TO_DISTRIBUTE, MAX_EXPERIENCES } from "../engine/constants";
@@ -132,6 +134,7 @@ function buildRouter(): Router {
 
   // ---------- Jogo ----------
   r.get("/api/campaigns/:id/state", (ctx) => game.getState(u(ctx), ctx.params.id), { auth: true });
+  r.get("/api/campaigns/:id/realtime", (ctx) => realtime.accessFor(u(ctx), ctx.params.id), { auth: true });
   r.post("/api/campaigns/:id/sync", (ctx) => game.sync(u(ctx), ctx.params.id), { auth: true, rate: "api" });
   r.post("/api/campaigns/:id/actions", async (ctx) => {
     const res = await game.submitAction(u(ctx), ctx.params.id, await ctx.body());
@@ -207,6 +210,6 @@ export function resetApiForTests(): void {
   const g = globalThis as G;
   g.__lsBoot = undefined;
   g.__lsRouter = undefined;
-  voice.resetVoiceForTests();
+  resetKvForTests();
   tts.resetTtsForTests();
 }

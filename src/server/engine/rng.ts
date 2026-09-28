@@ -34,3 +34,22 @@ export function rngFor(...parts: (string | number)[]): Rng {
 export function constantRng(value: number): Rng {
   return () => value;
 }
+
+/**
+ * Dado rolado no aparelho do jogador (DICE_AUTHORITY=client): devolve os valores que
+ * reproduzem exatamente essas faces em rollCheck (face = 20 - floor(rng * 20)) e, esgotados,
+ * segue com o RNG normal.
+ */
+export function diceRng(faces: readonly number[], fallback: Rng): Rng {
+  const queue = [...faces];
+  return () => {
+    const face = queue.shift();
+    return face === undefined ? fallback() : (20 - face) / 20;
+  };
+}
+
+/** Faces válidas vindas do cliente: 1 ou 2 inteiros de 1 a 20; qualquer outra coisa é ignorada. */
+export function clientDice(value: unknown): number[] | null {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 2) return null;
+  return value.every((v) => Number.isInteger(v) && v >= 1 && v <= 20) ? (value as number[]) : null;
+}

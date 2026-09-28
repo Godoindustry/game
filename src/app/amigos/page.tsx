@@ -3,7 +3,8 @@ import { useState } from "react";
 import { api } from "@/client/api";
 import { AppShell, Spinner } from "@/client/ui";
 import { toastError, useToasts } from "@/client/session";
-import { AVATAR_ICON, FriendStatus, useFriends, type FriendRequest } from "@/client/friends";
+import { FriendStatus, useFriends, type FriendRequest } from "@/client/friends";
+import { Avatar } from "@/client/Avatar";
 
 function FriendsView() {
   const push = useToasts((s) => s.push);
@@ -47,7 +48,7 @@ function FriendsView() {
   const requestRow = (r: FriendRequest, incoming: boolean) => (
     <div key={r.id} className="panel panel-tight row-between">
       <span className="row" style={{ gap: 10 }}>
-        <span className="item-icon" style={{ fontSize: 18 }}>{AVATAR_ICON[r.avatar] ?? "•"}</span>
+        <Avatar id={r.avatar} size={36} />
         <strong>{r.displayName}</strong>
       </span>
       <span className="row" style={{ gap: 6 }}>
@@ -109,7 +110,7 @@ function FriendsView() {
             {data.friends.map((f) => (
               <div key={f.userId} className="panel panel-tight row-between" style={{ opacity: f.online ? 1 : 0.7 }}>
                 <span className="row" style={{ gap: 10 }}>
-                  <span className="item-icon" style={{ fontSize: 18 }}>{AVATAR_ICON[f.avatar] ?? "•"}</span>
+                  <Avatar id={f.avatar} size={36} />
                   <span className="stack" style={{ gap: 2 }}>
                     <strong>{f.displayName}</strong>
                     <FriendStatus f={f} />

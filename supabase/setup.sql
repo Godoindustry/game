@@ -1,6 +1,6 @@
 -- ============================================================
 -- Linha de Sobrevivência — setup do banco (Supabase / PostgreSQL)
--- Gerado por scripts/gen-supabase-sql.ts em 2026-09-28T12:26:15.607Z
+-- Gerado por scripts/gen-supabase-sql.ts em 2026-09-28T18:30:43.005Z
 --
 -- Cole TUDO no Supabase → SQL Editor → New query → Run.
 -- É idempotente: pode rodar de novo sem apagar dados de jogo.
@@ -282,6 +282,10 @@ CREATE TABLE IF NOT EXISTS campaign_log (                -- feed de mensagens da
   game_minute INTEGER NOT NULL,
   kind TEXT NOT NULL,
   text TEXT NOT NULL,
+  speaker_key TEXT,                                    -- voz fixa: narrator, npc:piloto, creature:mae...
+  speech_tone TEXT,                                    -- emoção controlada do ator virtual
+  speech_voice TEXT,                                   -- direção de interpretação, nunca é falada
+  speech_say TEXT,                                     -- texto literal + tags sonoras Gemini
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_clog_campaign ON campaign_log(campaign_id, id);
@@ -600,13 +604,63 @@ ALTER TABLE ai_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
 
+-- Tempo real: só quem participa da campanha pode assinar o canal dela.
+-- O bloco só age se o Realtime estiver ligado no projeto: sem ele, este setup.sql continua
+-- válido e o jogo segue no polling (é o mesmo fallback de sempre).
+DO $realtime$
+BEGIN
+  IF to_regclass('realtime.messages') IS NULL THEN
+    RAISE NOTICE 'realtime.messages nao existe: ative o Realtime no projeto Supabase e rode este SQL de novo para liberar o canal privado de campanha.';
+    RETURN;
+  END IF;
+
+  -- `campaign_members` não tem nenhuma política (só o backend lê), então a checagem de
+  -- participação precisa de SECURITY DEFINER: com RLS ligado, o EXISTS veria zero linhas
+  -- e ninguém jamais poderia assinar o canal.
+  EXECUTE $fn$
+    CREATE OR REPLACE FUNCTION public.ls_realtime_can_read(topic text)
+    RETURNS boolean
+    LANGUAGE sql
+    SECURITY DEFINER
+    SET search_path = public
+    STABLE
+    AS $body$
+      SELECT EXISTS (
+        SELECT 1 FROM public.campaign_members m
+        WHERE m.campaign_id = split_part(topic, ':', 2)
+          AND m.user_id = (auth.jwt() ->> 'sub')
+      );
+    $body$;
+  $fn$;
+
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.ls_realtime_can_read(text) TO authenticated';
+  EXECUTE 'DROP POLICY IF EXISTS ls_realtime_campaign_read ON realtime.messages';
+  EXECUTE $pol$
+    CREATE POLICY ls_realtime_campaign_read ON realtime.messages
+    FOR SELECT TO authenticated
+    USING (
+      realtime.topic() LIKE 'campaign:%'
+      AND public.ls_realtime_can_read(realtime.topic())
+    );
+  $pol$;
+END
+$realtime$;
+
 ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username ON users(username);
 
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT 'masculino';
 
-INSERT INTO schema_meta(key, value) VALUES('version', '6') ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+ALTER TABLE campaign_log ADD COLUMN IF NOT EXISTS speaker_key TEXT;
+
+ALTER TABLE campaign_log ADD COLUMN IF NOT EXISTS speech_tone TEXT;
+
+ALTER TABLE campaign_log ADD COLUMN IF NOT EXISTS speech_voice TEXT;
+
+ALTER TABLE campaign_log ADD COLUMN IF NOT EXISTS speech_say TEXT;
+
+INSERT INTO schema_meta(key, value) VALUES('version', '7') ON CONFLICT(key) DO UPDATE SET value = excluded.value;
 
 INSERT INTO items(id,name,description,category,weight_g,volume_ml,stackable,max_stack,max_durability,battery_capacity,properties)
            VALUES('garrafa_agua','Garrafa d''água (500 ml)','Garrafa plástica cheia. Se veio de rio ou lago, precisa ser tratada.','agua',530,600,0,1,NULL,NULL,'{"water":35,"emptiesTo":"garrafa_vazia"}')
@@ -1655,7 +1709,7 @@ INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcom
              ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
 
-INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_despertar.uivo','ch_despertar','Responder ao uivo (Lobisomem)',10,'{}','{"text":"","effects":[{"op":"awaken","lineage":"werewolf"}]}',0,1)
+INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES('ch_despertar.uivo','ch_despertar','Responder ao uivo (Lobisomem)',10,'{}','{"text":"[growls] Você responde. O uivo volta de dentro do seu peito. Seus dentes afundam na gengiva, a coluna se dobra e cada osso encontra uma forma nova sob a pele. [breathing heavily] Quando consegue ficar de pé, a mata inteira tem cheiro — medo, sangue e uma matilha esperando pelo seu nome.","effects":[{"op":"awaken","lineage":"werewolf"}]}',0,1)
              ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order;
 
@@ -1798,6 +1852,6 @@ INSERT INTO achievements(id,name,description,icon,points,hidden) VALUES('iara_pa
 INSERT INTO achievements(id,name,description,icon,points,hidden) VALUES('pacto','Filho da noite','Aceite o pacto de sangue da Mãe das Asas.','lua',40,1)
          ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, icon=excluded.icon, points=excluded.points, hidden=excluded.hidden;
 
-INSERT INTO schema_meta(key, value) VALUES('content_hash', '6ed2ec981f5751e0') ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+INSERT INTO schema_meta(key, value) VALUES('content_hash', 'f2caa38b1549f08b') ON CONFLICT(key) DO UPDATE SET value = excluded.value;
 
 COMMIT;

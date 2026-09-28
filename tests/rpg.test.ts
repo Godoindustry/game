@@ -148,16 +148,18 @@ describe("Salas e IA das criaturas (API)", () => {
     expect(Number((await getDb().get<{ n: number }>("SELECT COUNT(*) AS n FROM ai_requests WHERE purpose = 'creature'"))?.n)).toBe(1);
   });
 
-  it("narrador: sem chave usa voz humana gravada; linha de outra campanha → 404", async () => {
+  it("narrador: usa o pacote de narração gerado; linha de outra campanha → 404", async () => {
     const a = await registered("Caio");
     const c = await a.client.post("/api/campaigns", { name: "Voz", mode: "solo" });
     await a.client.post(`/api/campaigns/${c.body.id}/character`, VALID_SHEET);
     await a.client.post(`/api/campaigns/${c.body.id}/start`);
     const logId = (await getDb().get<{ id: number }>("SELECT id FROM campaign_log WHERE campaign_id = ? LIMIT 1", c.body.id))!.id;
     const voice = await a.client.get(`/api/campaigns/${c.body.id}/log/${logId}/voice`);
-    expect(voice.status).toBe(307);
-    expect(voice.headers.get("location")).toMatch(/^\/audio\/.+\.mp3$/);
-    expect(voice.headers.get("x-voice-source")).toBe("recorded");
+    // A cena de abertura é longa: vem em partes, que o cliente toca emendadas.
+    expect(voice.status).toBe(200);
+    expect(voice.headers.get("x-voice-source")).toBe("narracao");
+    expect(voice.body.parts.length).toBeGreaterThan(1);
+    for (const part of voice.body.parts) expect(part).toMatch(/^\/audio\/narracao\/.+\.mp3$/);
     await freshApp({ GEMINI_API_KEY: "gemini_test" });
     const b = await registered("Duda");
     const other = await b.client.post("/api/campaigns", { name: "Outra", mode: "solo" });
@@ -185,7 +187,8 @@ describe("Salas e IA das criaturas (API)", () => {
 
 describe("Tags de voz", () => {
   it("mantém vozes humanas fixas para narrador, NPC e morte", () => {
-    expect(recordedVoiceAsset({ kind: "narrative", speaker_key: null, text: "O rádio chia." })).toBe("/audio/narrador/event-radio.mp3");
+    // Narrador genérico por palavra-chave saiu: fala que não bate com o texto é pior que silêncio.
+    expect(recordedVoiceAsset({ kind: "narrative", speaker_key: null, text: "O rádio chia." })).toBeNull();
     expect(recordedVoiceAsset({ kind: "npc", speaker_key: "npc:iara", text: "Sete quatro zero." })).toMatch(/^\/audio\/iara\/.+\.mp3$/);
     expect(recordedVoiceAsset({ kind: "death", speaker_key: "system:death", text: "O frio venceu." })).toBe("/audio/voz-da-morte/death-hipotermia.mp3");
   });

@@ -3,8 +3,10 @@ import { getDb, nowIso } from "../db/database";
 import type { SessionUser } from "./auth";
 import { premiumInfo, earlySlotsUsed } from "./premium";
 import { getConfig } from "../config";
+import { AVATAR_IDS } from "@/shared/avatars";
 
-export const AVATARS = ["bussola", "radio", "lanterna", "mochila", "fogueira", "mapa", "corda", "cruz"] as const;
+/** Clássicos (emoji) + criaturas do sprite; ver src/shared/avatars.ts. */
+export const AVATARS = AVATAR_IDS;
 
 const updateSchema = z.strictObject({
   displayName: z

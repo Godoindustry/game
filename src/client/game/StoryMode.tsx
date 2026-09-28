@@ -5,6 +5,9 @@ import type { CSSProperties } from "react";
 import type { GameState } from "./useGame";
 import { EventCard, HereCard, PendingCard } from "./Panels";
 import { sceneArtwork } from "./Immersion";
+import { sheetDelta, type SheetChange } from "./sheetDelta";
+import { useWakeLock } from "./mobile";
+import { useNow } from "./useGame";
 
 type Act = (type: string, params?: Record<string, unknown>) => void;
 
@@ -55,6 +58,91 @@ function useFreshRoll(state: GameState) {
   return fresh && fresh.rollId === rollId ? { roll: state.lastRoll!, logId: fresh.logId } : null;
 }
 
+/**
+ * Mudanças na ficha causadas pela última escolha: foto do personagem antes × depois.
+ * Entre escolhas a foto acompanha o personagem (comer, tratar ferida, o tempo passando).
+ */
+function useSheetChanges(me: GameState["me"], outcomeKey: number): SheetChange[] {
+  const snapshot = useRef(me);
+  const lastKey = useRef(outcomeKey);
+  const [changes, setChanges] = useState<{ key: number; list: SheetChange[] } | null>(null);
+  useEffect(() => {
+    if (!me) return;
+    if (outcomeKey !== lastKey.current) {
+      const before = snapshot.current;
+      lastKey.current = outcomeKey;
+      const list = before ? sheetDelta(before, me) : [];
+      // Sem limpeza: se o React refizer o efeito, a lista já calculada não pode se perder.
+      window.setTimeout(() => setChanges({ key: outcomeKey, list }), 0);
+    }
+    snapshot.current = me;
+  }, [me, outcomeKey]);
+  return changes && changes.key === outcomeKey ? changes.list : [];
+}
+
+/**
+ * Multiplayer: a rodada só anda quando todos jogaram. Depois da sua vez, diz quem falta
+ * (e quando a mesa segue sem quem sumiu), para a tela não parecer travada.
+ */
+function WaitingForTable({ state, offset }: { state: GameState; offset: number }) {
+  const mine = state.party.find((member) => member.isMe);
+  const missing = state.party.filter((member) => member.alive && !member.acted && !member.isMe);
+  const deadline = state.campaign.roundDeadlineAt ? Date.parse(state.campaign.roundDeadlineAt) : null;
+  const now = useNow(!!deadline && !!mine?.acted && missing.length > 0, offset);
+  if (state.campaign.mode !== "coop" || !mine?.acted || !missing.length) return null;
+  const left = deadline ? Math.max(0, Math.ceil((deadline - now) / 60_000)) : null;
+  return (
+    <div className="story-waiting" role="status" aria-live="polite">
+      <b>Sua vez está feita.</b> A história segue quando {missing.length > 1 ? "todos jogarem" : "o grupo jogar"}.
+      <span>
+        Esperando: {missing.map((member) => `${member.name}${member.online ? "" : " (offline)"}`).join(", ")}
+      </span>
+      {left !== null && <small>Se não jogarem em {left <= 1 ? "1 minuto" : `${left} minutos`}, recebem a ação mais segura.</small>}
+    </div>
+  );
+}
+
+const GUIDE_KEY = "vale-silente:guia-visto";
+
+/** Guia curto das primeiras rodadas: o que ler, o que tocar, onde ver o resultado. */
+function FirstSteps({ round }: { round: number }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    let seen = true;
+    try {
+      seen = window.localStorage.getItem(GUIDE_KEY) === "1";
+    } catch {
+      /* armazenamento bloqueado: mostra o guia uma vez por visita */
+      seen = false;
+    }
+    if (!seen && round <= 3) {
+      const timer = window.setTimeout(() => setOpen(true), 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, [round]);
+  if (!open) return null;
+  const close = () => {
+    try {
+      window.localStorage.setItem(GUIDE_KEY, "1");
+    } catch {
+      /* ignora */
+    }
+    setOpen(false);
+  };
+  return (
+    <section className="story-guide" aria-label="Como jogar">
+      <span className="story-outcome-kicker">COMO JOGAR</span>
+      <ol>
+        <li><b>Leia a cena.</b> Tudo o que seu personagem percebe está no texto.</li>
+        <li><b>Escolha o que fazer.</b> Opções com <i>D20</i> são testes: a porcentagem é a sua chance, e é você quem rola o dado.</li>
+        <li><b>Veja “O que aconteceu”.</b> Depois de cada escolha aparecem o resultado e o que mudou: vida, itens, ferimentos.</li>
+        <li><b>Siga o objetivo.</b> Ele fica no topo das decisões, com uma dica.</li>
+      </ol>
+      <button type="button" className="btn btn-sm" onClick={close}>Entendi, começar</button>
+    </section>
+  );
+}
+
 export function StoryMode({
   state,
   busy,
@@ -74,6 +162,11 @@ export function StoryMode({
   const outcome = useMemo(() => lastOutcome(state, line.text), [state, line.text]);
   const freshRoll = useFreshRoll(state);
   const outcomeRoll = freshRoll && outcome.some((entry) => entry.id === freshRoll.logId) ? freshRoll.roll : null;
+  const outcomeKey = outcome[outcome.length - 1]?.id ?? 0;
+  const changes = useSheetChanges(state.me, outcomeKey);
+  const outcomeRef = useRef<HTMLElement>(null);
+  const [openFlavor, setOpenFlavor] = useState<number | null>(null);
+  const shownOutcome = useRef(outcomeKey);
   const objective = state.objective;
   const art = sceneArtwork(state) as CSSProperties | undefined;
   const finished = state.campaign.status === "finished";
@@ -81,17 +174,44 @@ export function StoryMode({
   const activeEvent = state.event?.participating ? state.event : null;
   const dangerous = !!state.story.boss?.active || !!activeEvent?.choices.some((choice) => /fug|corr|enfrent|atac/i.test(choice.label));
 
+  // Tela acesa durante a leitura e a narração.
+  useWakeLock(!finished && !dead);
+
+  // Resultado novo: leva o jogador até ele (no celular as opções ficam lá embaixo).
+  useEffect(() => {
+    if (outcomeKey === shownOutcome.current) return;
+    shownOutcome.current = outcomeKey;
+    const el = outcomeRef.current;
+    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [outcomeKey]);
+
   return (
     <main className={`story-mode ${dangerous ? "story-mode-danger" : ""}`} aria-label="Modo história">
       {outcome.length > 0 && (
-        <section className={`story-outcome ${outcomeRoll ? (outcomeRoll.success ? "is-success" : "is-failure") : ""}`} aria-label="O que aconteceu">
+        <section ref={outcomeRef} className={`story-outcome ${outcomeRoll ? (outcomeRoll.success ? "is-success" : "is-failure") : ""}`} aria-label="O que aconteceu">
           <span className="story-outcome-kicker">
             O QUE ACONTECEU
             {outcomeRoll && <b>{outcomeRoll.success ? "SUCESSO" : "FALHA"} NO D20 · TIROU {outcomeRoll.finalTotal ?? outcomeRoll.value}, PRECISAVA {outcomeRoll.target}</b>}
           </span>
-          {outcome.map((entry) => <p key={entry.id}>{entry.text}</p>)}
+          {outcome.map((entry) => entry.kind === "narrative" ? (
+            // Ambientação da IA reconta o resultado: no celular fica recolhida e abre com um toque.
+            <p
+              key={entry.id}
+              className={`is-flavor ${openFlavor === entry.id ? "is-open" : ""}`}
+              onClick={() => setOpenFlavor(openFlavor === entry.id ? null : entry.id)}
+            >
+              {entry.text}
+            </p>
+          ) : <p key={entry.id}>{entry.text}</p>)}
+          {changes.length > 0 && (
+            <ul className="story-changes" aria-label="O que mudou na ficha">
+              {changes.map((change) => <li key={change.label} className={`is-${change.tone}`}>{change.label}</li>)}
+            </ul>
+          )}
         </section>
       )}
+
+      {!finished && !dead && <FirstSteps round={state.campaign.round} />}
 
       <section className="story-stage" aria-label={`Cena: ${line.title}`}>
         <div className="story-stage-art" style={art} aria-hidden="true" />
@@ -135,6 +255,8 @@ export function StoryMode({
             <em>Cada escolha avança a história</em>
           )}
         </div>
+
+        {!finished && !dead && <WaitingForTable state={state} offset={offset} />}
 
         {finished ? (
           <p className="muted">A crônica terminou. Abra o resultado para rever o desfecho.</p>

@@ -13,8 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { audioDirector } from "./audioDirector";
-
-const AUDIO_BASE = "/audio";
+import { sfxUrl } from "./mediaBase";
 
 // Catálogo completo de IDs de arquivo
 export const SFX = {
@@ -60,7 +59,7 @@ export function useAudio(volume = 1) {
 
   // Toda fala gravada entra na fila de voz do diretor: uma de cada vez, o resto abaixa.
   const play = useCallback((id: string, opts?: { vol?: number; alert?: boolean }) => {
-    audioDirector().voiceFile(`${AUDIO_BASE}/${id}.mp3`, opts?.vol ?? volume, opts?.alert ? "alerta" : "narracao");
+    audioDirector().voiceFile(sfxUrl(id), opts?.vol ?? volume, opts?.alert ? "alerta" : "narracao");
   }, [volume]);
 
   const stop = useCallback(() => audioDirector().stopVoices(), []);

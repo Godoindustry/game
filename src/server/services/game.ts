@@ -19,9 +19,9 @@ import { unlockAchievement } from "./achievements";
 import { getScenario } from "../content/valeSilente";
 import { ACTION_TYPES, type ActionInput, type ActionReport, type CharacterState, type GameContent, type WorldState } from "../engine/types";
 import { validateAction, neighbors, travelMinutes } from "../engine/actions";
-import { resolveRound, type RoundAction } from "../engine/round";
+import { defaultActionFor, resolveRound, type RoundAction } from "../engine/round";
 import { eventById } from "../engine/events";
-import { checkChance, meetsRequirements } from "../engine/effects";
+import { checkPreview, meetsRequirements } from "../engine/effects";
 import { computeScore } from "../engine/setup";
 import { inventorySummary, itemDef, loadRatio } from "../engine/inventory";
 import { clockLabel, dayNumber, fireActive, isNight, isSheltered, locationTemp } from "../engine/physiology";
@@ -30,12 +30,14 @@ import { bodyCondition, conditionLine, conditionWords } from "../engine/conditio
 import { currentObjective, urgentNeed } from "../engine/objective";
 import { stripVoiceTags, toVoiceText } from "@/shared/voiceTags";
 import { CREATURE_ATTITUDES, encounterBlocked, fallbackAttitude, nightEncounter, type CreatureAttitude } from "../engine/vampire";
-import { rngFor } from "../engine/rng";
+import { clientDice, rngFor } from "../engine/rng";
 import { LINEAGES, lineageOf, lineageProgress } from "../engine/lineage";
 import { difficultyOf, rulesFor } from "../engine/difficulty";
 import { powerView } from "../engine/powers";
 import { CLASS_BY_ID } from "../engine/classes";
 import { campaignStory } from "../engine/story";
+import { broadcastStateChanged } from "./realtime";
+import { mediaBase, mediaUrl } from "./media";
 
 /** Ações que recebem uma linha de ambientação (IA ou o próprio desfecho escrito da história). */
 const NARRATED: ActionInput["type"][] = ["mover", "examinar", "procurar", "escolha_evento", "dormir", "descansar", "coletar_lenha", "montar_abrigo"];
@@ -79,6 +81,10 @@ const isUniqueViolation = (err: unknown) =>
 export async function submitAction(user: SessionUser, campaignId: string, input: unknown) {
   const data = submitSchema.parse(input);
   if (JSON.stringify(data.params).length > 1000) throw badRequest("Parâmetros grandes demais.");
+  // Dado do aparelho só entra em escolha de evento e só no modo DICE_AUTHORITY=client.
+  const dice = clientDice(data.params.d20);
+  if (dice && data.type === "escolha_evento" && getConfig().DICE_AUTHORITY === "client") data.params.d20 = dice;
+  else delete data.params.d20;
   const camp = await requireMember(user, campaignId);
   if (camp.status !== "active") throw conflict("A campanha não está em andamento.", "campanha_inativa");
   const charId = await myCharacterId(campaignId, user.id);
@@ -127,7 +133,12 @@ export async function submitAction(user: SessionUser, campaignId: string, input:
     if (isUniqueViolation(err)) throw conflict("Ação duplicada.", "acao_duplicada");
     throw err;
   }
-  await tryResolveRound(campaignId);
+  // Se a rodada resolveu, o broadcast já saiu em tryResolveRound. Senão, avisamos o
+  // grupo de que a ação entrou: o "aguardando você" aparece na hora, sem os 3 s de polling.
+  if (!(await tryResolveRound(campaignId))) {
+    const fresh = await getCampaignRow(campaignId);
+    await broadcastStateChanged(campaignId, fresh.version);
+  }
   return { actionId: id, duplicate: false, minutes: v.minutes };
 }
 
@@ -154,7 +165,12 @@ export async function encounter(user: SessionUser, campaignId: string, input: un
   const camp = await requireMember(user, campaignId);
   if (camp.status !== "active") throw conflict("A campanha não está em andamento.", "campanha_inativa");
   const charId = await myCharacterId(campaignId, user.id);
-  return runNightEncounter(campaignId, charId, user.id, kind);
+  const res = await runNightEncounter(campaignId, charId, user.id, kind);
+  if (res.happened) {
+    const fresh = await getCampaignRow(campaignId);
+    await broadcastStateChanged(campaignId, fresh.version);
+  }
+  return res;
 }
 
 /** Chance de algo sair do escuro depois de uma ação noturna ao ar livre, por agressividade do modo. */
@@ -289,8 +305,8 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
   const alive = chars.filter((c) => c.alive);
   const pending = await db.all<ActionRow>("SELECT * FROM player_actions WHERE campaign_id = ? AND round = ? AND status = 'pending'", campaignId, camp.current_round);
   if (!alive.length) return false;
-  // Sem espera pelos amigos: quem agiu resolve na hora. Quem não agiu só vê o tempo passar
-  // (fica parado no mesmo lugar). Num evento em grupo, decide quem responder primeiro.
+  // Regra de mesa: a história só anda quando TODOS os vivos jogaram a sua vez (no solo, o
+  // próprio jogador). Com o grupo separado, quem está fora da cena joga a própria ação.
   if (!pending.length) return false;
   if (pending.some((a) => a.completes_at > now.toISOString())) return false;
 
@@ -300,6 +316,17 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
   const reports: Record<string, ActionReport> = {};
   const actions: RoundAction[] = [];
   const autoRows: { id: string; charId: string; type: string; params: Record<string, unknown>; minutes: number }[] = [];
+
+  const missing = alive.filter((c) => !pending.some((a) => a.character_id === c.id));
+  if (missing.length) {
+    // Quem sumiu da mesa não trava o grupo para sempre: passado o prazo da rodada
+    // (ROUND_TIMEOUT_SECONDS desde a primeira jogada), recebe a ação segura.
+    if (!camp.round_deadline_at || camp.round_deadline_at > now.toISOString()) return false;
+    for (const char of missing) {
+      const auto = defaultActionFor(char, activeEvent, content);
+      autoRows.push({ id: newId(), charId: char.id, type: auto.type, params: auto.params, minutes: auto.minutes });
+    }
+  }
 
   for (const a of pending) {
     const char = byId.get(a.character_id);
@@ -312,6 +339,11 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
       continue;
     }
     actions.push({ ...input, id: a.id, characterId: char.id, minutes: v.minutes, activity: v.activity, isOwner: char.userId === camp.owner_user_id });
+  }
+  for (const r of autoRows) {
+    const char = byId.get(r.charId)!;
+    const auto = defaultActionFor(char, activeEvent, content);
+    actions.push({ ...auto, id: r.id, characterId: char.id, isOwner: char.userId === camp.owner_user_id });
   }
 
   // IA (fora da transação): classifica intenções de conversa com NPC.
@@ -448,8 +480,14 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
     return true;
   });
   // Modo história: depois de uma rodada noturna, algo pode sair do escuro (fora da transação: usa IA).
-  if (resolved && !result.ended) {
-    await nightAmbushes(campaignId, Object.values(reports).filter((r) => r.minutes > 0).map((r) => r.characterId), camp.current_round);
+  if (resolved) {
+    if (!result.ended) {
+      await nightAmbushes(campaignId, Object.values(reports).filter((r) => r.minutes > 0).map((r) => r.characterId), camp.current_round);
+    }
+    // O grupo é avisado por push em vez de esperar o polling. Vai depois da transação e
+    // fora dela: a partida já está salva, então a rede nunca segura o autosave.
+    const after = await getCampaignRow(campaignId);
+    await broadcastStateChanged(campaignId, after.version);
   }
   return resolved;
 }
@@ -573,6 +611,9 @@ export async function getState(user: SessionUser, campaignId: string) {
   const myVote = activeEvent && me ? actions.find((a) => a.character_id === me.id && a.type === "escolha_evento") : undefined;
 
   return {
+    // Prefixo de CDN para o cliente montar os sons de efeito por conta própria (esses não
+    // passam pelo servidor). Vazio sem Cloudinary: o `new Audio` continua com `/audio/...`.
+    media: { audioBase: mediaBase() },
     campaign: {
       id: camp.id,
       name: camp.name,
@@ -627,12 +668,12 @@ export async function getState(user: SessionUser, campaignId: string) {
       online: !!profiles.get(c.userId)?.last_seen_at && Date.now() - new Date(profiles.get(c.userId)!.last_seen_at!).getTime() < 30_000,
     })),
     map: {
-      image: "/assets/mapa-vale-silente.png",
+      image: mediaUrl("/assets/mapa-vale-silente.png"),
       regions: (content.regions ?? []).map((region) => ({
         id: region.id,
         title: region.title,
         subtitle: region.subtitle,
-        art: "/art/vale-silente/phase-atlas.webp",
+        art: mediaUrl("/art/vale-silente/phase-atlas.webp"),
         artPosition: region.artPosition,
         unlocked:
           region.unlockAct <= (story.phase?.index ?? 1)
@@ -730,7 +771,9 @@ export async function getState(user: SessionUser, campaignId: string) {
                 roll: ch.outcome.check && me
                   ? {
                       attribute: ch.outcome.check.attr,
-                      chance: checkChance(me, ch.outcome.check, world.minute, content),
+                      ...checkPreview(me, ch.outcome.check, world.minute, content),
+                      /** true = o aparelho rola e mostra na hora (DICE_AUTHORITY=client). */
+                      client: getConfig().DICE_AUTHORITY === "client",
                     }
                   : null,
               };

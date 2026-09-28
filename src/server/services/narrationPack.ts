@@ -13,6 +13,7 @@
 import type { GameContent } from "../engine/types";
 import { stripVoiceTags } from "@/shared/voiceTags";
 import narrationIndex from "../content/narracao.json";
+import { mediaUrl } from "./media";
 
 export type NarrationEmotion = "calmo" | "normal" | "tenso" | "triste";
 
@@ -129,7 +130,7 @@ function packFor(content: GameContent, source: NarrationIndex): PackEntry[] {
     const norm = normalizeForMatch(line.shown);
     const entry = byShown.get(norm) ?? { files: [], complete: true };
     const file = index[line.key]?.[0];
-    if (file && file.texto.trim() === line.spoken) entry.files.push(`/audio/narracao/${file.arquivo}`);
+    if (file && file.texto.trim() === line.spoken) entry.files.push(mediaUrl(`/audio/narracao/${file.arquivo}`));
     else entry.complete = false;
     byShown.set(norm, entry);
   }

@@ -69,8 +69,42 @@ Veja [`.env.example`](.env.example). As principais:
 | `GEMINI_API_KEY` / `GEMINI_MODEL` | — / `gemini-3.1-flash-lite` | Google Gemini (endpoint compatível) |
 | `AI_TIMEOUT_MS`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_PROMPT_CHARS`, `AI_CACHE_TTL_HOURS` | 6000, 220, 2400, 72 | Limites da IA |
 | `AI_DAILY_BUDGET_USD`, `AI_COST_*_PER_MTOK`, `AI_USER_DAILY_REQUESTS`, `AI_PREMIUM_DAILY_REQUESTS` | 1, 0, 40, 400 | Orçamento, custo e cotas |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | — | Estado distribuído (voz, lock de TTS). Sem elas, memória do processo |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_JWT_SECRET` | — | Tempo real no coop. As três juntas; sem elas, polling |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | — | CDN de áudio e arte. Sem elas, `public/` |
 
-Chaves de API ficam **só** no `.env.local`, que o git ignora, ou nas variáveis de ambiente do provedor de hospedagem. Nunca vão para o frontend.
+Chaves de API ficam **só** no `.env.local`, que o git ignora, ou nas variáveis de ambiente do provedor de hospedagem. Nunca vão para o frontend. A única exceção é `SUPABASE_ANON_KEY`, que é pública por desenho: ela não abre nada sozinha, porque a RLS de `realtime.messages` só libera o canal de quem participa da campanha.
+
+## Integrações gratuitas (todas opcionais)
+
+Nenhuma delas é obrigatória. Sem credencial, cada uma cai no fallback local e o jogo se comporta exatamente como antes — a suíte roda sem nenhuma delas.
+
+| Integração | O que resolve | Sem ela |
+|---|---|---|
+| **Upstash Redis** | Voz do coop, filas de sinalização WebRTC e lock de TTS saem da memória do processo — o que permitia voz quebrada em multi-instância | Tudo em memória (1 instância) |
+| **Supabase Realtime** | O grupo vê a rodada resolvida por push, em vez de esperar o polling de 3 s | Polling de 3 s (o comportamento de sempre) |
+| **Cloudinary** | Os ~460 clipes de `public/audio` e as artes saem da edge em vez do bundle da Vercel | Servidos de `public/` |
+
+Ativando:
+
+```bash
+# 1) Redis — https://console.upstash.com -> Create Database
+#    cole URL e TOKEN no .env.local
+
+# 2) Realtime — mesmo projeto do banco. Settings -> API -> JWT Secret
+#    cole SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_JWT_SECRET
+#    e rode supabase/setup.sql de novo (cria a policy de realtime.messages)
+
+# 3) Cloudinary — https://cloudinary.com -> conta Free
+#    cole as três chaves e envie os arquivos:
+npm run media:upload          # public/audio, public/art e public/assets
+npm run media:upload audio    # só uma pasta
+npm run media:upload -- --force
+```
+
+O canal do Realtime carrega **apenas** um contador de versão (`{v: n}`). O estado de verdade continua vindo de `POST /api/campaigns/:id/sync`, que exige sessão e participação — o JWT do cliente é assinado no servidor e a RLS exige membro da campanha. Os avisos são descartados se chegarem fora de ordem.
+
+A CSP (`next.config.ts`) abre `wss://<host do Supabase>` e `https://res.cloudinary.com` **só** quando as variáveis existem; sem elas, a política continua exatamente como estava.
 
 ## Credenciais de teste (fictícias)
 
@@ -117,6 +151,7 @@ Todas as mutações exigem o cabeçalho `x-csrf-token`, igual ao cookie `ls_csrf
 | `POST /api/campaigns/:id/start` · `end` · `leave` | dono / dono / membro | Ciclo de vida |
 | `DELETE /api/campaigns/:id/members/:userId` | dono ou master | Remover participante |
 | `GET /api/campaigns/:id/state`, `POST …/sync` | membro | Estado; sync = heartbeat + resolve rodada |
+| `GET /api/campaigns/:id/realtime` | membro | Acesso ao canal privado (URL, anon key, token assinado, tópico). `{realtime:false}` sem o Realtime |
 | `POST /api/campaigns/:id/actions`, `DELETE …/actions/pending` | membro | Enviar e cancelar ação |
 | `GET /api/admin/stats` · `users` · `campaigns` · `logs` · `outbox` | master | Painel |
 | `POST /api/admin/users/:id/action`, `POST /api/admin/campaigns/:id/end` | master | Banir, premium, sessões, encerrar (auditado) |
@@ -138,7 +173,9 @@ Todas as mutações exigem o cabeçalho `x-csrf-token`, igual ao cookie `ls_csrf
 
 ## O que foi testado
 
-**Automatizado: 176 testes em 20 arquivos (`npm test`), todos passando.**
+**Automatizado: 208 testes em 26 arquivos (`npm test`).**
+
+> Um teste de `tests/game.test.ts` (o fluxo solo completo) é instável: depende do RNG semeado com o UUID do personagem, então o mesmo `FIXED_SEED` não reproduz a mesma partida. Passa em grande parte das execuções e falha em outras. É um problema pré-existente, das alterações ainda não commitadas no motor — não das integrações acima.
 
 | Área | Cobertura |
 |---|---|
@@ -159,6 +196,9 @@ Todas as mutações exigem o cabeçalho `x-csrf-token`, igual ao cookie `ls_csrf
 | Fallback da IA | erro, timeout, JSON inválido, IA "matando" personagem, conteúdo inseguro, cache, sem provedor, orçamento, prompt grande, cadeia de provedores, jogo segue com a IA fora |
 | Salvamento automático | estado idêntico após "reiniciar" o servidor com o mesmo arquivo |
 | Concorrência / banco | 20 cadastros simultâneos → 12 premium; 6 aceites simultâneos → 4 membros; 5 syncs simultâneos → rodada resolvida 1 vez; rollback; placeholders e schema Postgres com RLS |
+| Tempo real (Realtime) | sem as variáveis o endpoint devolve `{realtime:false}` e o jogo segue no polling; não membro recebe 404; membro recebe URL, anon key e token HS256 com o `sub` do usuário do jogo; a rodada resolve mesmo com o Supabase fora do ar |
+| Voz (sinalização) | só entre membros da mesma sala; sinal chega uma vez; fila com teto e sem sobrescrita sob append concorrente |
+| CDN de mídia | sem Cloudinary os caminhos locais saem intactos; com ele o `public_id` é o caminho sem extensão e o `resource_type` bate com o tipo; URL absoluta e rota de API nunca são reescritas; o estado entrega o prefixo dos efeitos |
 | Fluxo solo completo | do acidente ao resgate pelo rádio (eventos, inventário, deslocamento, vitória, ranking, conquista) |
 
 **Manual:**
@@ -171,7 +211,8 @@ Todas as mutações exigem o cabeçalho `x-csrf-token`, igual ao cookie `ls_csrf
 ## Limitações conhecidas
 
 - **Postgres/Supabase ainda não validado contra o banco real:** o adaptador está pronto e coberto por testes de unidade/concorrência no SQLite, mas a suíte ainda não rodou com `TEST_DATABASE_URL` (falta a string de conexão).
-- **Atualização por polling** (3 s no coop, no fim da espera no solo), não WebSocket.
+- **O Realtime ainda não foi validado contra um projeto Supabase real.** O protocolo, a assinatura do token e a policy estão prontos e testados com o servidor fora do ar (o caso que importa é o de *fallback*), mas o handshake com o serviço de verdade só foi exercitado depois de criar a conta. Sem credencial, o comportamento é o polling de 3 s de sempre.
+- **As imagens que vêm do CSS continuam em `public/`.** A CDN cobre o que o servidor entrega (mapa, atlas, narração) e o áudio que o cliente monta; as 13 regras de `immersive.css` não passam por função e ficaram de fora.
 - **E-mail** vai para a caixa de desenvolvimento; falta plugar SMTP/API (ex.: Resend) em produção.
 - **Google OAuth** está implementado, mas só foi testado até o redirecionamento (faltam credenciais reais).
 - A **IA gratuita** às vezes acrescenta palpites de ambientação que não estão nos fatos. Não altera nenhuma regra, mas o prompt pode ser apertado.
@@ -183,7 +224,7 @@ Todas as mutações exigem o cabeçalho `x-csrf-token`, igual ao cookie `ls_csrf
 
 1. **Deploy Vercel + Supabase** — ver seção abaixo.
 2. Mailer real (Resend/SMTP) e credenciais do Google OAuth.
-3. Tempo real com WebSocket/Supabase Realtime no cooperativo.
+3. Criar as contas do Upstash, Realtime e Cloudinary e rodar a suíte com elas ligadas.
 4. Mais regiões, cenas cinematográficas e campanhas.
 5. Editor de eventos no painel admin (hoje o conteúdo está em código versionado).
 
