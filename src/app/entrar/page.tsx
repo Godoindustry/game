@@ -26,12 +26,21 @@ function LoginForm() {
     api<{ googleEnabled: boolean }>("GET", "/api/meta").then((m) => setGoogle(m.googleEnabled)).catch(() => undefined);
   }, []);
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Lê os campos do formulário: o preenchimento automático do celular nem sempre dispara onChange.
+    const fd = new FormData(e.currentTarget);
+    const data = { email: String(fd.get("email") ?? "").trim(), password: String(fd.get("password") ?? "") };
+    setEmail(data.email);
+    setPassword(data.password);
+    if (!data.email || !data.password) {
+      setError("Preencha e-mail (ou usuário) e senha.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      const r = await api<{ user: User }>("POST", "/api/auth/login", { email, password });
+      const r = await api<{ user: User }>("POST", "/api/auth/login", data);
       setUser(r.user);
       router.replace(safeReturn(params.get("voltar")));
     } catch (err) {
@@ -46,13 +55,13 @@ function LoginForm() {
       {error && <div className="error-box" role="alert">{error}</div>}
       <label className="field">
         <span className="label">E-mail ou usuário</span>
-        <input className="input" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input className="input" name="email" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required />
       </label>
       <label className="field">
         <span className="label">Senha</span>
-        <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <input className="input" name="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       </label>
-      <button className="btn btn-primary btn-block" disabled={busy || !email || !password}>
+      <button className="btn btn-primary btn-block" disabled={busy}>
         {busy ? <Spinner /> : "Entrar"}
       </button>
       <a
