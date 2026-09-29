@@ -86,7 +86,9 @@ export function useGame(campaignId: string) {
     let delay = 20_000;
     if (state.pending) {
       const done = Date.parse(state.pending.completesAt) - (Date.now() + offset);
-      delay = state.pending.waitingFor.length ? (live ? 20_000 : 3000) : Math.max(400, done + 350);
+      // Espera acabando: sync logo em seguida. Já passou e segue pendente (IA lenta, outra
+      // resolução em curso): 2 s, para não martelar o servidor a cada 400 ms.
+      delay = state.pending.waitingFor.length ? (live ? 20_000 : 3000) : done > -1500 ? Math.max(400, done + 350) : 2000;
     } else if (state.campaign.mode === "coop") delay = live ? 20_000 : 3000;
     const t = setTimeout(sync, delay);
     return () => clearTimeout(t);

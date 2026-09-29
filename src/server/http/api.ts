@@ -23,6 +23,9 @@ import { DIFFICULTIES, DIFFICULTY_RULES } from "../engine/difficulty";
 
 const u = (ctx: Ctx) => ctx.user!;
 const ua = (ctx: Ctx) => ctx.req.headers.get("user-agent");
+/** Só caminhos internos do app (evita open redirect no retorno do OAuth). */
+const safeReturnPath = (p: string | null | undefined): string | null =>
+  p && /^\/(?![/\\])[\w\-./%?=&]{0,200}$/.test(p) ? p : null;
 
 function buildRouter(): Router {
   const r = new Router();
@@ -87,18 +90,27 @@ function buildRouter(): Router {
     const { url, state, verifier } = auth.googleStart();
     ctx.setCookies.push(serializeCookie("ls_oauth_state", state, { maxAgeSec: 600 }));
     ctx.setCookies.push(serializeCookie("ls_oauth_verifier", verifier, { maxAgeSec: 600 }));
+    // Destino depois do login (ex.: link de convite de campanha). Só caminho interno.
+    const back = safeReturnPath(ctx.url.searchParams.get("voltar"));
+    ctx.setCookies.push(serializeCookie("ls_oauth_return", back ?? "", { maxAgeSec: back ? 600 : 0 }));
     return new Response(null, { status: 302, headers: { Location: url } });
   }, { raw: true, rate: "auth" });
   r.get("/api/auth/google/callback", async (ctx) => {
     const code = ctx.url.searchParams.get("code") ?? "";
     const state = ctx.url.searchParams.get("state") ?? "";
-    ctx.setCookies.push(serializeCookie("ls_oauth_state", "", { maxAgeSec: 0 }), serializeCookie("ls_oauth_verifier", "", { maxAgeSec: 0 }));
+    const back = safeReturnPath(ctx.cookies.ls_oauth_return) ?? "/painel";
+    ctx.setCookies.push(
+      serializeCookie("ls_oauth_state", "", { maxAgeSec: 0 }),
+      serializeCookie("ls_oauth_verifier", "", { maxAgeSec: 0 }),
+      serializeCookie("ls_oauth_return", "", { maxAgeSec: 0 }),
+    );
     try {
       const { token } = await auth.googleCallback(code, state, ctx.cookies.ls_oauth_state, ctx.cookies.ls_oauth_verifier, ctx.ip, ua(ctx));
       ctx.setCookies.push(sessionCookie(token));
-      return new Response(null, { status: 302, headers: { Location: "/painel" } });
+      return new Response(null, { status: 302, headers: { Location: back } });
     } catch {
-      return new Response(null, { status: 302, headers: { Location: "/entrar?erro=google" } });
+      const retry = back === "/painel" ? "" : `&voltar=${encodeURIComponent(back)}`;
+      return new Response(null, { status: 302, headers: { Location: `/entrar?erro=google${retry}` } });
     }
   }, { raw: true, rate: "auth" });
 

@@ -296,6 +296,8 @@ export async function removeMember(actor: SessionUser, campaignId: string, targe
   if (!(await membership(campaignId, targetUserId))) throw notFound("Participante não encontrado.");
   const db = getDb();
   await db.tx(async () => {
+    // Mesma trava da resolução de rodada: não apaga o personagem no meio de um autosave.
+    await db.lock(`campaign:${campaignId}`);
     await db.run("DELETE FROM characters WHERE campaign_id = ? AND user_id = ?", campaignId, targetUserId);
     await db.run("DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?", campaignId, targetUserId);
   });
@@ -307,6 +309,7 @@ export async function leaveCampaign(user: SessionUser, campaignId: string) {
   if (camp.owner_user_id === user.id) throw badRequest("O administrador não pode sair; encerre a campanha.");
   const db = getDb();
   await db.tx(async () => {
+    await db.lock(`campaign:${campaignId}`);
     await db.run("DELETE FROM characters WHERE campaign_id = ? AND user_id = ?", campaignId, user.id);
     await db.run("DELETE FROM campaign_members WHERE campaign_id = ? AND user_id = ?", campaignId, user.id);
   });
@@ -336,6 +339,7 @@ export async function endCampaign(actor: SessionUser, campaignId: string, ip: st
   if (camp.status === "finished") throw conflict("A campanha já foi encerrada.");
   const db = getDb();
   await db.tx(async () => {
+    await db.lock(`campaign:${campaignId}`);
     await db.run(
       "UPDATE campaigns SET status='finished', ending='abandonada', ending_type='abandoned', ended_at=?, updated_at=?, version=version+1 WHERE id=?",
       nowIso(), nowIso(), campaignId,

@@ -43,8 +43,20 @@ describe("A história só anda quando todos jogaram", () => {
     const before = await round(owner, id);
     expect((await play(owner, id)).status).toBe(200);
     expect(await round(guest, id), "espera o parceiro").toBe(before);
+    // Quem já jogou vê de quem a mesa depende (e o cliente sai do sync de 400 ms).
+    const waiting = (await owner.post(`/api/campaigns/${id}/sync`)).body.pending;
+    expect(waiting.waitingFor).toEqual(["Convidado"]);
     expect((await play(guest, id)).status).toBe(200);
     expect(await round(owner, id)).toBeGreaterThan(before);
+  });
+
+  it("coop: se o parceiro sai no meio da rodada, quem ficou segue jogando", async () => {
+    const { id, owner, guest } = await coopTable();
+    const before = await round(owner, id);
+    expect((await play(owner, id)).status).toBe(200);
+    expect((await guest.post(`/api/campaigns/${id}/leave`)).status).toBe(200);
+    expect(await round(owner, id)).toBeGreaterThan(before);
+    expect((await guest.get(`/api/campaigns/${id}/lobby`)).status).toBe(404);
   });
 
   it("coop: quem some recebe a ação segura depois do prazo, e a mesa não trava", async () => {

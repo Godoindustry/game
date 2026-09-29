@@ -6,11 +6,7 @@ import { AuthFrame } from "@/client/AuthFrame";
 import { api } from "@/client/api";
 import { useSession, type User } from "@/client/session";
 import { Spinner } from "@/client/ui";
-
-function safeReturn(path: string | null): string {
-  // Só caminhos internos (evita open redirect).
-  return path && path.startsWith("/") && !path.startsWith("//") ? path : "/painel";
-}
+import { returnQuery, safeReturn } from "@/client/returnPath";
 
 function LoginForm() {
   const router = useRouter();
@@ -66,7 +62,7 @@ function LoginForm() {
       </button>
       <a
         className="btn btn-google btn-block"
-        href={google ? "/api/auth/google/start" : undefined}
+        href={google ? `/api/auth/google/start${returnQuery(params.get("voltar"))}` : undefined}
         aria-disabled={!google}
         style={google ? undefined : { opacity: 0.45, pointerEvents: "none" }}
         title={google ? undefined : "Login com Google não configurado neste servidor"}
@@ -81,7 +77,7 @@ function LoginForm() {
       </a>
       <div className="row-between small">
         <Link href="/esqueci-senha">Esqueci a senha</Link>
-        <Link href="/cadastro">Criar conta</Link>
+        <Link href={`/cadastro${returnQuery(params.get("voltar"))}`}>Criar conta</Link>
       </div>
     </form>
   );

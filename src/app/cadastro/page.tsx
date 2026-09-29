@@ -1,14 +1,17 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AuthFrame } from "@/client/AuthFrame";
 import { api } from "@/client/api";
 import { useSession, useToasts, type User } from "@/client/session";
 import { Spinner } from "@/client/ui";
+import { returnQuery, safeReturn } from "@/client/returnPath";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  // Convidado sem conta chega com ?voltar=/convite/…: depois do cadastro, volta para o convite.
+  const voltar = useSearchParams().get("voltar");
   const setUser = useSession((s) => s.setUser);
   const push = useToasts((s) => s.push);
   const [form, setForm] = useState({ displayName: "", email: "", password: "" });
@@ -49,7 +52,7 @@ export default function RegisterPage() {
       const r = await api<{ user: User }>("POST", "/api/auth/register", data);
       setUser(r.user);
       if (r.user.premium) push("ok", "Você é um dos 12 primeiros: conta Premium ativada!");
-      router.replace("/painel");
+      router.replace(safeReturn(voltar));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha no cadastro.");
     } finally {
@@ -85,9 +88,17 @@ export default function RegisterPage() {
           {busy ? <Spinner /> : "Criar conta"}
         </button>
         <p className="small muted" style={{ margin: 0 }}>
-          Já tem conta? <Link href="/entrar">Entrar</Link>
+          Já tem conta? <Link href={`/entrar${returnQuery(voltar)}`}>Entrar</Link>
         </p>
       </form>
     </AuthFrame>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <RegisterForm />
+    </Suspense>
   );
 }

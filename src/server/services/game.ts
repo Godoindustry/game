@@ -744,8 +744,11 @@ export async function getState(user: SessionUser, campaignId: string) {
           completesAt: myPending.completes_at,
           // Destino da viagem narrativa durante a resolução da ação.
           target: myPending.type === "mover" ? String(json<Record<string, unknown>>(myPending.params, {}).to ?? "") || null : null,
-          // Ninguém espera ninguém: a ação resolve sozinha (campo mantido por compatibilidade).
-          waitingFor: [] as string[],
+          // Coop: a rodada só resolve quando todos os vivos jogaram. Quem falta aparece aqui,
+          // e o cliente troca o sync rápido pelo ritmo normal do grupo enquanto espera.
+          waitingFor: camp.mode === "coop"
+            ? chars.filter((c) => c.alive && c.id !== myPending.character_id && !actions.some((a) => a.character_id === c.id)).map((c) => c.name)
+            : [],
         }
       : null,
     event:

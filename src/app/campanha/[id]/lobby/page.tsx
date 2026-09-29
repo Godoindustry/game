@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { api } from "@/client/api";
+import { api, ApiError } from "@/client/api";
 import { AppShell, Spinner } from "@/client/ui";
 import { toastError, useToasts } from "@/client/session";
 
@@ -16,12 +16,16 @@ interface Lobby {
   members: { userId: string; displayName: string; role: string; hasCharacter: boolean; characterName: string | null; isMe: boolean }[];
 }
 
+// Link montado com o domínio aberto agora: não depende de APP_URL estar certo no servidor.
+const withOrigin = (inv: { code: string; url: string }) => ({ ...inv, url: `${window.location.origin}/convite/${encodeURIComponent(inv.code)}` });
+
 function LobbyView() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const push = useToasts((s) => s.push);
   const [lobby, setLobby] = useState<Lobby | null>(null);
   const [invite, setInvite] = useState<{ code: string; url: string } | null>(null);
+  const [inviteError, setInviteError] = useState("");
   const [busy, setBusy] = useState(false);
   const inviteLoaded = useRef(false);
 
@@ -31,9 +35,14 @@ function LobbyView() {
       if (l.status !== "lobby") return router.replace(`/campanha/${id}/jogar`);
       setLobby(l);
     } catch (err) {
+      // Removido pelo administrador (ou campanha apagada): sai do lobby em vez de repetir o erro a cada 4 s.
+      if (err instanceof ApiError && err.status === 404) {
+        push("info", "Você não está mais nesta campanha.");
+        return router.replace("/painel");
+      }
       toastError(err);
     }
-  }, [id, router]);
+  }, [id, router, push]);
 
   // Gera o convite automaticamente na primeira vez que o dono abre o lobby coop
   const ensureInvite = useCallback(async (l: Lobby) => {
@@ -41,9 +50,11 @@ function LobbyView() {
     inviteLoaded.current = true;
     try {
       const inv = await api<{ code: string; url: string }>("POST", `/api/campaigns/${id}/invites`);
-      setInvite(inv);
-    } catch {
-      // convite já existe ou sala cheia — ignora
+      setInvite(withOrigin(inv));
+      setInviteError("");
+    } catch (err) {
+      // Sala cheia, por exemplo: mostra o motivo em vez de "Gerando convite…" para sempre.
+      setInviteError(err instanceof Error ? err.message : "Não foi possível gerar o convite.");
     }
   }, [id]);
 
@@ -76,7 +87,8 @@ function LobbyView() {
     try {
       await api("DELETE", `/api/campaigns/${id}/invites`);
       const inv = await api<{ code: string; url: string }>("POST", `/api/campaigns/${id}/invites`);
-      setInvite(inv);
+      setInvite(withOrigin(inv));
+      setInviteError("");
       push("ok", "Novo link gerado.");
     } catch (err) {
       toastError(err);
@@ -152,6 +164,8 @@ function LobbyView() {
                     Gerar novo link
                   </button>
                 </div>
+              ) : inviteError ? (
+                <div className="small muted">{inviteError}</div>
               ) : (
                 <div className="row small muted"><Spinner /> Gerando convite…</div>
               )}
