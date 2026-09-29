@@ -36,9 +36,9 @@ export function Emblem({ size = 20 }: { size?: number }) {
   );
 }
 
-export function Brand() {
+export function Brand({ href = "/" }: { href?: string }) {
   return (
-    <Link href="/" className="brand" aria-label="Linha de Sobrevivência — início">
+    <Link href={href} className="brand" aria-label="Linha de Sobrevivência — início">
       <Logo />
       <span className="brand-name">
         Linha de <span>Sobrevivência</span>
@@ -202,7 +202,8 @@ export function AppShell({ children, master }: { children: ReactNode; master?: b
     <>
       <header className="topnav">
         <div className="container topnav-inner">
-          <Brand />
+          {/* Logado, o "início" é o painel — a landing em / parece logout. */}
+          <Brand href="/painel" />
           <div className="spacer" />
           <nav className="navlinks" aria-label="Navegação principal">
             {NAV.map((n) => (
