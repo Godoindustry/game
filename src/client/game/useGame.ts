@@ -18,13 +18,46 @@ export function useGame(campaignId: string) {
   const [fatal, setFatal] = useState<string | null>(null);
   const [offset, setOffset] = useState(0); // relógio do servidor - relógio local
   const inflight = useRef(false);
+  const lastKey = useRef("");
+  // Agendamento do próximo sync fora do ciclo de render: reagenda depois de TODO sync,
+  // com ou sem mudança e mesmo com erro de rede (antes, uma falha parava as atualizações).
+  const latest = useRef<{ state: GameState | null; offset: number; live: boolean }>({ state: null, offset: 0, live: false });
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const syncRef = useRef<() => Promise<void>>(async () => undefined);
+  const alive = useRef(true);
+
+  const schedule = useCallback(() => {
+    clearTimeout(timer.current);
+    const { state: s, offset: off, live } = latest.current;
+    if (!alive.current || !s || s.campaign.status === "finished") return;
+    // Com o canal vivo o intervalo vira só rede de segurança: o push é quem traz a novidade.
+    let delay = 20_000;
+    if (s.pending) {
+      const done = Date.parse(s.pending.completesAt) - (Date.now() + off);
+      // Espera acabando: sync logo em seguida. Já passou e segue pendente (IA lenta, outra
+      // resolução em curso): 2 s, para não martelar o servidor a cada 400 ms.
+      delay = s.pending.waitingFor.length ? (live ? 20_000 : 3000) : done > -1500 ? Math.max(400, done + 350) : 2000;
+    } else if (s.campaign.mode === "coop") delay = live ? 20_000 : 3000;
+    timer.current = setTimeout(() => void syncRef.current(), delay);
+  }, []);
 
   const accept = useCallback((s: GameState) => {
+    // O sync do coop chega a cada 3 s quase sempre igual: sem mudança, não redesenha a
+    // tela inteira (mapa, ficha, diário) — era o que fazia o celular engasgar.
+    const key = JSON.stringify({ ...s, campaign: { ...s.campaign, serverTime: "" } });
+    const nextOffset = Date.parse(s.campaign.serverTime) - Date.now();
+    if (Math.abs(latest.current.offset - nextOffset) > 500) {
+      latest.current.offset = nextOffset;
+      setOffset(nextOffset);
+    }
+    latest.current.state = s;
+    schedule();
+    if (key === lastKey.current) return;
+    lastKey.current = key;
     setState(s);
-    setOffset(Date.parse(s.campaign.serverTime) - Date.now());
     // CDN de áudio (vazio quando não há Cloudinary): os efeitos que o cliente monta sozinho.
     setMediaAudioBase(s.media?.audioBase);
-  }, []);
+  }, [schedule]);
 
   const sync = useCallback(async () => {
     if (inflight.current) return;
@@ -34,10 +67,15 @@ export function useGame(campaignId: string) {
     } catch (err) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 401)) setFatal(err.message);
       else if (!(err instanceof ApiError && err.code === "rede")) toastError(err);
+      schedule(); // tenta de novo no ritmo normal
     } finally {
       inflight.current = false;
     }
-  }, [campaignId, accept]);
+  }, [campaignId, accept, schedule]);
+
+  useEffect(() => {
+    syncRef.current = sync;
+  }, [sync]);
 
   const submit = useCallback(
     async (type: string, params: Record<string, unknown> = {}) => {
@@ -79,20 +117,20 @@ export function useGame(campaignId: string) {
     void sync();
   }, [sync]);
 
-  // Agenda o próximo sync conforme a situação (espera concluída, grupo, heartbeat).
-  // Com o canal vivo o intervalo vira só rede de segurança: o push é quem traz a novidade.
+  // Canal de tempo real subiu ou caiu: refaz o agendamento com o novo ritmo.
   useEffect(() => {
-    if (!state || state.campaign.status === "finished") return;
-    let delay = 20_000;
-    if (state.pending) {
-      const done = Date.parse(state.pending.completesAt) - (Date.now() + offset);
-      // Espera acabando: sync logo em seguida. Já passou e segue pendente (IA lenta, outra
-      // resolução em curso): 2 s, para não martelar o servidor a cada 400 ms.
-      delay = state.pending.waitingFor.length ? (live ? 20_000 : 3000) : done > -1500 ? Math.max(400, done + 350) : 2000;
-    } else if (state.campaign.mode === "coop") delay = live ? 20_000 : 3000;
-    const t = setTimeout(sync, delay);
-    return () => clearTimeout(t);
-  }, [state, offset, sync, live]);
+    latest.current.live = live;
+    schedule();
+  }, [live, schedule]);
+
+  // Para o agendamento ao sair da tela.
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      clearTimeout(timer.current);
+    };
+  }, []);
 
   // Ao voltar para a aba, sincroniza imediatamente.
   useEffect(() => {
