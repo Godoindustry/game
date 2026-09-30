@@ -12,7 +12,7 @@ import { notFound } from "./errors";
 import type { SessionUser } from "./auth";
 import { requireMember } from "./campaigns";
 import { narrationForLog } from "./narrationPack";
-import { libraryHas, libraryPath, libraryPut, libraryUrl } from "./audioLibrary";
+import { libraryHas, libraryPath, libraryPutAfterResponse, libraryUrl } from "./audioLibrary";
 import { wavToMp3 } from "./mp3";
 import { mediaUrl } from "./media";
 import { getScenario } from "../content/valeSilente";
@@ -402,8 +402,8 @@ export async function logVoice(user: SessionUser, campaignId: string, logId: str
   }
   const source = sources.every((item) => item === "cache") ? "cache" : sources.some((item) => item === "generated") ? "gemini" : "inflight";
   const wav = concatWav(parts);
-  // Guarda na biblioteca (MP3, ~6× menor) para as próximas partidas; no máximo 4 s de espera.
-  await Promise.race([wavToMp3(wav).then((mp3) => libraryPut(libPath, mp3, "audio/mpeg")), new Promise((r) => setTimeout(r, 4000))]).catch(() => undefined);
+  // Toda voz gerada vai para a biblioteca (MP3, ~6× menor): a próxima partida toca sem gastar token.
+  libraryPutAfterResponse(libPath, () => wavToMp3(wav), "audio/mpeg");
   return audioResponse(wav, {
     cacheKey: overallKey,
     source,

@@ -10,6 +10,7 @@
  * Sem SUPABASE_URL + chave de serviço, tudo aqui vira no-op e o jogo segue como antes.
  */
 import { createHash } from "node:crypto";
+import { after } from "next/server";
 import { getConfig } from "../config";
 
 const POSITIVE_CACHE_MS = 24 * 60 * 60 * 1000;
@@ -109,6 +110,20 @@ export async function libraryPut(path: string, body: Buffer, contentType: string
     return res.ok;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Guarda depois de responder: o jogador não espera o upload e a Vercel mantém a função viva
+ * até ele terminar (`after`). Sem isso, a função podia morrer antes e o áudio gerado — já
+ * pago em tokens — não chegava à biblioteca. Fora de uma requisição (testes, scripts) roda solto.
+ */
+export function libraryPutAfterResponse(path: string, produce: () => Promise<Buffer>, contentType: string): void {
+  const task = () => produce().then((body) => libraryPut(path, body, contentType)).catch(() => false);
+  try {
+    after(task);
+  } catch {
+    void task();
   }
 }
 
