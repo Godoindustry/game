@@ -28,7 +28,10 @@ export interface VoiceJob {
 const STING_GAP_MS = 1500;
 const BED_FADE_IN_MS = 2200;
 const BED_FADE_OUT_MS = 1600;
+const STALL_TIMEOUT_MS = 12_000;
 const fadeVersion = new WeakMap<HTMLAudioElement, number>();
+
+type Bed = { sound: string; el: HTMLAudioElement; base: number; cat: AudioCategory; fading: boolean };
 
 function fade(a: HTMLAudioElement, to: number, ms: number, done?: () => void) {
   const version = (fadeVersion.get(a) ?? 0) + 1;
@@ -49,12 +52,13 @@ export class AudioDirector {
   private queue: VoiceJob[] = [];
   private current: VoiceJob | null = null;
   private nextVoiceTimer: ReturnType<typeof setTimeout> | null = null;
-  private bed: { sound: string; el: HTMLAudioElement; base: number; cat: AudioCategory; fading: boolean } | null = null;
-  private currentSting: { el: HTMLAudioElement; base: number } | null = null;
+  private bed: Bed | null = null;
+  private currentSting: { el: HTMLAudioElement; base: number; stallTimer: ReturnType<typeof setTimeout> | null } | null = null;
   // -Infinity: com 0, o intervalo mínimo engolia todo efeito do primeiro 1,5 s da página
   // (performance.now() começa em zero) — inclusive o zumbido da abertura.
   private lastSting = -Infinity;
   private enabled = true;
+  private bedRetryArmed = false;
   /** Sons que deram 404 nesta aba: não pede de novo, vai direto para a reserva. */
   private missing = new Set<string>();
 
@@ -62,15 +66,27 @@ export class AudioDirector {
     // Qualquer mudança no mixer (slider, ducking de voz) reajusta o fundo na hora, com rampa curta.
     onMixChange(() => {
       const b = this.bed;
-      if (b && !b.el.paused) {
-        b.fading = true;
-        fade(b.el, mixVolume(b.cat, b.base), 400, () => { b.fading = false; });
+      if (b) {
+        if (b.el.paused) this.startBed(b);
+        else {
+          b.fading = true;
+          fade(b.el, mixVolume(b.cat, b.base), 400, () => { b.fading = false; });
+        }
       }
       this.current?.setVolume?.();
       if (this.currentSting && !this.currentSting.el.paused) {
         this.currentSting.el.volume = mixVolume("efeitos", this.currentSting.base);
       }
     });
+
+    // Android/iOS podem pausar a mídia ao bloquear a tela ou trocar de app. Ao voltar,
+    // tenta retomar o fundo; se o navegador exigir outro gesto, ele fica armado abaixo.
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", this.resumeBedWhenVisible);
+    if (typeof window !== "undefined") window.addEventListener("pageshow", this.resumeBedWhenVisible);
+  }
+
+  isEnabled(): boolean {
+    return this.enabled;
   }
 
   setEnabled(on: boolean) {
@@ -92,27 +108,105 @@ export class AudioDirector {
       run: () =>
         new Promise<void>((resolve) => {
           let settled = false;
+          let stallTimer: ReturnType<typeof setTimeout> | null = null;
+          let retryArmed = false;
+          const clearStall = () => {
+            if (stallTimer) clearTimeout(stallTimer);
+            stallTimer = null;
+          };
+          const disarmRetry = () => {
+            if (!retryArmed || typeof window === "undefined") return;
+            retryArmed = false;
+            window.removeEventListener("pointerdown", retry, true);
+            window.removeEventListener("keydown", retry, true);
+          };
+          const armRetry = () => {
+            if (retryArmed || typeof window === "undefined") return;
+            retryArmed = true;
+            window.addEventListener("pointerdown", retry, true);
+            window.addEventListener("keydown", retry, true);
+          };
           finish = () => {
             if (settled) return;
             settled = true;
+            clearStall();
+            disarmRetry();
+            if (typeof document !== "undefined") document.removeEventListener("visibilitychange", retryWhenVisible);
+            if (typeof window !== "undefined") window.removeEventListener("pageshow", retryWhenVisible);
             finish = null;
             resolve();
           };
+          function retry() {
+            disarmRetry();
+            if (settled || !el?.paused) return;
+            try {
+              void el.play().catch((error: unknown) => {
+                if (error instanceof DOMException && error.name === "NotAllowedError") armRetry();
+                else finish?.();
+              });
+            } catch {
+              finish?.();
+            }
+          }
+          function retryWhenVisible() {
+            if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+              clearStall();
+              return;
+            }
+            retry();
+          }
+          if (typeof document !== "undefined") document.addEventListener("visibilitychange", retryWhenVisible);
+          if (typeof window !== "undefined") window.addEventListener("pageshow", retryWhenVisible);
           const start = (source: string, allowLocalFallback: boolean) => {
-            el = new Audio(source);
-            el.volume = mixVolume("narracao", base);
-            el.onended = () => finish?.();
-            el.onerror = () => {
+            clearStall();
+            disarmRetry();
+            if (el) {
+              el.onpause = null;
+              el.pause();
+            }
+            const audio = new Audio(source);
+            el = audio;
+            audio.volume = mixVolume("narracao", base);
+            const fail = () => {
+              if (el !== audio || settled) return;
               const fallback = allowLocalFallback ? localAudioFallback(source) : null;
               if (fallback) start(fallback, false);
-              else finish?.();
+              else {
+                audio.onpause = null;
+                audio.pause();
+                finish?.();
+              }
             };
-            void el.play().catch(() => finish?.());
+            const watchStall = () => {
+              clearStall();
+              // Libera a fila se a rede deixar este arquivo preso em buffering.
+              stallTimer = setTimeout(fail, STALL_TIMEOUT_MS);
+            };
+            audio.onended = () => finish?.();
+            audio.onerror = fail;
+            audio.onplaying = clearStall;
+            audio.ontimeupdate = clearStall;
+            audio.onwaiting = watchStall;
+            audio.onstalled = watchStall;
+            audio.onpause = () => {
+              if (!settled && !audio.ended && el === audio) armRetry();
+            };
+            try {
+              void audio.play().catch((error: unknown) => {
+                if (error instanceof DOMException && error.name === "NotAllowedError") armRetry();
+                else fail();
+              });
+            } catch {
+              fail();
+            }
           };
           start(url, true);
         }),
       stop: () => {
-        el?.pause();
+        if (el) {
+          el.onpause = null;
+          el.pause();
+        }
         finish?.();
       },
       setVolume: () => {
@@ -183,7 +277,8 @@ export class AudioDirector {
     if (old && old.sound === sound) {
       old.base = base;
       old.cat = cat;
-      if (!old.el.paused) fade(old.el, mixVolume(cat, base), 350, () => { old.fading = false; });
+      if (old.el.paused) this.startBed(old);
+      else fade(old.el, mixVolume(cat, base), 350, () => { old.fading = false; });
       return;
     }
     if (old) {
@@ -191,22 +286,76 @@ export class AudioDirector {
       fade(old.el, 0, BED_FADE_OUT_MS, () => old.el.pause());
     }
     this.bed = null;
-    if (!sound) return;
+    if (!sound) {
+      this.disarmBedRetry();
+      return;
+    }
     const el = new Audio(sfxUrl(sound));
-    el.loop = true;
-    el.volume = 0;
     const bed = { sound, el, base, cat, fading: true };
     this.bed = bed;
+    this.configureBedElement(bed, el, true);
+    this.startBed(bed);
+  }
+
+  private configureBedElement(bed: Bed, el: HTMLAudioElement, allowLocalFallback: boolean) {
+    el.loop = true;
+    el.volume = 0;
+    bed.el = el;
     el.onerror = () => {
-      const fallback = localAudioFallback(el.src);
-      if (!fallback || this.bed !== bed) return;
+      if (this.bed !== bed || bed.el !== el) return;
+      const fallback = allowLocalFallback ? localAudioFallback(el.src) : null;
+      if (!fallback) return;
       const local = new Audio(fallback);
-      local.loop = true;
-      local.volume = 0;
-      bed.el = local;
-      void local.play().then(() => fade(local, mixVolume(cat, base), BED_FADE_IN_MS, () => { bed.fading = false; })).catch(() => undefined);
+      this.configureBedElement(bed, local, false);
+      this.startBed(bed);
     };
-    void el.play().then(() => fade(el, mixVolume(cat, base), BED_FADE_IN_MS, () => { bed.fading = false; })).catch(() => undefined);
+    el.onpause = () => {
+      if (this.enabled && this.bed === bed && bed.el === el) this.armBedRetry();
+    };
+  }
+
+  private startBed(bed: Bed) {
+    if (!this.enabled || this.bed !== bed) return;
+    const el = bed.el;
+    try {
+      void el.play().then(() => {
+        if (this.bed !== bed || bed.el !== el) {
+          el.pause();
+          return;
+        }
+        this.disarmBedRetry();
+        bed.fading = true;
+        fade(el, mixVolume(bed.cat, bed.base), BED_FADE_IN_MS, () => { bed.fading = false; });
+      }).catch(() => {
+        if (this.bed === bed && bed.el === el) this.armBedRetry();
+      });
+    } catch {
+      this.armBedRetry();
+    }
+  }
+
+  private resumeBedWhenVisible = () => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    if (this.bed?.el.paused) this.startBed(this.bed);
+  };
+
+  private resumeBedFromGesture = () => {
+    this.disarmBedRetry();
+    if (this.bed?.el.paused) this.startBed(this.bed);
+  };
+
+  private armBedRetry() {
+    if (this.bedRetryArmed || typeof window === "undefined") return;
+    this.bedRetryArmed = true;
+    window.addEventListener("pointerdown", this.resumeBedFromGesture, true);
+    window.addEventListener("keydown", this.resumeBedFromGesture, true);
+  }
+
+  private disarmBedRetry() {
+    if (!this.bedRetryArmed || typeof window === "undefined") return;
+    this.bedRetryArmed = false;
+    window.removeEventListener("pointerdown", this.resumeBedFromGesture, true);
+    window.removeEventListener("keydown", this.resumeBedFromGesture, true);
   }
 
   // ── Efeitos ────────────────────────────────────────────────────────────────
@@ -229,11 +378,29 @@ export class AudioDirector {
       const start = (source: string, allowLocalFallback: boolean) => {
         const el = new Audio(source);
         el.volume = mixVolume("efeitos", base);
-        this.currentSting = { el, base };
+        const active = { el, base, stallTimer: null as ReturnType<typeof setTimeout> | null };
+        this.currentSting = active;
+        const clearStall = () => {
+          if (active.stallTimer) clearTimeout(active.stallTimer);
+          active.stallTimer = null;
+        };
         const clear = () => {
+          clearStall();
           if (this.currentSting?.el === el) this.currentSting = null;
         };
+        const watchStall = () => {
+          clearStall();
+          // Um efeito preso em buffering não pode bloquear todos os próximos efeitos.
+          active.stallTimer = setTimeout(() => {
+            el.pause();
+            clear();
+          }, STALL_TIMEOUT_MS);
+        };
         el.onended = clear;
+        el.onplaying = clearStall;
+        el.ontimeupdate = clearStall;
+        el.onwaiting = watchStall;
+        el.onstalled = watchStall;
         el.onerror = () => {
           clear();
           const local = allowLocalFallback ? localAudioFallback(source) : null;
@@ -253,6 +420,7 @@ export class AudioDirector {
   }
 
   stopSting() {
+    if (this.currentSting?.stallTimer) clearTimeout(this.currentSting.stallTimer);
     this.currentSting?.el.pause();
     this.currentSting = null;
   }

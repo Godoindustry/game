@@ -92,3 +92,8 @@ e 3 cantos de pássaro (one birds song, voices of birds, song thrush).
 | iara/choro | universfield – female crying 02 – 291097 (8 s iniciais) | Febre: a visão de Iara |
 | cenario/arco | freesound_community – 39 tensar arco – 100190 | Despertar Caçador |
 | cenario/flecha | djartmusic – arrow swish 03 – 306040 | (acervo) |
+| jogador/beber-agua | audiopapkin – drinking water with plastic bottle – 303737 | Beber água pelo inventário e escolhas seguras |
+| cenario/agua-vertendo | dragon-studio – water pouring – 405458 | Coletar ou ferver água |
+| cenario/garrafa-abrindo | audiopapkin – open bottle and pour water into glass – 302352 | Abrir e purificar uma garrafa |
+| cenario/vidro-quebrando | universfield – glass bottle smash 02 – 291048 | Escolhas narrativas que quebram vidro ou garrafa |
+| cenario/pressagio | u_6zknalnd8g – Mr Sun Horror – 404519 | Presságio em cenas sobrenaturais do poço |

@@ -55,7 +55,8 @@ export const SFX = {
 
 // ──────────────────────────────────────────────────────────────────────────
 export function useAudio(volume = 1) {
-  const [enabled, setEnabled] = useState(true);
+  // O diretor sobrevive às navegações do Next; o botão precisa refletir o estado real dele.
+  const [enabled, setEnabled] = useState(() => audioDirector().isEnabled());
 
   // Toda fala gravada entra na fila de voz do diretor: uma de cada vez, o resto abaixa.
   const play = useCallback((id: string, opts?: { vol?: number; alert?: boolean }) => {

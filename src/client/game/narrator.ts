@@ -22,6 +22,7 @@ interface LoadedVoice {
 }
 
 const AUDIO_TYPE = /audio\/(?:wav|wave|x-wav|mpeg|mp3)/i;
+const PLAYBACK_STALL_TIMEOUT_MS = 12_000;
 
 async function audioBlob(response: Response): Promise<Blob> {
   const blob = await response.blob();
@@ -138,33 +139,78 @@ export function narrateSequence(campaignId: string, items: NarrationItem[], volu
     const audio = new Audio(currentUrl);
     currentAudio = audio;
     audio.volume = mixVolume("narracao", volume);
-    // Celular bloqueia som antes do primeiro toque: a fala espera o próximo toque
-    // na tela e toca dentro dele, em vez de mostrar um erro sobre a cena.
-    const retryOnGesture = () => {
+    let settled = false;
+    let retryArmed = false;
+    let stallTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearStall = () => {
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = null;
+    };
+    const disarmRetry = () => {
+      if (!retryArmed) return;
+      retryArmed = false;
       window.removeEventListener("pointerdown", retryOnGesture, true);
       window.removeEventListener("keydown", retryOnGesture, true);
-      void audio.play().catch(() => finish());
+    };
+    const armRetry = () => {
+      if (retryArmed) return;
+      retryArmed = true;
+      window.addEventListener("pointerdown", retryOnGesture, true);
+      window.addEventListener("keydown", retryOnGesture, true);
     };
     const finish = () => {
-      window.removeEventListener("pointerdown", retryOnGesture, true);
-      window.removeEventListener("keydown", retryOnGesture, true);
+      if (settled) return;
+      settled = true;
+      clearStall();
+      disarmRetry();
+      document.removeEventListener("visibilitychange", retryWhenVisible);
+      window.removeEventListener("pageshow", retryWhenVisible);
       finishPlayback = null;
       resolve();
     };
+    const tryPlay = () => {
+      if (settled || cancelled || (!audio.paused && !audio.ended)) return;
+      try {
+        void audio.play().catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "NotAllowedError") armRetry();
+          else finish();
+        });
+      } catch {
+        finish();
+      }
+    };
+    // Celular bloqueia som antes do primeiro toque: a fala espera o próximo toque.
+    // A mesma retomada cobre Android/iOS depois de bloquear a tela ou trocar de app.
+    function retryOnGesture() {
+      disarmRetry();
+      tryPlay();
+    }
+    function retryWhenVisible() {
+      if (document.visibilityState !== "hidden") tryPlay();
+      else clearStall();
+    }
+    const watchStall = () => {
+      if (document.visibilityState === "hidden") return;
+      clearStall();
+      // Um blob preso não pode segurar para sempre todas as próximas falas da fila.
+      stallTimer = setTimeout(finish, PLAYBACK_STALL_TIMEOUT_MS);
+    };
     finishPlayback = finish;
     audio.onended = finish;
+    audio.onplaying = clearStall;
+    audio.ontimeupdate = clearStall;
+    audio.onwaiting = watchStall;
+    audio.onstalled = watchStall;
+    audio.onpause = () => {
+      if (!settled && !cancelled && !audio.ended) armRetry();
+    };
     audio.onerror = () => {
       announce({ available: false, message: "Não foi possível reproduzir a voz. A fala permanece em texto." });
       finish();
     };
-    void audio.play().catch((error: unknown) => {
-      if (error instanceof DOMException && error.name === "NotAllowedError") {
-        window.addEventListener("pointerdown", retryOnGesture, true);
-        window.addEventListener("keydown", retryOnGesture, true);
-      } else {
-        finish();
-      }
-    });
+    document.addEventListener("visibilitychange", retryWhenVisible);
+    window.addEventListener("pageshow", retryWhenVisible);
+    tryPlay();
   });
 
   audioDirector().interruptWith({

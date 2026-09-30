@@ -1,8 +1,21 @@
 "use client";
 
+import { useState } from "react";
+import type { SVGProps } from "react";
+import { PART_LABEL, WOUND_LABEL } from "../labels";
 import type { GameState } from "./useGame";
 
 type Me = NonNullable<GameState["me"]>;
+type BodyPart = "cabeca" | "torso" | "braco_dir" | "braco_esq" | "perna_dir" | "perna_esq";
+
+const BODY_PARTS: { id: BodyPart; short: string }[] = [
+  { id: "cabeca", short: "Cabeça" },
+  { id: "torso", short: "Torso" },
+  { id: "braco_dir", short: "Braço D" },
+  { id: "braco_esq", short: "Braço E" },
+  { id: "perna_dir", short: "Perna D" },
+  { id: "perna_esq", short: "Perna E" },
+];
 
 const BODY_SCALE: Record<string, number> = {
   magro: 0.88,
@@ -76,6 +89,24 @@ export function BodySilhouette({ me }: { me: Me }) {
   const female = me.profile.sex === "feminino";
   const scale = BODY_SCALE[me.profile.bodyType] ?? 1;
   const deadClass = me.alive ? "" : " silhouette-dead";
+  const firstWound = me.wounds[0]?.bodyPart as BodyPart | undefined;
+  const [selected, setSelected] = useState<BodyPart>(firstWound ?? "torso");
+  const selectedWounds = me.wounds.filter((wound) => wound.bodyPart === selected);
+  const bleeding = selectedWounds.some((wound) => wound.bleedingRate > 0);
+
+  const zone = (part: BodyPart): SVGProps<SVGGElement> => ({
+    className: `body-zone ${selected === part ? "is-selected" : ""} ${me.wounds.some((wound) => wound.bodyPart === part) ? "has-wound" : ""}`,
+    role: "button",
+    tabIndex: 0,
+    "aria-label": `Ver ${PART_LABEL[part] ?? part}`,
+    onClick: () => setSelected(part),
+    onFocus: () => setSelected(part),
+    onKeyDown: (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      setSelected(part);
+    },
+  });
 
   return (
     <div className={`human-silhouette ${female ? "silhouette-female" : "silhouette-male"}${deadClass}`}>
@@ -91,26 +122,52 @@ export function BodySilhouette({ me }: { me: Me }) {
             <stop offset=".55" stopColor="#242928" />
             <stop offset="1" stopColor="#111515" />
           </linearGradient>
+          <linearGradient id="bodyRim" x1="0" x2="1">
+            <stop offset="0" stopColor="#d1b89b" stopOpacity=".1" />
+            <stop offset=".5" stopColor="#fff0d7" stopOpacity=".42" />
+            <stop offset="1" stopColor="#7d2336" stopOpacity=".08" />
+          </linearGradient>
           <filter id="bodyShadow"><feDropShadow dx="0" dy="8" stdDeviation="7" floodColor="#000" floodOpacity=".75" /></filter>
         </defs>
         <ellipse className="silhouette-floor" cx="100" cy="348" rx="63" ry="10" />
         <g transform={`translate(${100 - 100 * scale} 0) scale(${scale} 1)`} filter="url(#bodyShadow)">
           <Clothes me={me} female={female} backOnly />
           <g className="silhouette-body">
-            <ellipse className="body-part head" cx="100" cy="42" rx={female ? 22 : 23} ry="29" fill={partTone(me, "cabeca")} />
-            <path className="silhouette-hair" d={female ? "M77 43 Q72 8 100 7 Q130 9 124 52 L117 31 Q99 18 81 33 L80 67 Q73 58 77 43 Z" : "M77 39 Q79 8 101 8 Q121 9 124 37 Q110 23 94 24 Q83 25 77 39 Z"} />
-            <path className="silhouette-neck" d="M88 66 L112 66 L116 84 L84 84 Z" fill={partTone(me, "torso")} />
-            {female ? (
-              <path className="body-part torso" d="M70 77 Q82 68 91 70 L100 75 L109 70 Q118 68 130 77 C138 104 127 126 132 155 Q137 176 144 190 Q121 205 100 202 Q79 205 56 190 Q63 176 68 155 C73 126 62 104 70 77 Z" fill={partTone(me, "torso")} />
-            ) : (
-              <path className="body-part torso" d="M60 78 Q77 66 91 70 L100 75 L109 70 Q123 66 140 78 L132 185 Q116 201 100 200 Q84 201 68 185 Z" fill={partTone(me, "torso")} />
-            )}
-            <path className="body-part arm arm-right" d="M66 80 Q49 79 41 100 Q31 137 28 183 Q27 207 37 222 Q48 220 49 205 L52 159 L65 116 Z" fill={partTone(me, "braco_dir")} />
-            <path className="body-part arm arm-left" d="M134 80 Q151 79 159 100 Q169 137 172 183 Q173 207 163 222 Q152 220 151 205 L148 159 L135 116 Z" fill={partTone(me, "braco_esq")} />
-            <ellipse cx="37" cy="225" rx="10" ry="14" fill={partTone(me, "braco_dir")} />
-            <ellipse cx="163" cy="225" rx="10" ry="14" fill={partTone(me, "braco_esq")} />
-            <path className="body-part leg leg-right" d="M62 182 Q80 190 98 187 L94 272 L91 332 Q78 342 64 331 L61 270 Q55 221 62 182 Z" fill={partTone(me, "perna_dir")} />
-            <path className="body-part leg leg-left" d="M102 187 Q120 190 138 182 Q145 221 139 270 L136 331 Q122 342 109 332 L106 272 Z" fill={partTone(me, "perna_esq")} />
+            <g {...zone("cabeca")}>
+              <ellipse className="body-part head" cx="100" cy="42" rx={female ? 22 : 23} ry="29" fill={partTone(me, "cabeca")} />
+              <path className="silhouette-hair" d={female ? "M77 43 Q72 8 100 7 Q130 9 124 52 L117 31 Q99 18 81 33 L80 67 Q73 58 77 43 Z" : "M77 39 Q79 8 101 8 Q121 9 124 37 Q110 23 94 24 Q83 25 77 39 Z"} />
+              <g className="body-face" aria-hidden="true">
+                <path d="M87 42 Q92 39 96 42 M104 42 Q109 39 114 42" />
+                <path d="M100 43 L98 52 L102 53 M93 59 Q100 62 107 59" />
+              </g>
+            </g>
+            <g {...zone("torso")}>
+              <path className="silhouette-neck" d="M88 66 L112 66 L116 84 L84 84 Z" fill={partTone(me, "torso")} />
+              {female ? (
+                <path className="body-part torso" d="M70 77 Q82 68 91 70 L100 75 L109 70 Q118 68 130 77 C138 104 127 126 132 155 Q137 176 144 190 Q121 205 100 202 Q79 205 56 190 Q63 176 68 155 C73 126 62 104 70 77 Z" fill={partTone(me, "torso")} />
+              ) : (
+                <path className="body-part torso" d="M60 78 Q77 66 91 70 L100 75 L109 70 Q123 66 140 78 L132 185 Q116 201 100 200 Q84 201 68 185 Z" fill={partTone(me, "torso")} />
+              )}
+              <g className="body-contours" aria-hidden="true">
+                <path d="M78 86 Q100 97 122 86 M100 96 L100 174 M80 171 Q100 181 120 171" />
+              </g>
+            </g>
+            <g {...zone("braco_dir")}>
+              <path className="body-part arm arm-right" d="M66 80 Q49 79 41 100 Q31 137 28 183 Q27 207 37 222 Q48 220 49 205 L52 159 L65 116 Z" fill={partTone(me, "braco_dir")} />
+              <ellipse className="body-part hand" cx="37" cy="225" rx="10" ry="14" fill={partTone(me, "braco_dir")} />
+            </g>
+            <g {...zone("braco_esq")}>
+              <path className="body-part arm arm-left" d="M134 80 Q151 79 159 100 Q169 137 172 183 Q173 207 163 222 Q152 220 151 205 L148 159 L135 116 Z" fill={partTone(me, "braco_esq")} />
+              <ellipse className="body-part hand" cx="163" cy="225" rx="10" ry="14" fill={partTone(me, "braco_esq")} />
+            </g>
+            <g {...zone("perna_dir")}>
+              <path className="body-part leg leg-right" d="M62 182 Q80 190 98 187 L94 272 L91 332 Q78 342 64 331 L61 270 Q55 221 62 182 Z" fill={partTone(me, "perna_dir")} />
+              <path className="joint-line" d="M64 264 Q78 270 94 264" />
+            </g>
+            <g {...zone("perna_esq")}>
+              <path className="body-part leg leg-left" d="M102 187 Q120 190 138 182 Q145 221 139 270 L136 331 Q122 342 109 332 L106 272 Z" fill={partTone(me, "perna_esq")} />
+              <path className="joint-line" d="M106 264 Q122 270 138 264" />
+            </g>
           </g>
           <Clothes me={me} female={female} />
           <WoundMarks me={me} />
@@ -119,6 +176,35 @@ export function BodySilhouette({ me }: { me: Me }) {
       <div className="silhouette-meta">
         <span>{female ? "Feminina" : "Masculina"}</span>
         <b>{me.profile.heightCm} cm · {me.profile.weightKg} kg</b>
+      </div>
+      <div className={`body-inspector ${bleeding ? "is-bleeding" : ""}`} aria-live="polite">
+        <span>ÁREA SELECIONADA</span>
+        <strong>{PART_LABEL[selected] ?? selected}</strong>
+        {selectedWounds.length === 0 ? (
+          <p>Sem ferimentos registrados.</p>
+        ) : (
+          <div className="body-inspector-wounds">
+            {selectedWounds.map((wound) => (
+              <i key={wound.id}>
+                {WOUND_LABEL[wound.type] ?? wound.type} · grav. {wound.severity}
+                {wound.bleedingRate > 0 ? " · sangrando" : wound.bandaged ? " · enfaixado" : ""}
+              </i>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="body-part-nav" aria-label="Selecionar região do corpo">
+        {BODY_PARTS.map((part) => (
+          <button
+            key={part.id}
+            type="button"
+            className={selected === part.id ? "is-active" : ""}
+            onClick={() => setSelected(part.id)}
+          >
+            {part.short}
+            {me.wounds.some((wound) => wound.bodyPart === part.id) && <i aria-hidden="true" />}
+          </button>
+        ))}
       </div>
     </div>
   );

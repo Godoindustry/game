@@ -23,6 +23,7 @@ export const SOURCES = [
   ["vikukachannel-suspiro-sigh-171045.mp3", "jogador/suspiro-alivio-1"],
   ["freesound_community-04-suspiro-45078.mp3", "jogador/suspiro-alivio-2"],
   ["freesound_community-vida-44129.mp3", "jogador/vida"],
+  ["audiopapkin-drinking-water-with-plastic-bottle-303737.mp3", "jogador/beber-agua", 5],
   // iara
   ["freesound_community-coro-musica-de-aparicion-37181.mp3", "iara/aparicao-coral"],
   ["dragon-studio-female-sigh-450446.mp3", "iara/suspiro"],
@@ -75,6 +76,10 @@ export const SOURCES = [
   ["dragon-studio-winter-wind-402331.mp3", "cenario/vento-inverno"],
   ["dragon-studio-harsh-wind-515272.mp3", "cenario/vento-forte"],
   ["daub_audio-brain-damage-148577.mp3", "cenario/zumbido", 9],
+  ["u_6zknalnd8g-mr-sun-horror-404519.mp3", "cenario/pressagio", 45],
+  ["dragon-studio-water-pouring-405458.mp3", "cenario/agua-vertendo"],
+  ["audiopapkin-open-bottle-and-pour-water-into-glass-302352.mp3", "cenario/garrafa-abrindo", 6],
+  ["universfield-glass-bottle-smash-02-291048.mp3", "cenario/vidro-quebrando"],
   // iara, almas e mãe das asas (lote 2)
   ["freesound_community-passos-de-salto-70753.mp3", "iara/passos-salto", 7],
   ["misfit_melomaniac-hello-whisper-533246.mp3", "almas/sussurro-ola"],

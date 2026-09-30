@@ -20,7 +20,6 @@ export const PIXABAY_WANTED: Record<string, { search: string; where: string; sec
   "jogador/respiracao-correndo": { search: "running breathing panic / out of breath running", where: "Correr, Fugir", seconds: "3–6" },
   "jogador/respiracao-contida": { search: "holding breath scared / nervous breathing", where: "Ficar imóvel, Prender a respiração, Deitar no chão, Observar em silêncio", seconds: "3–5" },
   "jogador/gemido-dor": { search: "pain groan short", where: "Enfaixar, tratar ferimento, morder a língua", seconds: "1–3" },
-  "jogador/beber-agua": { search: "drinking water gulp", where: "Beber da poça, Beber do córrego", seconds: "2–3" },
   "cenario/metal-forcando": { search: "metal door creak force / crowbar metal", where: "Forçar a porta, Alavanca, Forçar o cadeado, Pular a cerca", seconds: "2–4" },
   "cenario/cinto-fivela": { search: "seatbelt unbuckle", where: "Soltar o cinto (começo do jogo)", seconds: "1" },
   "cenario/lanterna-clique": { search: "flashlight click on off", where: "Lanterna, Apagar a luz", seconds: "0.5–1" },
@@ -49,8 +48,10 @@ const CHOICE_RULES: [RegExp, SoundCue][] = [
   [/rádio|sintoniz|frequência|fios/i, { want: "cenario/radio-chiado" }],
   [/lanterna|apagar a luz/i, { want: "cenario/lanterna-clique" }],
   [/mergulh/i, { want: "cenario/agua-mergulho" }],
+  [/quebrar.*(?:garrafa|vidro)|(?:garrafa|vidro).*quebr/i, { want: "cenario/vidro-quebrando" }],
   [/beber da poça/i, { want: "jogador/engasgo" }],
   [/beber/i, { want: "jogador/beber-agua" }],
+  [/oferecer água/i, { want: "cenario/garrafa-abrindo", vol: 0.75 }],
   [/corr(a|er)|fug(a|ir)/i, { want: "jogador/respiracao-correndo", fallback: "cenario/passos-floresta" }],
   [/espingarda/i, { want: "tavares/espingarda-1" }],
   [/golpe|derrubar|acabar com isso|tomar a chave/i, { want: "jogador/golpe" }],
@@ -98,8 +99,16 @@ export function choiceCue(label: string, sex: Sex = "masculino"): SoundCue | nul
   return CHOICE_RULES.find(([re]) => re.test(label))?.[1] ?? null;
 }
 
+/** Ações do inventário/local que não passam pelos botões de escolha narrativa. */
+export const ACTION_CUES: Record<string, SoundCue> = {
+  beber: { want: "jogador/beber-agua", vol: 0.85 },
+  coletar_agua: { want: "cenario/agua-vertendo", vol: 0.75 },
+  purificar_agua: { want: "cenario/garrafa-abrindo", vol: 0.7 },
+  ferver_agua: { want: "cenario/agua-vertendo", vol: 0.65 },
+};
+
 /** Todas as regras (para o teste que confere se cada som existe ou está na lista). */
-export const ALL_CUES: SoundCue[] = [...CHOICE_RULES.map(([, cue]) => cue), ...Object.values(EVENT_WANTED)];
+export const ALL_CUES: SoundCue[] = [...CHOICE_RULES.map(([, cue]) => cue), ...Object.values(EVENT_WANTED), ...Object.values(ACTION_CUES)];
 
 export function playCue(cue: SoundCue | null | undefined): void {
   if (!cue) return;
@@ -110,8 +119,13 @@ export function playChoice(label: string, sex?: Sex): void {
   playCue(choiceCue(label, sex));
 }
 
+export function playAction(type: string): void {
+  playCue(ACTION_CUES[type]);
+}
+
 export const DICE: Record<"rolling" | "success" | "failure", SoundCue> = {
-  rolling: { want: "dado/rolando" },
+  // O rolamento acompanha a animação sem encobrir voz, ambiente ou o som do resultado.
+  rolling: { want: "dado/rolando", vol: 0.28 },
   // Sem reserva: um suspiro ou galho quebrando no resultado do dado não faz sentido.
   success: { want: "dado/sucesso", vol: 0.8 },
   failure: { want: "dado/falha" },

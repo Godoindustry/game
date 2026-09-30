@@ -59,6 +59,8 @@
 }
 
 .story-mode .story-stage {
+  --stage-look-x: 0px;
+  --stage-look-y: 0px;
   position: relative;
   isolation: isolate;
   min-height: clamp(430px, 61vh, 720px);
@@ -75,8 +77,10 @@
   z-index: -4;
   background: url("/art/vale-silente/story-chapel.webp") center / cover no-repeat;
   filter: saturate(.67) contrast(1.13) brightness(.72);
-  transform: scale(1.035);
+  transform: scale(1.035) translate3d(var(--stage-look-x), var(--stage-look-y), 0);
   animation: story-camera 32s ease-in-out infinite alternate;
+  transition: filter .45s ease;
+  will-change: transform;
 }
 
 .story-stage-breathe {
@@ -131,6 +135,7 @@
 
 .story-stage-copy {
   position: absolute;
+  z-index: 2;
   left: clamp(20px, 4vw, 58px);
   right: clamp(20px, 7vw, 92px);
   bottom: clamp(24px, 5vh, 62px);
@@ -158,6 +163,70 @@
 
 .story-mode-danger .story-stage { border-color: rgba(161, 37, 59, .62); box-shadow: 0 28px 80px rgba(0, 0, 0, .72), inset 0 0 90px rgba(104, 6, 22, .16); }
 .story-mode-danger .story-stage-breathe { background: radial-gradient(ellipse at 58% 40%, transparent 0 20%, rgba(48, 3, 12, .2) 55%, rgba(5, 2, 4, .82) 100%); }
+
+/* Pontos de observação: enriquecem a cena, mas não executam ações nem alteram o save. */
+.story-observations { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.story-observation-hint {
+  position: absolute;
+  top: 52px;
+  right: 16px;
+  padding: 5px 8px;
+  color: rgba(216, 194, 152, .65);
+  border: 1px solid rgba(216, 194, 152, .18);
+  background: rgba(5, 4, 6, .46);
+  font: 600 8px/1 var(--font-mono);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  backdrop-filter: blur(5px);
+}
+.story-hotspot {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: #e0c998;
+  border: 1px solid rgba(224, 201, 152, .7);
+  border-radius: 50%;
+  background: rgba(12, 8, 10, .48);
+  box-shadow: 0 0 0 5px rgba(214, 184, 126, .07), 0 0 18px rgba(205, 171, 108, .18);
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+  backdrop-filter: blur(3px);
+  transition: color .2s, border-color .2s, background .2s, box-shadow .2s, scale .2s;
+  animation: observation-pulse 3.4s ease-in-out infinite;
+}
+.story-hotspot span { font: 700 8px/1 var(--font-mono); letter-spacing: .06em; }
+.story-hotspot:hover, .story-hotspot:focus-visible, .story-hotspot.is-active {
+  color: #fff0cf;
+  border-color: #f0d49c;
+  outline: none;
+  background: rgba(110, 38, 53, .72);
+  box-shadow: 0 0 0 7px rgba(190, 57, 79, .12), 0 0 25px rgba(202, 90, 105, .4);
+  scale: 1.12;
+}
+.story-observation-note {
+  position: absolute;
+  top: 86px;
+  right: 18px;
+  width: min(290px, calc(100% - 36px));
+  padding: 12px 36px 13px 14px;
+  color: #d8cdc0;
+  border: 1px solid rgba(184, 139, 93, .56);
+  border-radius: 2px 11px 2px 2px;
+  background: linear-gradient(135deg, rgba(24, 16, 19, .94), rgba(8, 7, 8, .9));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .48), inset 2px 0 #9c3045;
+  pointer-events: auto;
+  backdrop-filter: blur(10px);
+  animation: observation-note-in .22s ease both;
+}
+.story-observation-note > span { color: #b18d61; font: 700 8px/1 var(--font-mono); letter-spacing: .17em; }
+.story-observation-note strong { display: block; margin-top: 4px; color: #f0dfc4; font: 700 18px/1 var(--font-head); text-transform: uppercase; letter-spacing: .05em; }
+.story-observation-note p { margin: 6px 0 0; color: #b9ada7; font: italic 12px/1.45 Georgia, serif; }
+.story-observation-note > button { position: absolute; top: 6px; right: 7px; width: 28px; height: 28px; padding: 0; color: #9e8a88; border: 0; background: transparent; font-size: 20px; cursor: pointer; }
+.story-observation-note > button:hover { color: #f0dfc4; }
 
 .story-decisions {
   position: relative;
@@ -270,10 +339,15 @@
 .story-route-meta em { color: #da6577; font: normal 700 8px var(--font-mono); letter-spacing: .15em; }
 .story-route-meta i { color: #9b8c7b; font: normal 10px var(--font-mono); white-space: nowrap; }
 
-@keyframes story-camera { from { transform: scale(1.035) translate3d(0, 0, 0); } to { transform: scale(1.105) translate3d(-1.4%, -.8%, 0); } }
+@keyframes story-camera {
+  from { transform: scale(1.035) translate3d(var(--stage-look-x), var(--stage-look-y), 0); }
+  to { transform: scale(1.105) translate3d(calc(var(--stage-look-x) - 1.4%), calc(var(--stage-look-y) - .8%), 0); }
+}
 @keyframes story-breathe { 0%, 100% { opacity: .78; } 50% { opacity: 1; } }
 @keyframes story-rain { to { transform: translate(-24px, 62px); } }
 @keyframes story-record { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@keyframes observation-pulse { 50% { box-shadow: 0 0 0 8px rgba(214, 184, 126, 0), 0 0 20px rgba(205, 171, 108, .28); } }
+@keyframes observation-note-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
 .game-immersive .side-tabs {
   background: rgba(10, 7, 8, .92);
@@ -536,8 +610,17 @@
 }
 .human-silhouette svg { display: block; width: 100%; height: auto; max-height: 390px; }
 .silhouette-floor { fill: rgba(0, 0, 0, .72); filter: blur(3px); }
-.silhouette-body .body-part, .silhouette-neck { stroke: rgba(224, 201, 173, .25); stroke-width: 1; transition: fill .25s, filter .25s; }
+.silhouette-body .body-part, .silhouette-neck { stroke: rgba(224, 201, 173, .25); stroke-width: 1; transition: fill .25s, filter .25s, stroke .2s, stroke-width .2s; }
+.body-zone { cursor: pointer; outline: none; }
+.body-zone:hover .body-part, .body-zone:hover .silhouette-neck,
+.body-zone:focus-visible .body-part, .body-zone:focus-visible .silhouette-neck { stroke: rgba(235, 210, 165, .7); stroke-width: 1.8; filter: brightness(1.1); }
+.body-zone.is-selected .body-part, .body-zone.is-selected .silhouette-neck { stroke: #d4ad72; stroke-width: 2.2; filter: brightness(1.12) drop-shadow(0 0 5px rgba(208, 166, 103, .36)); }
+.body-zone.has-wound:not(.is-selected) .body-part, .body-zone.has-wound:not(.is-selected) .silhouette-neck { stroke: rgba(198, 48, 72, .65); }
 .silhouette-hair { fill: #151214; stroke: #45383c; stroke-width: 1; }
+.body-face, .body-contours { fill: none; stroke: rgba(226, 201, 173, .34); stroke-width: .8; stroke-linecap: round; pointer-events: none; }
+.body-contours { stroke: rgba(238, 218, 192, .18); }
+.joint-line { fill: none; stroke: rgba(232, 211, 186, .18); stroke-width: 1; pointer-events: none; }
+.silhouette-clothes, .silhouette-wounds { pointer-events: none; }
 .silhouette-clothes .garment { fill: url(#clothShade); stroke: #777064; stroke-width: 1; }
 .silhouette-clothes .torso-garment { filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .5)); }
 .silhouette-clothes .leg-garment { fill: #202528; stroke: #596064; }
@@ -551,6 +634,17 @@
 .silhouette-wounds .bandage + path { opacity: .25; }
 .silhouette-meta { display: flex; justify-content: space-between; gap: 8px; padding: 8px 4px 0; border-top: 1px solid #332329; color: #76676a; font: 8px var(--font-mono); text-transform: uppercase; }
 .silhouette-meta b { color: #b7a6a0; font-weight: 500; }
+.body-inspector { min-height: 70px; margin-top: 8px; padding: 9px 10px; border: 1px solid rgba(92, 62, 70, .75); border-left: 2px solid #8f704d; background: rgba(5, 4, 5, .46); }
+.body-inspector > span { display: block; color: #846d70; font: 600 7px/1 var(--font-mono); letter-spacing: .14em; }
+.body-inspector > strong { display: block; margin-top: 4px; color: #e0cfb3; font: 700 15px/1 var(--font-head); letter-spacing: .055em; text-transform: uppercase; }
+.body-inspector > p { margin: 6px 0 0; color: #75847b; font: 10px/1.35 var(--font-body); }
+.body-inspector.is-bleeding { border-left-color: #c63850; box-shadow: inset 8px 0 18px rgba(151, 31, 53, .1); }
+.body-inspector-wounds { display: grid; gap: 3px; margin-top: 6px; }
+.body-inspector-wounds i { color: #d4939c; font: normal 9px/1.35 var(--font-mono); }
+.body-part-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 6px; }
+.body-part-nav button { position: relative; min-height: 28px; padding: 4px 6px; color: #7f7273; border: 1px solid rgba(73, 50, 56, .75); background: rgba(11, 8, 9, .72); font: 600 8px/1 var(--font-mono); cursor: pointer; transition: color .18s, border-color .18s, background .18s; }
+.body-part-nav button:hover, .body-part-nav button:focus-visible, .body-part-nav button.is-active { color: #ead8b7; border-color: #9d7955; outline: none; background: rgba(65, 41, 43, .72); }
+.body-part-nav button i { position: absolute; top: 4px; right: 4px; width: 4px; height: 4px; border-radius: 50%; background: #cf3e58; box-shadow: 0 0 5px #cf3e58; }
 .silhouette-dead svg { filter: grayscale(1) contrast(.8); opacity: .5; }
 @keyframes wound-pulse { 50% { r: 13px; fill: rgba(190, 38, 65, .38); } }
 
@@ -1021,6 +1115,11 @@
   /* Celular: o texto empurra a altura da cena em vez de ser cortado; a arte vira faixa curta
      para as opções chegarem mais perto do polegar. */
   .story-mode .story-stage { display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; padding-top: 118px; }
+  .story-observations { bottom: auto; height: 126px; }
+  .story-observation-hint { top: 46px; right: 9px; font-size: 7px; }
+  .story-hotspot { width: 29px; height: 29px; }
+  .story-observation-note { position: fixed; z-index: 80; top: 68px; left: 8px; right: auto; width: calc(100vw - 16px); max-width: none; }
+  .story-observation-note p { overflow-wrap: anywhere; }
   .story-stage-copy h1 { font-size: clamp(28px, 9vw, 40px); }
   .story-rule { margin: 12px 0 9px; }
   /* Bateria: sem câmera lenta nem "respiração" infinitas em tela pequena. */
@@ -1051,6 +1150,8 @@
   .story-route-copy small { white-space: normal; }
   .game-immersive .body-grid { grid-template-columns: 1fr; }
   .human-silhouette { position: relative; width: min(230px, 100%); margin-inline: auto; }
+  .body-inspector > span, .body-inspector-wounds i, .body-part-nav button { font-size: 11px; }
+  .body-inspector > p { font-size: 12px; }
   .power-hero { min-height: 132px; }
   .power-identity { padding-left: 11px; }
   .power-identity > strong { max-width: 230px; font-size: 19px; }
@@ -1082,7 +1183,7 @@
   .horror-cinematic-art, .horror-cinematic-rain, .horror-cinematic-copy,
   .horror-cinematic-copy > i, .spoken-scene, .spoken-scene-art,
   .spoken-scene-rain, .spoken-scene-dialogue, .spoken-progress > i,
-  .participant-transition { animation: none !important; }
+  .participant-transition, .story-hotspot, .story-observation-note { animation: none !important; }
   .story-stage-art, .story-stage-breathe, .story-stage-rain, .story-stage-topline i { animation: none !important; }
   .power-card:hover .power-hero-art { transform: none; }
 }

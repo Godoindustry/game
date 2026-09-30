@@ -8,14 +8,22 @@ class FakeAudio {
   volume = 1;
   loop = false;
   paused = true;
+  ended = false;
+  playCalls = 0;
   onended: (() => void) | null = null;
   onerror: (() => void) | null = null;
+  onpause: (() => void) | null = null;
+  onplaying: (() => void) | null = null;
+  ontimeupdate: (() => void) | null = null;
+  onwaiting: (() => void) | null = null;
+  onstalled: (() => void) | null = null;
 
   constructor(public readonly src: string) {
     FakeAudio.instances.push(this);
   }
 
   play() {
+    this.playCalls++;
     this.paused = false;
     return Promise.resolve();
   }
@@ -30,6 +38,7 @@ describe("Diretor de áudio", () => {
     vi.useFakeTimers();
     FakeAudio.instances = [];
     vi.stubGlobal("Audio", FakeAudio);
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
     setMediaAudioBase("");
     useMixer.getState().reset();
     useMixer.setState({ voiceActive: false });
@@ -86,5 +95,28 @@ describe("Diretor de áudio", () => {
     expect(FakeAudio.instances[0].src).toContain("/estatico/audio/dado/rolando.mp3");
     FakeAudio.instances[0].onerror?.();
     expect(FakeAudio.instances[1].src).toBe("/audio/dado/rolando.mp3");
+  });
+
+  it("tenta retomar o fundo que o celular pausou", () => {
+    const director = new AudioDirector();
+    director.setBed("cenario/ambiente-noite");
+    const bed = FakeAudio.instances[0];
+    expect(bed.playCalls).toBe(1);
+
+    bed.paused = true;
+    director.setBed("cenario/ambiente-noite");
+    expect(bed.playCalls).toBe(2);
+  });
+
+  it("libera a fila quando uma voz fica presa em buffering", async () => {
+    const director = new AudioDirector();
+    director.voiceFile("/travada.mp3");
+    director.voiceFile("/seguinte.mp3");
+
+    FakeAudio.instances[0].onstalled?.();
+    await vi.advanceTimersByTimeAsync(12_000);
+    await vi.advanceTimersByTimeAsync(350);
+
+    expect(FakeAudio.instances.map((audio) => audio.src)).toEqual(["/travada.mp3", "/seguinte.mp3"]);
   });
 });

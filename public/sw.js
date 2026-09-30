@@ -5,7 +5,7 @@
  * - /api/*: nunca passa pelo cache (o servidor é a fonte da verdade).
  * Mude VERSION para forçar a limpeza dos caches antigos.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC = `static-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 const PRECACHE = ["/offline.html", "/manifest.webmanifest", "/icons/manifest-icon-192.maskable.png"];
@@ -34,6 +34,11 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+
+  // <audio> usa Range para carregar MP3 em partes. Uma resposta 200 guardada no Cache API
+  // não substitui corretamente a resposta 206 solicitada e pode fazer o som parar no meio.
+  // Deixa requisições parciais com a rede/cache HTTP nativo do navegador.
+  if (req.headers.has("range")) return;
 
   if (isStatic(url)) {
     event.respondWith(

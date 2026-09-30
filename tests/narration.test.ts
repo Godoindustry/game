@@ -72,6 +72,11 @@ describe("Sons das escolhas", () => {
     }
   });
 
+  it("mantém o rolamento do dado em volume baixo", () => {
+    expect(DICE.rolling.vol).toBeGreaterThan(0);
+    expect(DICE.rolling.vol).toBeLessThanOrEqual(0.3);
+  });
+
   it("a lista do Pixabay só tem sons que o jogo usa", () => {
     const used = new Set([...ALL_CUES, ...Object.values(DICE)].map((c) => c.want));
     for (const id of Object.keys(PIXABAY_WANTED)) expect(used.has(id), `${id} não é usado`).toBe(true);

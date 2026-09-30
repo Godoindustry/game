@@ -22,6 +22,7 @@ export const HORROR = {
     gritoMorte: "jogador/grito-morte",
     gritoMordida: "jogador/grito-mordida",
     panico: "jogador/panico-compulsao",
+    beberAgua: "jogador/beber-agua",
     alivio: ["jogador/suspiro-alivio-1", "jogador/suspiro-alivio-2"],
   },
   iara: { aparicao: "iara/aparicao-coral", suspiro: "iara/suspiro", choro: "iara/choro", chamado: "iara/sussurro-chamado", numeros: "iara/sussurro-numeros", passosSalto: "iara/passos-salto" },
@@ -57,6 +58,10 @@ export const HORROR = {
     ventoInverno: "cenario/vento-inverno",
     ventoForte: "cenario/vento-forte",
     zumbido: "cenario/zumbido",
+    pressagio: "cenario/pressagio",
+    aguaVertendo: "cenario/agua-vertendo",
+    garrafaAbrindo: "cenario/garrafa-abrindo",
+    vidroQuebrando: "cenario/vidro-quebrando",
     arco: "cenario/arco",
   },
 } as const;
@@ -218,11 +223,14 @@ export function useHorrorAudio(state: GameState | null, enabled: boolean) {
   // UM fundo só, por prioridade: luta > fogueira > rio > poço > noite > dia ao ar livre.
   const eventId = state ? eventIdOf(state) : null;
   const fighting = !!eventId && FIGHT.test(eventId) && !!state?.event?.participating;
+  const ominous = !!eventId && /^(ch_ninho|fs_turbinas|vs_sede|vs_poco)$/.test(eventId) && !!state?.event?.participating;
   const playing = !!state?.me?.alive && state?.campaign.status === "active";
   const bed: { sound: string; cat: AudioCategory } | null = !enabled || !playing
     ? null
     : fighting
       ? { sound: HORROR.cenario.luta, cat: "musica" }
+      : ominous
+        ? { sound: HORROR.cenario.pressagio, cat: "musica" }
       : state?.here.fire
         ? { sound: HORROR.cenario.fogueira, cat: "ambiente" }
         : state?.here.water === "stream"

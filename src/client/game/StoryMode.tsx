@@ -1,15 +1,35 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import type { GameState } from "./useGame";
 import { EventCard, HereCard, PendingCard } from "./Panels";
-import { sceneArtwork } from "./Immersion";
+import { sceneArtwork, sceneTheme, type SceneTheme } from "./Immersion";
 import { sheetDelta, type SheetChange } from "./sheetDelta";
 import { useWakeLock } from "./mobile";
 import { useNow } from "./useGame";
 
 type Act = (type: string, params?: Record<string, unknown>) => void;
+
+type SceneObservation = { id: string; label: string; text: string; x: number; y: number };
+
+const SCENE_OBSERVATIONS: Partial<Record<SceneTheme, SceneObservation[]>> = {
+  well: [
+    { id: "surface", label: "Superfície", text: "A água não acompanha o vento. O reflexo da lua permanece imóvel demais.", x: 73, y: 64 },
+    { id: "roots", label: "Raízes", text: "As raízes descem pelas pedras como dedos procurando alguma coisa sob a margem.", x: 84, y: 30 },
+    { id: "glow", label: "Luz submersa", text: "Uma claridade verde pulsa no fundo — lenta, quase no ritmo de uma respiração.", x: 87, y: 66 },
+  ],
+  bridge: [
+    { id: "headlight", label: "Farol", text: "O motor morreu, mas o farol continua aceso. A bateria não deveria durar tanto.", x: 77, y: 53 },
+    { id: "tracks", label: "Marcas na lama", text: "Os pneus chegaram depressa. As pegadas ao lado deles seguem só até a beira.", x: 59, y: 72 },
+    { id: "creek", label: "Córrego", text: "Entre a espuma, alguma coisa metálica bate nas pedras e some outra vez.", x: 88, y: 36 },
+  ],
+  radio: [
+    { id: "receiver", label: "Receptor", text: "O aparelho está sem energia, mas três sinais vermelhos insistem em voltar.", x: 76, y: 53 },
+    { id: "dish", label: "Parabólica", text: "A antena gira contra o vento, sempre corrigindo a direção para o mesmo ponto do vale.", x: 83, y: 19 },
+    { id: "tapes", label: "Fitas", text: "As bobinas estão úmidas e recentes. Alguém rebobinou uma delas há pouco.", x: 91, y: 55 },
+  ],
+};
 
 function narrativeLine(state: GameState) {
   const latest = [...state.log]
@@ -169,6 +189,14 @@ export function StoryMode({
   const shownOutcome = useRef(outcomeKey);
   const objective = state.objective;
   const art = sceneArtwork(state) as CSSProperties | undefined;
+  const theme = sceneTheme(state);
+  // No confronto, a arte enquadra o chefe e os pontos do cenário deixariam de coincidir.
+  const observations = state.story.boss?.active ? [] : SCENE_OBSERVATIONS[theme] ?? [];
+  const sceneKey = `${state.here.locationId}:${state.event?.instanceId ?? state.event?.id ?? "livre"}`;
+  const [inspected, setInspected] = useState<{ sceneKey: string; id: string } | null>(null);
+  const activeObservation = inspected?.sceneKey === sceneKey
+    ? observations.find((item) => item.id === inspected.id) ?? null
+    : null;
   const finished = state.campaign.status === "finished";
   const dead = !!state.me && !state.me.alive;
   const activeEvent = state.event?.participating ? state.event : null;
@@ -184,6 +212,20 @@ export function StoryMode({
     const el = outcomeRef.current;
     if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [outcomeKey]);
+
+  const lookAround = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType === "touch") return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width - 0.5;
+    const y = (event.clientY - rect.top) / rect.height - 0.5;
+    event.currentTarget.style.setProperty("--stage-look-x", `${(-x * 13).toFixed(1)}px`);
+    event.currentTarget.style.setProperty("--stage-look-y", `${(-y * 8).toFixed(1)}px`);
+  };
+
+  const centerView = (event: ReactPointerEvent<HTMLElement>) => {
+    event.currentTarget.style.setProperty("--stage-look-x", "0px");
+    event.currentTarget.style.setProperty("--stage-look-y", "0px");
+  };
 
   return (
     <main className={`story-mode ${dangerous ? "story-mode-danger" : ""}`} aria-label="Modo história">
@@ -213,11 +255,43 @@ export function StoryMode({
 
       {!finished && !dead && <FirstSteps round={state.campaign.round} />}
 
-      <section className="story-stage" aria-label={`Cena: ${line.title}`}>
-        <div className="story-stage-art" style={art} aria-hidden="true" />
+      <section
+        className={`story-stage story-stage-${theme}`}
+        aria-label={`Cena: ${line.title}`}
+        onPointerMove={lookAround}
+        onPointerLeave={centerView}
+      >
+        <div key={sceneKey} className="story-stage-art" style={art} aria-hidden="true" />
         <div className="story-stage-breathe" aria-hidden="true" />
         {state.campaign.weather === "chuva" && <div className="story-stage-rain" aria-hidden="true" />}
         <div className="story-stage-grade" aria-hidden="true" />
+
+        {observations.length > 0 && (
+          <div className="story-observations" aria-label="Detalhes que podem ser observados na cena">
+            <span className="story-observation-hint">Explore a cena</span>
+            {observations.map((item, index) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`story-hotspot ${activeObservation?.id === item.id ? "is-active" : ""}`}
+                style={{ left: `${item.x}%`, top: `${item.y}%` }}
+                aria-label={`Observar: ${item.label}`}
+                aria-expanded={activeObservation?.id === item.id}
+                onClick={() => setInspected(activeObservation?.id === item.id ? null : { sceneKey, id: item.id })}
+              >
+                <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+              </button>
+            ))}
+            {activeObservation && (
+              <div className="story-observation-note" role="status">
+                <span>OBSERVAÇÃO</span>
+                <strong>{activeObservation.label}</strong>
+                <p>{activeObservation.text}</p>
+                <button type="button" onClick={() => setInspected(null)} aria-label="Fechar observação">×</button>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="story-stage-topline">
           <span><i /> MODO HISTÓRIA</span>

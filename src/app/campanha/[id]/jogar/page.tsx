@@ -19,6 +19,7 @@ import { SurvivorPortrait } from "@/client/game/Portrait";
 import { usePresence } from "@/client/presence";
 import { PowerCard } from "@/client/game/PowerCard";
 import { ParticipantTransition, SpokenScene } from "@/client/game/StoryDialogue";
+import { playAction } from "@/client/game/choiceSfx";
 
 type Tab = "acoes" | "diario" | "grupo";
 
@@ -88,6 +89,7 @@ export default function PlayPage() {
 
   const me = state.me;
   const act = (type: string, params: Record<string, unknown> = {}) => {
+    playAction(type);
     void submit(type, params).then((ok) => ok && setPanel(null));
   };
   const finished  = state.campaign.status === "finished";

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameState } from "./useGame";
 import { narrateSequence, stopNarration, VOICE_STATUS_EVENT, type VoiceStatus } from "./narrator";
+import { narrationQueue } from "./narrationQueue";
 import { DICE, playCue } from "./choiceSfx";
 import { LOCAL_ROLL_EVENT, isEchoOfLocalRoll } from "./localDice";
 import { HAPTIC, vibrate } from "./mobile";
@@ -21,6 +22,26 @@ const LINEAGE_SIGILS: Record<string, string> = {
   hunter: "⌖",
 };
 
+export type SceneTheme = "well" | "bridge" | "radio" | "camp" | "tracks" | "wilds";
+
+/** Tema visual da cena. Só lê o estado atual; não altera campanha nem progresso. */
+export function sceneTheme(state: GameState): SceneTheme {
+  const boss = state.story.boss;
+  if (boss?.active) {
+    if (boss.id === "mae") return "well";
+    if (boss.id === "tavares") return "bridge";
+    if (boss.id === "iara") return "radio";
+    return "tracks";
+  }
+  const source = `${state.here.locationId} ${state.event?.id ?? ""} ${state.event?.title ?? ""} ${state.event?.body ?? ""}`.toLocaleLowerCase("pt-BR");
+  if (/lago|poço|poco|água parada|agua parada|mãe das asas|mae das asas|turbina/.test(source)) return "well";
+  if (/ponte|córrego|corrego|tavares|quadriciclo|espingarda/.test(source)) return "bridge";
+  if (/estacao|estação|observatorio|observatório|rádio|radio|frequência|frequencia|iara|23h40|sinal|antena|relé|rele/.test(source)) return "radio";
+  if (/fogueira|abrigo|descans|acampamento/.test(source)) return "camp";
+  if (/rastro|pegada|carcaça|carcaca|passos|lama|trilha/.test(source)) return "tracks";
+  return "wilds";
+}
+
 export function sceneArtwork(state: GameState) {
   const boss = state.story.boss;
   if (boss?.active) {
@@ -37,22 +58,36 @@ export function sceneArtwork(state: GameState) {
       backgroundSize: "300% 100%",
     };
   }
-  const sceneSource = `${state.event?.id ?? ""} ${state.event?.title ?? ""} ${state.event?.body ?? ""}`.toLocaleLowerCase("pt-BR");
-  if (/rádio|frequência|iara|celular|23h40|sinal|antena/.test(sceneSource)) {
+  const theme = sceneTheme(state);
+  if (theme === "well") {
     return {
-      backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.webp")',
-      backgroundPosition: "100% 0%",
-      backgroundSize: "200% 200%",
+      backgroundImage: 'url("/art/vale-silente/story-dark-well.webp")',
+      backgroundPosition: "center center",
+      backgroundSize: "cover",
     };
   }
-  if (/fogueira|abrigo|descans|acampamento/.test(sceneSource)) {
+  if (theme === "bridge") {
+    return {
+      backgroundImage: 'url("/art/vale-silente/story-creek-bridge.webp")',
+      backgroundPosition: "center center",
+      backgroundSize: "cover",
+    };
+  }
+  if (theme === "radio") {
+    return {
+      backgroundImage: 'url("/art/vale-silente/story-radio-station.webp")',
+      backgroundPosition: "center center",
+      backgroundSize: "cover",
+    };
+  }
+  if (theme === "camp") {
     return {
       backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.webp")',
       backgroundPosition: "0% 100%",
       backgroundSize: "200% 200%",
     };
   }
-  if (/rastro|pegada|carcaça|passos|lama/.test(sceneSource)) {
+  if (theme === "tracks") {
     return {
       backgroundImage: 'url("/art/vale-silente/voice-scene-atlas.webp")',
       backgroundPosition: "0% 0%",
@@ -272,7 +307,7 @@ export function NarratorVoice({ state }: { state: GameState }) {
     const latestId = lines[lines.length - 1].id;
     const pending = spoken.current === null
       ? [lines[lines.length - 1]]
-      : lines.filter((entry) => entry.id > spoken.current!);
+      : narrationQueue(lines.filter((entry) => entry.id > spoken.current!));
     spoken.current = latestId;
     // Sem limpeza aqui: a próxima narração já interrompe a anterior (interruptWith). Parar na
     // limpeza calava a primeira fala (o React refaz o efeito) e cortava frases no meio.
