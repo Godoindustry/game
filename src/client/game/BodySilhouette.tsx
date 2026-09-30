@@ -78,6 +78,7 @@ function WoundMarks({ me }: { me: Me }) {
             <circle r={wound.severity >= 2 ? 10 : 7} />
             <path d="M-5 -5 L5 5 M-1 -7 L7 1" />
             {wound.bandaged && <rect x="-9" y="-4" width="18" height="8" rx="2" className="bandage" />}
+            <text x="0" y={wound.bandaged ? 3 : 17} textAnchor="middle">{index + 1}</text>
           </g>
         );
       })}
@@ -93,6 +94,7 @@ export function BodySilhouette({ me }: { me: Me }) {
   const [selected, setSelected] = useState<BodyPart>(firstWound ?? "torso");
   const selectedWounds = me.wounds.filter((wound) => wound.bodyPart === selected);
   const bleeding = selectedWounds.some((wound) => wound.bleedingRate > 0);
+  const selectedSeverity = selectedWounds.reduce((highest, wound) => Math.max(highest, wound.severity), 0);
 
   const zone = (part: BodyPart): SVGProps<SVGGElement> => ({
     className: `body-zone ${selected === part ? "is-selected" : ""} ${me.wounds.some((wound) => wound.bodyPart === part) ? "has-wound" : ""}`,
@@ -110,6 +112,7 @@ export function BodySilhouette({ me }: { me: Me }) {
 
   return (
     <div className={`human-silhouette ${female ? "silhouette-female" : "silhouette-male"}${deadClass}`}>
+      <div className="body-map">
       <svg viewBox="0 0 200 365" role="img" aria-label={`Silhueta ${female ? "feminina" : "masculina"} de ${me.name} com roupas e ferimentos`}>
         <defs>
           <linearGradient id="skinShade" x1="0" x2="1" y1="0" y2="1">
@@ -173,22 +176,56 @@ export function BodySilhouette({ me }: { me: Me }) {
           <WoundMarks me={me} />
         </g>
       </svg>
+        <div className="body-callouts" aria-label="Regiões do corpo">
+          {BODY_PARTS.map((part) => {
+            const wounds = me.wounds.filter((wound) => wound.bodyPart === part.id);
+            const isBleeding = wounds.some((wound) => wound.bleedingRate > 0);
+            return (
+              <button
+                key={part.id}
+                type="button"
+                className={`body-callout body-callout-${part.id} ${selected === part.id ? "is-active" : ""} ${wounds.length ? "has-wound" : ""} ${isBleeding ? "is-bleeding" : ""}`}
+                onClick={() => setSelected(part.id)}
+              >
+                <span>{part.short}</span>
+                <i>{wounds.length ? wounds.length : "OK"}</i>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="body-legend" aria-label="Legenda do diagrama corporal">
+        <span><i className="is-ok" />Íntegro</span>
+        <span><i className="is-wounded" />Ferido</span>
+        <span><i className="is-bleeding" />Sangrando</span>
+      </div>
       <div className="silhouette-meta">
         <span>{female ? "Feminina" : "Masculina"}</span>
         <b>{me.profile.heightCm} cm · {me.profile.weightKg} kg</b>
       </div>
-      <div className={`body-inspector ${bleeding ? "is-bleeding" : ""}`} aria-live="polite">
-        <span>ÁREA SELECIONADA</span>
-        <strong>{PART_LABEL[selected] ?? selected}</strong>
+      <div className={`body-inspector ${bleeding ? "is-bleeding" : selectedWounds.length ? "is-wounded" : "is-ok"}`} aria-live="polite">
+        <div className="body-inspector-head">
+          <span>
+            <small>ÁREA SELECIONADA</small>
+            <strong>{PART_LABEL[selected] ?? selected}</strong>
+          </span>
+          <i>{bleeding ? "SANGRANDO" : selectedWounds.length ? `GRAV. ${selectedSeverity}` : "ÍNTEGRO"}</i>
+        </div>
         {selectedWounds.length === 0 ? (
-          <p>Sem ferimentos registrados.</p>
+          <p><span aria-hidden="true">✓</span> Sem ferimentos registrados nesta região.</p>
         ) : (
           <div className="body-inspector-wounds">
             {selectedWounds.map((wound) => (
-              <i key={wound.id}>
-                {WOUND_LABEL[wound.type] ?? wound.type} · grav. {wound.severity}
-                {wound.bleedingRate > 0 ? " · sangrando" : wound.bandaged ? " · enfaixado" : ""}
-              </i>
+              <div key={wound.id}>
+                <i>{me.wounds.findIndex((entry) => entry.id === wound.id) + 1}</i>
+                <span>
+                  <b>{WOUND_LABEL[wound.type] ?? wound.type}</b>
+                  <small>
+                    Gravidade {wound.severity}
+                    {wound.bleedingRate > 0 ? " · sangrando" : wound.bandaged ? " · enfaixado" : " · sem cuidado"}
+                  </small>
+                </span>
+              </div>
             ))}
           </div>
         )}
@@ -201,8 +238,12 @@ export function BodySilhouette({ me }: { me: Me }) {
             className={selected === part.id ? "is-active" : ""}
             onClick={() => setSelected(part.id)}
           >
-            {part.short}
-            {me.wounds.some((wound) => wound.bodyPart === part.id) && <i aria-hidden="true" />}
+            <span>{part.short}</span>
+            {me.wounds.some((wound) => wound.bodyPart === part.id) ? (
+              <i aria-hidden="true">{me.wounds.filter((wound) => wound.bodyPart === part.id).length}</i>
+            ) : (
+              <small>OK</small>
+            )}
           </button>
         ))}
       </div>

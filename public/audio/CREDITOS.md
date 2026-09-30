@@ -8,7 +8,7 @@ Organização: **uma pasta por pessoa** (quem fala ou quem está em cena); o **n
 | `sistema/` | Locutor frio do rádio/HUD (Daniel) | ElevenLabs |
 | `voz-da-morte/` | Voz da morte (Brian) | ElevenLabs |
 | `desconhecido/` | NPC desconhecido (Callum) | ElevenLabs |
-| `jogador/`, `iara/`, `mae-das-asas/`, `lobo-de-ambar/`, `tavares/`, `almas/`, `cenario/` | Personagens, criaturas e cenário | Pixabay (abaixo) |
+| `jogador/`, `iara/`, `mae-das-asas/`, `lobo-de-ambar/`, `tavares/`, `almas/`, `cenario/`, `musica/` | Personagens, criaturas, cenário e música | Pixabay (abaixo) |
 
 ## Efeitos do Pixabay
 
@@ -24,6 +24,7 @@ e 3 cantos de pássaro (one birds song, voices of birds, song thrush).
 
 | Arquivo | Original (autor – nome – id) | Situação no jogo |
 |---|---|---|
+| musica/ambient-horror | leberch – ambient horror – 518292 | Trilha contínua antes do início da partida |
 | jogador/grito-morte | freesound_community – terror scream – 101302 | Morte do personagem |
 | jogador/grito-mordida | magiaz – scream of terror – 325532 | Mordida nova |
 | jogador/panico-compulsao | alban_gogh – “panic fear” – 479998 | Compulsão de classe |

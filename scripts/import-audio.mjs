@@ -16,6 +16,8 @@ const OUT = "public/audio";
 
 /** [original, destino (pessoa/situacao), segundos para cortar (opcional)] */
 export const SOURCES = [
+  // música
+  ["leberch-ambient-horror-518292.mp3", "musica/ambient-horror"],
   // jogador
   ["freesound_community-terror-scream-grito-terror-101302.mp3", "jogador/grito-morte"],
   ["magiaz-scream-of-terror-325532.mp3", "jogador/grito-mordida"],

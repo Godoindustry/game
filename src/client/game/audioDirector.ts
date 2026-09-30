@@ -297,6 +297,12 @@ export class AudioDirector {
     this.startBed(bed);
   }
 
+  /** Para o fundo apenas se ainda for o solicitado; não silencia a trilha que já o substituiu. */
+  clearBed(sound?: string) {
+    if (sound && this.bed?.sound !== sound) return;
+    this.setBed(null);
+  }
+
   private configureBedElement(bed: Bed, el: HTMLAudioElement, allowLocalFallback: boolean) {
     el.loop = true;
     el.volume = 0;

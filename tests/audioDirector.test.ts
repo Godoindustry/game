@@ -108,6 +108,21 @@ describe("Diretor de áudio", () => {
     expect(bed.playCalls).toBe(2);
   });
 
+  it("não encerra o fundo novo ao limpar a música pré-partida atrasada", () => {
+    const director = new AudioDirector();
+    director.setBed("musica/ambient-horror", 0.72, "musica");
+    director.setBed("cenario/ambiente-noite");
+
+    director.clearBed("musica/ambient-horror");
+    director.setBed("cenario/ambiente-noite");
+
+    expect(FakeAudio.instances.map((audio) => audio.src)).toEqual([
+      "/audio/musica/ambient-horror.mp3",
+      "/audio/cenario/ambiente-noite.mp3",
+    ]);
+    expect(FakeAudio.instances[1].playCalls).toBe(1);
+  });
+
   it("libera a fila quando uma voz fica presa em buffering", async () => {
     const director = new AudioDirector();
     director.voiceFile("/travada.mp3");

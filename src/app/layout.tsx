@@ -4,6 +4,7 @@ import "./globals.css";
 import "./immersive.css";
 import { Toasts } from "@/client/ui";
 import { Pwa } from "@/client/Pwa";
+import { PregameMusic } from "@/client/PregameMusic";
 
 const barlow = Barlow_Condensed({ variable: "--font-barlow", subsets: ["latin"], weight: ["500", "600", "700"] });
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <link rel="apple-touch-icon" href="/icons/apple-icon-180.png" />
       </head>
       <body>
+        <PregameMusic />
         {children}
         <Toasts />
         <Pwa />
