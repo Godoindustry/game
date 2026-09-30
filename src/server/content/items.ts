@@ -20,6 +20,7 @@ export const ITEMS: ItemDef[] = [
   d({ id: "barra_cereal", name: "Barra de cereal", description: "Pouca coisa, mas é açúcar.", category: "comida", weightG: 25, volumeMl: 60, stackable: true, maxStack: 10, properties: { food: 7 } }),
   d({ id: "sardinha", name: "Lata de sardinha (abre-fácil)", description: "Proteína e sal. A tampa abre sem ferramenta.", category: "comida", weightG: 125, volumeMl: 150, stackable: true, maxStack: 6, properties: { food: 18 } }),
   d({ id: "biscoito", name: "Pacote de biscoito água e sal", description: "Seco, mas enche o estômago.", category: "comida", weightG: 200, volumeMl: 450, stackable: true, maxStack: 4, properties: { food: 22 } }),
+  d({ id: "frutos_silvestres", name: "Frutos silvestres e raízes", description: "Achados na mata. Pouco, mas dá para ir levando.", category: "comida", weightG: 80, volumeMl: 120, stackable: true, maxStack: 8, properties: { food: 15 } }),
   d({ id: "chocolate", name: "Barra de chocolate", description: "Meio derretida e depois endurecida de novo.", category: "comida", weightG: 90, volumeMl: 90, stackable: true, maxStack: 4, properties: { food: 12, stressRelief: 6 } }),
 
   // Ferramentas e fogo

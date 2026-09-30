@@ -13,6 +13,7 @@ import type {
   InvItem,
   LinkDef,
   WorldState,
+  Wound,
 } from "./types";
 import { CONTAINERS } from "./types";
 import { powerOf, resourceName, validateFeed, validatePower } from "./powers";
@@ -46,6 +47,26 @@ export interface ValidateContext {
   world: WorldState;
   content: GameContent;
   activeEvent: ActiveEvent | null;
+  /** Todos os personagens da campanha: passar item e usar em amigo precisam do outro. */
+  party?: CharacterState[];
+}
+
+/** Amigo vivo, no mesmo local (dar e cuidar é corpo a corpo). */
+export function friendHere(char: CharacterState, party: CharacterState[] | undefined, targetId: unknown): CharacterState | string {
+  const t = party?.find((c) => c.id === targetId);
+  if (!t || t.id === char.id) return "Escolha alguém do grupo.";
+  if (!t.alive) return `${t.name} não está mais entre vocês.`;
+  if (t.status.locationId !== char.status.locationId) return `${t.name} está longe — precisa estar no mesmo lugar.`;
+  return t;
+}
+
+/** Para que serve um item em outra pessoa (null = não tem uso nela). */
+export function friendUseOf(content: GameContent, itemId: string): "comida" | "agua" | "atadura" | "antisseptico" | "analgesico" | null {
+  const def = itemDef(content, itemId);
+  if (def.properties.food) return "comida";
+  if (def.properties.water) return "agua";
+  if (itemId === "atadura" || itemId === "antisseptico" || itemId === "analgesico") return itemId;
+  return null;
 }
 
 // ---------- Deslocamento ----------
@@ -70,13 +91,48 @@ export function travelMinutes(char: CharacterState, world: WorldState, content: 
 }
 
 // ---------- Validação ----------
+/** Cuidados que podem ser feitos no meio de um evento (sangrar esperando a cena não faz sentido). */
+export const CARE_DURING_EVENT: ActionInput["type"][] = ["tratar_ferimento", "tomar_analgesico", "usar_em_amigo"];
+
+/** Material de curativo: atadura estanca o sangue/imobiliza; antisséptico limpa (previne infecção). */
+export type TreatMaterial = "atadura" | "antisseptico";
+
+export function treatNeeds(w: Wound) {
+  return {
+    bandage: w.bleedingRate > 0 || !w.bandaged || (["fratura", "entorse"].includes(w.type) && !w.splinted),
+    clean: !w.disinfected && w.type !== "contusao" && w.type !== "entorse",
+  };
+}
+
+/** O que o "Tratar" vai usar. Sem material escolhido: atadura se sangra, depois o que servir. */
+export function treatPlan(char: CharacterState, w: Wound, material?: unknown) {
+  const need = treatNeeds(w);
+  const bandage = need.bandage && hasItem(char, "atadura") && material !== "antisseptico";
+  const clean = need.clean && hasItem(char, "antisseptico") && material !== "atadura";
+  return { bandage, clean };
+}
+
+/** O que acende: isqueiro primeiro; fósforos só se estiverem secos. */
+export function dryIgniter(char: CharacterState, content: GameContent) {
+  const all = char.inventory.filter((i) => itemDef(content, i.itemId).properties.ignition);
+  const dry = all.filter((i) => !(itemDef(content, i.itemId).properties.wetSensitive && i.wetness > 50));
+  return { igniter: dry.find((i) => i.itemId === "isqueiro") ?? dry[0], hasAny: all.length > 0 };
+}
+
+/** A ferida do amigo que o material resolve: a escolhida, ou a que sangra primeiro. */
+export function friendWound(target: CharacterState, material: "atadura" | "antisseptico", woundId?: unknown): Wound | undefined {
+  const open = target.wounds.filter((w) => !w.healed && (material === "atadura" ? treatNeeds(w).bandage : treatNeeds(w).clean));
+  return open.find((w) => w.id === woundId) ?? open.find((w) => w.bleedingRate > 0) ?? open[0];
+}
+
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
 export function validateAction(ctx: ValidateContext, action: ActionInput): Validation {
   const { char, world, content, activeEvent } = ctx;
   if (!char.alive) return { ok: false, error: "Seu personagem está morto." };
   const inEvent = activeEvent?.participants.includes(char.id) ?? false;
-  if (inEvent && action.type !== "escolha_evento") return { ok: false, error: "Responda ao evento em andamento primeiro." };
+  // Estancar sangue e tomar remédio não esperam a cena: o evento continua aberto para a próxima vez.
+  if (inEvent && !["escolha_evento", ...CARE_DURING_EVENT].includes(action.type)) return { ok: false, error: "Responda ao evento em andamento primeiro." };
   if (!inEvent && action.type === "escolha_evento") return { ok: false, error: "Não há evento aguardando sua decisão." };
 
   const p = action.params ?? {};
@@ -149,12 +205,48 @@ export function validateAction(ctx: ValidateContext, action: ActionInput): Valid
     case "tratar_ferimento": {
       const w = char.wounds.find((x) => x.id === p.woundId && !x.healed);
       if (!w) return { ok: false, error: "Ferimento não encontrado." };
-      const needsBandage = w.bleedingRate > 0 || !w.bandaged || (["fratura", "entorse"].includes(w.type) && !w.splinted);
-      const canBandage = needsBandage && hasItem(char, "atadura");
-      const canDisinfect = !w.disinfected && hasItem(char, "antisseptico") && w.type !== "contusao" && w.type !== "entorse";
-      if (!canBandage && !canDisinfect) return { ok: false, error: "Você não tem material útil para esse ferimento." };
-      const it = char.inventory.find((i) => i.itemId === "atadura" || i.itemId === "antisseptico")!;
+      if (p.material !== undefined && p.material !== "atadura" && p.material !== "antisseptico") return { ok: false, error: "Material inválido." };
+      const need = treatNeeds(w);
+      const plan = treatPlan(char, w, p.material);
+      if (!plan.bandage && !plan.clean) {
+        if (p.material === "atadura") return { ok: false, error: need.bandage ? "Você não tem atadura." : "Já está enfaixado." };
+        if (p.material === "antisseptico") return { ok: false, error: need.clean ? "Você não tem antisséptico." : "Não precisa de limpeza." };
+        return { ok: false, error: need.bandage ? "Você precisa de uma atadura." : "Você não tem material útil para esse ferimento." };
+      }
+      const it = char.inventory.find((i) => i.itemId === (plan.bandage ? "atadura" : "antisseptico"))!;
       return { ok: true, minutes: ACTION_MINUTES.tratar_ferimento + accessMinutes(it), activity: "light" };
+    }
+    case "beber_fonte": {
+      if (!loc?.properties.water) return { ok: false, error: "Não há água aqui." };
+      if (char.status.thirst < 5) return { ok: false, error: "Você não está com sede." };
+      return { ok: true, minutes: ACTION_MINUTES.beber_fonte, activity: "idle" };
+    }
+    case "dar_item": {
+      const it = findItem(char, p.inventoryItemId);
+      if (!it) return { ok: false, error: "Item não está no seu inventário." };
+      if (it.container === "equipped") return { ok: false, error: "Tire a peça antes de passar." };
+      const t = friendHere(char, ctx.party, p.targetCharacterId);
+      if (typeof t === "string") return { ok: false, error: t };
+      const qty = p.quantity === undefined ? 1 : Number(p.quantity);
+      if (!Number.isInteger(qty) || qty < 1 || qty > it.quantity) return { ok: false, error: "Quantidade inválida." };
+      if (!canCarryExtra(t, content, itemDef(content, it.itemId).weightG * qty)) return { ok: false, error: `${t.name} não aguenta mais peso.` };
+      if (!pickContainer(t, content, it.itemId, qty)) return { ok: false, error: `Não cabe na mochila de ${t.name}.` };
+      return { ok: true, minutes: ACTION_MINUTES.quick + accessMinutes(it), activity: "idle" };
+    }
+    case "usar_em_amigo": {
+      const it = findItem(char, p.inventoryItemId);
+      if (!it) return { ok: false, error: "Item não está no seu inventário." };
+      const t = friendHere(char, ctx.party, p.targetCharacterId);
+      if (typeof t === "string") return { ok: false, error: t };
+      const use = friendUseOf(content, it.itemId);
+      if (!use) return { ok: false, error: "Esse item não tem uso em outra pessoa." };
+      if (use === "analgesico" && t.health.painkillerUntil > world.minute) return { ok: false, error: `${t.name} já tomou uma dose.` };
+      if (use === "atadura" || use === "antisseptico") {
+        const w = friendWound(t, use, p.woundId);
+        if (!w) return { ok: false, error: use === "atadura" ? `${t.name} não tem ferida para enfaixar.` : `${t.name} não tem ferida para limpar.` };
+        return { ok: true, minutes: ACTION_MINUTES.tratar_ferimento + accessMinutes(it), activity: "light" };
+      }
+      return { ok: true, minutes: ACTION_MINUTES.quick + accessMinutes(it), activity: "idle" };
     }
     case "tomar_analgesico": {
       const it = char.inventory.find((i) => i.itemId === "analgesico");
@@ -171,7 +263,9 @@ export function validateAction(ctx: ValidateContext, action: ActionInput): Valid
     case "acender_fogueira": {
       if (loc?.properties.indoor) return { ok: false, error: "Não é seguro acender fogo aqui dentro." };
       if (!hasItem(char, "galhos_secos")) return { ok: false, error: "Você precisa de galhos secos." };
-      if (!char.inventory.some((i) => itemDef(content, i.itemId).properties.ignition)) return { ok: false, error: "Você não tem como acender fogo." };
+      const ig = dryIgniter(char, content);
+      if (!ig.hasAny) return { ok: false, error: "Você não tem como acender fogo." };
+      if (!ig.igniter) return { ok: false, error: "Seus fósforos estão molhados. Espere secar (abrigo, perto de fogo) ou use um isqueiro." };
       return { ok: true, minutes: ACTION_MINUTES.acender_fogueira, activity: "light" };
     }
     case "coletar_lenha": {
@@ -271,6 +365,9 @@ function simulateBackpackSwap(char: CharacterState, content: GameContent, newBag
 // ---------- Resolução ----------
 export interface ResolveContext extends EffectContext {
   npcIntent?: string;
+  party?: CharacterState[];
+  /** Linha para o diário de OUTRO personagem (quem recebeu o item ou o curativo). */
+  notify?: (characterId: string, text: string) => void;
 }
 
 export function resolveAction(
@@ -335,11 +432,27 @@ export function resolveAction(
         applyEffects(char, [{ op: "addItem", item: entry.itemId, qty, state: entry.state }], ctx);
         ctx.lines.push(`Você encontrou: ${content.items[entry.itemId].name}${qty > 1 ? ` ×${qty}` : ""}.`);
       });
+      // Natureza não se esgota: frutos e raízes a cada busca. A chance vem do olho e da experiência,
+      // não do corpo — senão quem está faminto e exausto (quem mais precisa) nunca acharia nada.
+      const forage = loc?.properties.forage;
+      if (forage && found < 2) {
+        const chance = clamp(forage + (char.attrs.percepcao - 3) * 5 + (hasExperience(char, "sobrevivencia") ? 10 : 0), 15, 85);
+        if (ctx.rng() * 100 < chance && addItem(char, content, ctx.genId, "frutos_silvestres", 1).ok) {
+          found++;
+          ctx.lines.push("Entre as folhas, frutos silvestres e raízes comestíveis. Você guarda o que achou.");
+        }
+      }
       report.success = found > 0;
       report.summary = found ? `Encontrou ${found} item(ns).` : "Nada útil encontrado.";
       if (!found) {
         const remaining = loot.some((e, i) => (locState?.loot[i] ?? 0) > 0 && (!e.requiresExamined || locState?.examined));
-        ctx.lines.push(remaining ? "Você não encontrou nada desta vez — talvez valha outra busca." : "Parece não haver mais nada útil aqui.");
+        ctx.lines.push(
+          remaining || forage
+            ? forage && !remaining
+              ? "Nada desta vez. Mas aqui sempre brota alguma coisa — vale procurar de novo."
+              : "Você não encontrou nada desta vez — talvez valha outra busca."
+            : "Parece não haver mais nada útil aqui.",
+        );
       }
       break;
     }
@@ -466,11 +579,12 @@ export function resolveAction(
       const def = itemDef(content, it.itemId);
       const container = it.container;
       removeInvItem(char, it.id, 1);
-      addItem(char, content, ctx.genId, def.properties.fillsTo!, 1, { contaminated: true }, container);
+      const rain = loc?.properties.water === "rain";
+      addItem(char, content, ctx.genId, def.properties.fillsTo!, 1, { contaminated: !rain }, container);
       pass(minutes, "light");
-      ctx.lines.push("Você enche a garrafa. A água está gelada — e não há como saber o que tem nela.");
+      ctx.lines.push(rain ? "Você enche a garrafa no tambor de chuva. Água limpa." : "Você enche a garrafa. A água está gelada — e não há como saber o que tem nela.");
       report.success = true;
-      report.summary = "Coletou água (não tratada).";
+      report.summary = rain ? "Coletou água da chuva." : "Coletou água (não tratada).";
       break;
     }
     case "purificar_agua": {
@@ -496,9 +610,7 @@ export function resolveAction(
       const w = char.wounds.find((x) => x.id === p.woundId)!;
       pass(minutes, "light");
       if (!char.alive) break;
-      const needsBandage = w.bleedingRate > 0 || !w.bandaged || (["fratura", "entorse"].includes(w.type) && !w.splinted);
-      const useBandage = needsBandage && hasItem(char, "atadura");
-      const useAntiseptic = !w.disinfected && hasItem(char, "antisseptico") && w.type !== "contusao" && w.type !== "entorse";
+      const { bandage: useBandage, clean: useAntiseptic } = treatPlan(char, w, p.material);
       if (useAntiseptic) {
         applyEffects(char, [{ op: "useCharge", item: "antisseptico" }], ctx);
         w.disinfected = true;
@@ -517,12 +629,129 @@ export function resolveAction(
         } else {
           w.bleedingRate = Math.round(w.bleedingRate * 0.6 * 10) / 10;
           char.status.pain = clamp(char.status.pain + 10, 0, 100);
-          ctx.lines.push("Suas mãos tremem. O curativo fica frouxo e logo se encharca.");
+          ctx.lines.push(
+            w.bleedingRate > 0
+              ? "Suas mãos tremem e o curativo fica frouxo: o sangramento diminui, mas não para. A atadura se perdeu — tente de novo com outra."
+              : "Suas mãos tremem e o curativo fica frouxo. A atadura se perdeu.",
+          );
         }
         report.success = r.success;
       } else report.success = true;
       char.status.pain = computePain(char, ctx.minute);
       report.summary = report.success ? "Ferimento tratado." : "O tratamento não saiu como esperado.";
+      break;
+    }
+    case "beber_fonte": {
+      const water = loc?.properties.water;
+      pass(minutes, "idle");
+      char.status.thirst = clamp(char.status.thirst - 35, 0, 100);
+      ctx.applied.push("sede -35");
+      if (water === "rain") {
+        ctx.lines.push("Você bebe a água da chuva acumulada no tambor. Fria e limpa.");
+      } else {
+        ctx.lines.push(water === "lake" ? "Você bebe com as mãos em concha a água parada do poço. Gosto de terra." : "Você se ajoelha no córrego e bebe com as mãos. A água é gelada.");
+        applyEffects(char, [{ op: "disease", key: "gastroenterite", chanceAttr: "resistencia", base: 45 }], ctx);
+      }
+      report.success = true;
+      report.summary = "Bebeu da fonte.";
+      break;
+    }
+    case "dar_item": {
+      const it = findItem(char, p.inventoryItemId)!;
+      const t = friendHere(char, ctx.party, p.targetCharacterId);
+      const def = itemDef(content, it.itemId);
+      pass(minutes, "idle");
+      if (typeof t === "string") {
+        ctx.lines.push(t);
+        report.success = false;
+        report.summary = "Não conseguiu passar o item.";
+        break;
+      }
+      const qty = p.quantity === undefined ? 1 : Number(p.quantity);
+      const taken = removeInvItem(char, it.id, qty)!;
+      const res = addItem(t, content, ctx.genId, it.itemId, qty, {
+        battery: taken.battery ?? undefined, durability: taken.durability ?? undefined, usesLeft: taken.usesLeft ?? undefined,
+        contaminated: taken.contaminated, wetness: taken.wetness,
+      });
+      const label = `${def.name}${qty > 1 ? ` ×${qty}` : ""}`;
+      if (res.ok) {
+        ctx.lines.push(`Você passa ${label} para ${t.name}.`);
+        ctx.notify?.(t.id, `${char.name} passou para você: ${label}.`);
+      } else {
+        // Não coube (o amigo se carregou na mesma rodada): fica no chão ao lado dos dois.
+        world.ground.push({ id: ctx.genId(), locationId: char.status.locationId, itemId: it.itemId, quantity: qty, state: { contaminated: taken.contaminated } });
+        ctx.lines.push(`Não coube com ${t.name}: ${label} ficou no chão.`);
+      }
+      report.success = res.ok;
+      report.summary = `Passou ${label} para ${t.name}.`;
+      break;
+    }
+    case "usar_em_amigo": {
+      const it = findItem(char, p.inventoryItemId)!;
+      const def = itemDef(content, it.itemId);
+      const t = friendHere(char, ctx.party, p.targetCharacterId);
+      pass(minutes, activity);
+      if (typeof t === "string") {
+        ctx.lines.push(t);
+        report.success = false;
+        report.summary = "Não conseguiu ajudar.";
+        break;
+      }
+      const use = friendUseOf(content, it.itemId)!;
+      report.success = true;
+      if (use === "comida") {
+        t.status.hunger = clamp(t.status.hunger - (def.properties.food ?? 0), 0, 100);
+        t.status.stress = clamp(t.status.stress - (def.properties.stressRelief ?? 0), 0, 100);
+        removeInvItem(char, it.id, 1);
+        ctx.lines.push(`Você divide com ${t.name}: ${def.name}.`);
+        ctx.notify?.(t.id, `${char.name} te deu de comer: ${def.name}.`);
+      } else if (use === "agua") {
+        t.status.thirst = clamp(t.status.thirst - (def.properties.water ?? 0), 0, 100);
+        const container = it.container;
+        const dirty = it.contaminated;
+        removeInvItem(char, it.id, 1);
+        if (def.properties.emptiesTo) addItem(char, content, ctx.genId, def.properties.emptiesTo, 1, {}, container);
+        ctx.lines.push(`Você dá de beber a ${t.name}.`);
+        ctx.notify?.(t.id, `${char.name} te deu água${dirty ? " (não tratada)" : ""}.`);
+        if (dirty) applyEffects(t, [{ op: "disease", key: "gastroenterite", chanceAttr: "resistencia", base: 45 }], { ...ctx, lines: [], applied: [] });
+      } else if (use === "analgesico") {
+        applyEffects(char, [{ op: "useCharge", item: "analgesico" }], ctx);
+        t.health.painkillerUntil = ctx.minute + PAINKILLER_MINUTES;
+        t.status.pain = computePain(t, ctx.minute);
+        ctx.lines.push(`Você dá um analgésico a ${t.name}.`);
+        ctx.notify?.(t.id, `${char.name} te deu um analgésico. Em meia hora a dor diminui.`);
+      } else {
+        const w = friendWound(t, use, p.woundId);
+        if (!w) {
+          ctx.lines.push(`A ferida de ${t.name} já foi cuidada.`);
+          report.success = false;
+        } else if (use === "antisseptico") {
+          applyEffects(char, [{ op: "useCharge", item: "antisseptico" }], ctx);
+          w.disinfected = true;
+          ctx.lines.push(`Você limpa a ferida de ${t.name}.`);
+          ctx.notify?.(t.id, `${char.name} limpou sua ferida. Arde, mas não vai infeccionar.`);
+        } else {
+          // Quem enfaixa é quem rola: a enfermeira do grupo faz diferença.
+          removeItem(char, "atadura", 1);
+          const r = rollCheck(char, { attr: "medicina", base: 55, experience: ["medicina"] }, ctx.rng, ctx.minute, content);
+          applyRollLog(ctx, "medicina", r);
+          if (r.success) {
+            w.bleedingRate = 0;
+            w.bandaged = true;
+            if (w.type === "fratura" || w.type === "entorse") w.splinted = true;
+            tags.push("treated");
+            ctx.lines.push(`Você enfaixa ${t.name}. O sangramento para.`);
+            ctx.notify?.(t.id, `${char.name} enfaixou sua ferida. O sangramento parou.`);
+          } else {
+            w.bleedingRate = Math.round(w.bleedingRate * 0.6 * 10) / 10;
+            ctx.lines.push(`O curativo em ${t.name} fica frouxo: o sangue diminui, mas não para. A atadura se perdeu.`);
+            ctx.notify?.(t.id, `${char.name} tentou te enfaixar, mas o curativo ficou frouxo.`);
+          }
+          report.success = r.success;
+          t.status.pain = computePain(t, ctx.minute);
+        }
+      }
+      report.summary = `Ajudou ${t.name}: ${def.name}.`;
       break;
     }
     case "tomar_analgesico":
@@ -550,10 +779,9 @@ export function resolveAction(
     case "acender_fogueira": {
       pass(minutes, "light");
       if (!char.alive) break;
-      const igniter =
-        char.inventory.find((i) => i.itemId === "isqueiro") ??
-        char.inventory.find((i) => itemDef(content, i.itemId).properties.ignition)!;
-      const wood = char.inventory.find((i) => i.itemId === "galhos_secos")!;
+      const igniter = dryIgniter(char, content).igniter ?? char.inventory.find((i) => itemDef(content, i.itemId).properties.ignition)!;
+      // Usa o galho mais seco que tiver.
+      const wood = [...char.inventory.filter((i) => i.itemId === "galhos_secos")].sort((a, b) => a.wetness - b.wetness)[0];
       const igDef = itemDef(content, igniter.itemId);
       if (igDef.properties.wetSensitive && igniter.wetness > 50) {
         applyEffects(char, [{ op: "useCharge", item: igniter.itemId }], ctx);
@@ -581,7 +809,8 @@ export function resolveAction(
     case "coletar_lenha": {
       pass(minutes, "heavy");
       if (!char.alive) break;
-      const wet = world.flags.chovendo ? 70 : 0;
+      // Sob lona, telhado ou abrigo montado a lenha sai seca, mesmo com chuva.
+      const wet = world.flags.chovendo && !isSheltered(world, content, char.status.locationId) ? 70 : 0;
       applyEffects(char, [{ op: "addItem", item: "galhos_secos", qty: 1, state: { wetness: wet } }], ctx);
       ctx.lines.push(wet ? "Você junta um feixe de galhos — úmidos da chuva." : "Você junta um feixe de galhos secos.");
       report.success = true;

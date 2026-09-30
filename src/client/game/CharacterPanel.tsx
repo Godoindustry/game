@@ -159,7 +159,15 @@ export function CharacterPanel({
 
         {/* Corpo e ferimentos */}
         <section className="stack-sm">
-          <div className="label" style={{ marginBottom: 4 }}>Corpo e ferimentos</div>
+          <div className="body-section-heading">
+            <span>
+              <small>MAPA DE SAÚDE</small>
+              <strong>Corpo e ferimentos</strong>
+            </span>
+            <i className={me.wounds.some((wound) => wound.bleedingRate > 0) ? "is-critical" : me.wounds.length ? "is-wounded" : ""}>
+              {me.wounds.length ? `${me.wounds.length} ${me.wounds.length === 1 ? "FERIMENTO" : "FERIMENTOS"}` : "CORPO ÍNTEGRO"}
+            </i>
+          </div>
           <div className="body-grid">
             <BodySilhouette me={me} />
             <div className="stack-sm">
@@ -174,17 +182,14 @@ export function CharacterPanel({
                 </div>
               )}
               {me.wounds.map((w) => (
-                <div key={w.id} className="panel panel-tight stack-sm" style={{
-                  gap: 6,
-                  borderColor: w.bleedingRate > 0 ? "rgba(214,60,60,0.45)" : w.severity >= 2 ? "rgba(214,60,60,0.25)" : "rgba(232,160,32,0.3)",
-                }}>
-                  <div className="row-between" style={{ flexWrap: "nowrap" }}>
+                <div key={w.id} className={`panel panel-tight stack-sm wound-card ${w.bleedingRate > 0 ? "is-bleeding" : w.severity >= 2 ? "is-severe" : ""}`}>
+                  <div className="row-between wound-card-head">
                     <strong className="small">{WOUND_LABEL[w.type]} · {PART_LABEL[w.bodyPart]}</strong>
                     <span className={`chip ${w.severity >= 2 ? "chip-red" : "chip-amber"}`}>
                       grav. {w.severity}
                     </span>
                   </div>
-                  <div className="row tiny" style={{ gap: 4 }}>
+                  <div className="row tiny wound-card-status">
                     {w.bleedingRate > 0 && (
                       <span className="chip chip-red chip-pulse">⚡ sangrando</span>
                     )}
@@ -192,17 +197,30 @@ export function CharacterPanel({
                     {w.splinted   && <span className="chip chip-green">imobilizado</span>}
                     {w.disinfected && <span className="chip chip-green">limpo</span>}
                   </div>
-                  <button
-                    className={`btn btn-sm ${w.bleedingRate > 0 ? "btn-critical" : ""}`}
-                    data-tut-id={w.bleedingRate > 0 ? "treat" : undefined}
-                    disabled={busy || !w.treat.available}
-                    title={w.treat.reason ?? undefined}
-                    onClick={() => onAct("tratar_ferimento", { woundId: w.id })}
-                  >
-                    Tratar {w.treat.available ? `· ${w.treat.minutes} min` : ""}
-                  </button>
-                  {!w.treat.available && w.treat.reason && (
-                    <span className="tiny muted">{w.treat.reason}</span>
+                  {w.care.length > 0 ? (
+                    <div className="wound-care-list">
+                      {w.care.map((opt) => (
+                        <div key={opt.material} className={`wound-care-option care-${opt.material} ${opt.available ? "" : "is-unavailable"}`}>
+                          <button
+                            className={`wound-care-button ${opt.material === "atadura" && w.bleedingRate > 0 ? "is-urgent" : ""}`}
+                            data-tut-id={opt.material === "atadura" && w.bleedingRate > 0 ? "treat" : undefined}
+                            disabled={busy || !opt.available}
+                            title={opt.reason ?? opt.hint}
+                            onClick={() => onAct("tratar_ferimento", { woundId: w.id, material: opt.material })}
+                          >
+                            <span className="wound-care-icon" aria-hidden="true">{opt.material === "atadura" ? "+" : "◇"}</span>
+                            <span className="wound-care-copy">
+                              <b>{opt.label}</b>
+                              <small>{opt.material === "atadura" ? "ATADURA" : "ANTISSÉPTICO"}</small>
+                            </span>
+                            <span className="wound-care-time">{opt.available ? `${opt.minutes} MIN` : "INDISP."}</span>
+                          </button>
+                          <span className="wound-care-hint">{opt.available ? opt.hint : opt.reason}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="wound-care-complete"><i aria-hidden="true">✓</i> Já cuidado. Agora só o tempo cura.</span>
                   )}
                 </div>
               ))}

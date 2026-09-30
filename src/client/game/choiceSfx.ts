@@ -69,6 +69,7 @@ export const EVENT_WANTED: Record<string, SoundCue> = {
   vs_helicoptero: { want: "cenario/helicoptero" },
   vs_resgate: { want: "cenario/helicoptero", vol: 0.6 },
   vs_radio: { want: "cenario/radio-chiado", vol: 0.7 },
+  vs_radio_final: { want: "cenario/radio-chiado", vol: 0.7 },
   vs_donos_carga: { want: "cenario/motor-carro" },
   vs_cacada: { want: "cenario/motor-carro" },
   vs_celular: { want: "cenario/celular-vibrando" },

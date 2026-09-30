@@ -59,10 +59,10 @@ describe("Campanha longa — atos, mapas e chefes", () => {
 
   it("bloqueia rádio e resgate até Tavares, Iara e o Observatório 740", () => {
     const { char, world } = setup();
-    const radio = content.events.find((event) => event.id === "vs_radio")!;
+    const radio = content.events.find((event) => event.id === "vs_radio_final")!;
     const rescue = content.events.find((event) => event.id === "vs_resgate")!;
     const finishChoices = [
-      radio.choices.find((choice) => choice.id === "vs_radio.ligar")!,
+      radio.choices.find((choice) => choice.id === "vs_radio_final.ligar")!,
       rescue.choices.find((choice) => choice.id === "vs_resgate.sinalizador")!,
     ];
 

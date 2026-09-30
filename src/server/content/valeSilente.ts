@@ -35,6 +35,7 @@ const LOCATIONS: LocationDef[] = [
       loot: [
         { itemId: "garrafa_agua", qty: 1, base: 65 },
         { itemId: "biscoito", qty: 1, base: 55 },
+        { itemId: "fosforos", qty: 1, base: 60 },
         { itemId: "manta_termica", qty: 1, base: 50, requiresExamined: true },
         { itemId: "canivete", qty: 1, base: 45, requiresExamined: true },
       ],
@@ -44,16 +45,16 @@ const LOCATIONS: LocationDef[] = [
     id: "mata", name: "Mata do Vale", x: 21, y: 52, terrain: "mata", hiddenInitially: false, dangerLevel: 1,
     description: "Árvores altas, cipós e um silêncio que não parece natural. Entre as rochas, o vento some.",
     properties: {
-      tempModifier: 1, woodSource: true, canBuildShelter: true,
+      tempModifier: 1, woodSource: true, canBuildShelter: true, forage: 50,
       examineText: "Há galhos quebrados na altura do peito, numa linha reta — alguém abriu caminho por aqui há pouco tempo.",
       loot: [{ itemId: "garrafa_vazia", qty: 1, base: 45 }],
     },
   },
   {
     id: "abrigo", name: "Acampamento abandonado", x: 39, y: 41, terrain: "acampamento", hiddenInitially: false, dangerLevel: 0,
-    description: "Uma lona esticada sobre estacas, caixas de madeira e uma fogueira antiga.",
+    description: "Uma lona esticada sobre estacas, caixas de madeira, uma fogueira antiga e um tambor azul que junta água da chuva.",
     properties: {
-      naturalShelter: true, woodSource: true,
+      naturalShelter: true, woodSource: true, water: "rain",
       examineText: "Sob uma das caixas, um saco plástico bem dobrado, guardado com cuidado de quem pretendia voltar.",
       loot: [
         { itemId: "caneca", qty: 1, base: 60 },
@@ -66,7 +67,7 @@ const LOCATIONS: LocationDef[] = [
     id: "trilha", name: "Trilha da crista", x: 40, y: 15, terrain: "trilha", hiddenInitially: false, dangerLevel: 1,
     description: "Uma trilha estreita subindo pela crista norte, com marcas de tinta laranja nos troncos.",
     properties: {
-      tempModifier: -1, woodSource: true, canBuildShelter: true,
+      tempModifier: -1, woodSource: true, canBuildShelter: true, forage: 40,
       examineText: "As marcas de tinta laranja são recentes. Seguem para leste, em direção à antena.",
       examineRevealsLinks: [["trilha", "estacao"]],
       loot: [
@@ -79,7 +80,7 @@ const LOCATIONS: LocationDef[] = [
     id: "ponte", name: "Ponte do córrego", x: 56, y: 39, terrain: "córrego", hiddenInitially: false, dangerLevel: 1,
     description: "Uma ponte de tábuas sobre o córrego. Rio acima, a cachoeira ruge no escuro.",
     properties: {
-      tempModifier: -2, water: "stream",
+      tempModifier: -2, water: "stream", forage: 35,
       examineText: "Nas tábuas da ponte, lama fresca com marcas de pneus largos, de cravos grossos — um quadriciclo. Ninguém chega aqui a pé carregando peso.",
       examineClue: "pneus_ponte",
     },
@@ -88,7 +89,7 @@ const LOCATIONS: LocationDef[] = [
     id: "lago", name: "Poço escuro", x: 21, y: 77, terrain: "lago", hiddenInitially: false, dangerLevel: 1,
     description: "Um poço largo de água parada, cercado de pedras lisas. A superfície reflete a lua como um olho.",
     properties: {
-      tempModifier: -2, water: "lake",
+      tempModifier: -2, water: "lake", forage: 35,
       examineText: "Na margem, uma pequena ponte de madeira atravessa o córrego para sudeste. Parece firme.",
       examineRevealsLinks: [["lago", "rochedo"]],
       loot: [{ itemId: "isqueiro", qty: 1, base: 40, requiresExamined: true }],
@@ -188,7 +189,7 @@ const EVENTS: EventDef[] = [
           text: "Você apoia o pé na fuselagem e puxa.",
           check: { attr: "forca", base: 45 },
           success: { text: "O metal cede com um estalo. Você puxa a bateria (pesada!), uma jaqueta impermeável e um kit de primeiros socorros.", effects: [{ op: "flag", key: "bagageiro_aberto" }, { op: "addItem", item: "bateria_emergencia" }, { op: "addItem", item: "jaqueta" }, { op: "addItem", item: "atadura" }, { op: "addItem", item: "antisseptico" }] },
-          failure: { text: "A porta não se move. Seu ombro estala de um jeito ruim.", effects: [{ op: "wound", part: "braco_dir", type: "entorse", severity: 1 }] },
+          failure: { text: "A porta não se move. Seu ombro estala de um jeito ruim. [pause] Mas a trava cedeu um pouco: da próxima vez, com calma, ela sai.", effects: [{ op: "wound", part: "braco_dir", type: "entorse", severity: 1 }, { op: "flag", key: "bagageiro_forcado" }] },
         },
       }),
       c("vs_bagageiro", "alavanca", {
@@ -197,7 +198,15 @@ const EVENTS: EventDef[] = [
           text: "Você encaixa uma haste de alumínio da asa na fresta.",
           check: { attr: "improviso", base: 50, itemBonus: { canivete: 15 } },
           success: { text: "Com paciência, a trava cede. Bateria, jaqueta e um kit de primeiros socorros.", effects: [{ op: "flag", key: "bagageiro_aberto" }, { op: "addItem", item: "bateria_emergencia" }, { op: "addItem", item: "jaqueta" }, { op: "addItem", item: "atadura" }, { op: "addItem", item: "antisseptico" }] },
-          failure: { text: "A haste entorta. Você perde tempo e fôlego.", effects: [{ op: "status", field: "energy", delta: -8 }] },
+          failure: { text: "A haste entorta. Você perde tempo e fôlego. [pause] Mas a fresta abriu um dedo: da próxima vez, com calma, ela sai.", effects: [{ op: "status", field: "energy", delta: -8 }, { op: "flag", key: "bagageiro_forcado" }] },
+        },
+      }),
+      // Depois de uma tentativa, sempre há um jeito lento e garantido: a cena não fica em ciclo.
+      c("vs_bagageiro", "calma", {
+        label: "Soltar a trava aos poucos (lento, sem teste)", durationMinutes: 40, requirements: { flagsAll: ["bagageiro_forcado"] },
+        outcome: {
+          text: "Você trabalha a trava que já tinha cedido, parafuso por parafuso, até a porta abrir. Bateria, jaqueta e um kit de primeiros socorros.",
+          effects: [{ op: "flag", key: "bagageiro_aberto" }, { op: "addItem", item: "bateria_emergencia" }, { op: "addItem", item: "jaqueta" }, { op: "addItem", item: "atadura" }, { op: "addItem", item: "antisseptico" }, { op: "status", field: "energy", delta: -10 }],
         },
       }),
       c("vs_bagageiro", "depois", { label: "Deixar para depois", durationMinutes: 1, safe: true, outcome: { text: "Você se afasta do bagageiro. Ele não vai a lugar nenhum." } }),
@@ -320,7 +329,7 @@ const EVENTS: EventDef[] = [
           text: "Você escala o alambrado.",
           check: { attr: "agilidade", base: 55 },
           success: { text: "Você cai do outro lado sem barulho.", effects: [{ op: "flag", key: "estacao_aberta" }] },
-          failure: { text: "O arame no topo rasga seu braço. Você desce de volta, sangrando.", effects: [{ op: "wound", part: "braco_dir", type: "laceracao", severity: 2 }] },
+          failure: { text: "O arame no topo rasga seu braço. Você desce de volta, sangrando. [pause] Mas agora você sabe onde a cerca cede.", effects: [{ op: "wound", part: "braco_dir", type: "laceracao", severity: 2 }, { op: "flag", key: "cerca_estudada" }] },
         },
       }),
       c("vs_estacao_portao", "rodear", {
@@ -329,7 +338,15 @@ const EVENTS: EventDef[] = [
           text: "Você contorna a cerca devagar.",
           check: { attr: "percepcao", base: 50 },
           success: { text: "Nos fundos, a tela foi cortada e remendada com arame — alguém entra e sai por ali.", effects: [{ op: "flag", key: "estacao_aberta" }, { op: "clue", key: "cerca_cortada" }] },
-          failure: { text: "Você dá a volta completa e não encontra nada.", effects: [] },
+          failure: { text: "Você dá a volta completa e não encontra nada. [pause] Pelo menos agora conhece cada metro da cerca.", effects: [{ op: "flag", key: "cerca_estudada" }] },
+        },
+      }),
+      // Depois de uma tentativa, um caminho lento e garantido: o portão não vira um ciclo sem fim.
+      c("vs_estacao_portao", "paciencia", {
+        label: "Desfazer a emenda de arame, fio por fio (lento, sem teste)", durationMinutes: 45, requirements: { flagsAll: ["cerca_estudada"] },
+        outcome: {
+          text: "Você volta ao ponto onde a tela foi remendada e desenrola o arame com paciência, até abrir espaço para passar.",
+          effects: [{ op: "flag", key: "estacao_aberta" }, { op: "clue", key: "cerca_cortada" }, { op: "status", field: "energy", delta: -10 }],
         },
       }),
       c("vs_estacao_portao", "chamar", { label: "Chamar por alguém", durationMinutes: 3, safe: true, outcome: { text: "A luz do lampião se apaga na mesma hora.", effects: [{ op: "status", field: "stress", delta: 15 }, { op: "flag", key: "piloto_alerta" }] } }),
@@ -390,33 +407,42 @@ const EVENTS: EventDef[] = [
   },
   {
     id: "vs_radio", title: "O rádio de bancada", locationId: "estacao", priority: 42, repeatable: true,
-    trigger: { afterEvent: "vs_estacao_interior", hasItem: "bateria_emergencia", cooldownMinutes: 60 },
+    trigger: { afterEvent: "vs_estacao_interior", hasItem: "bateria_emergencia", flagsNone: ["radio_sintonizado"], cooldownMinutes: 60 },
     body: "[hopeful] O rádio é antigo, mas os fios parecem inteiros. A bateria de emergência do avião tem terminais compatíveis — talvez.",
     choices: [
-      c("vs_radio", "ligar", {
+      c("vs_radio", "sintonizar", {
+        label: "Procurar a frequência dos números", durationMinutes: 10,
+        outcome: { text: "Com a bateria, o receptor capta a voz: “sete… quatro… zero”. O sinal é fortíssimo — não vem de longe. Vem de um ponto do próprio vale, a sudeste.", effects: [{ op: "clue", key: "frequencia" }, { op: "flag", key: "radio_sintonizado" }, { op: "reveal", location: "rochedo" }, { op: "revealLink", from: "penhasco", to: "rochedo" }, { op: "status", field: "stress", delta: 8 }] },
+      }),
+      c("vs_radio", "depois", { label: "Deixar para depois", durationMinutes: 1, safe: true, outcome: { text: "Você se afasta do rádio." } }),
+    ],
+  },
+  {
+    id: "vs_radio_final", title: "O rádio de bancada", locationId: "estacao", priority: 43, repeatable: true,
+    // Separada da sintonia: antes a cena voltava de hora em hora com "Ligar" trancado até o fim da história.
+    trigger: { afterEvent: "vs_estacao_interior", hasItem: "bateria_emergencia", flagsAll: ["tavares_resolvido", "sinal_final_alinhado"], flagsAny: ["iara_em_paz", "iara_furia"], cooldownMinutes: 60 },
+    body: "[hopeful] O rádio é antigo, mas os fios parecem inteiros. A bateria de emergência do avião tem terminais compatíveis — talvez.",
+    choices: [
+      c("vs_radio_final", "ligar", {
         label: "Ligar a bateria ao rádio", durationMinutes: 20,
         requirements: { flagsAll: ["tavares_resolvido", "sinal_final_alinhado"], flagsAny: ["iara_em_paz", "iara_furia"] },
         outcome: {
           text: "Você descasca os fios e conecta os terminais.",
           check: { attr: "conhecimento_tecnico", base: 45, itemBonus: { canivete: 10 }, experience: ["tecnologia", "mecanica"] },
           success: { text: "O painel acende. [relieved] Estática — e então uma voz real, cansada, de uma torre de controle regional. Você repete as coordenadas do mapa. [calm] “Recebido. Aguentem firme.”", effects: [{ op: "end", ending: "resgate_radio" }] },
-          failure: { text: "Faísca. Cheiro de plástico queimado. O rádio chia e morre de novo. A bateria esquentou.", effects: [{ op: "wound", part: "braco_dir", type: "queimadura", severity: 1 }, { op: "itemDurability", item: "bateria_emergencia", delta: -50 }] },
+          failure: { text: "Faísca. Cheiro de plástico queimado. O rádio chia e morre de novo. A bateria esquentou — espere esfriar e tente outra vez.", effects: [{ op: "wound", part: "braco_dir", type: "queimadura", severity: 1 }, { op: "itemDurability", item: "bateria_emergencia", delta: -15 }] },
         },
       }),
-      c("vs_radio", "denunciar", {
+      c("vs_radio_final", "denunciar", {
         label: "Ligar o rádio com Brandão e denunciar a rota", durationMinutes: 30, requirements: { flagsAll: ["brandao_salvo", "tavares_resolvido", "sinal_final_alinhado"], flagsAny: ["iara_em_paz", "iara_furia"], cluesAny: ["rumo_074"] },
         outcome: {
           text: "Brandão segura a lanterna enquanto você emenda os fios. Ele sabe qual fio é qual.",
           check: { attr: "conhecimento_tecnico", base: 65, itemBonus: { canivete: 10 }, experience: ["tecnologia", "mecanica"] },
           success: { text: "O painel acende. Brandão pega o microfone, respira fundo e fala tudo: o rumo 074, a pista de terra, os nomes, os voos de 1998. [pause] Do outro lado, depois de um longo silêncio: [calm] “Gravando. Continue, comandante.”", effects: [{ op: "end", ending: "a_verdade" }] },
-          failure: { text: "Faísca. O rádio morre de novo. Brandão xinga baixinho e começa a desencapar outro fio.", effects: [{ op: "itemDurability", item: "bateria_emergencia", delta: -35 }] },
+          failure: { text: "Faísca. O rádio morre de novo. Brandão xinga baixinho e começa a desencapar outro fio.", effects: [{ op: "itemDurability", item: "bateria_emergencia", delta: -15 }] },
         },
       }),
-      c("vs_radio", "sintonizar", {
-        label: "Procurar a frequência dos números", durationMinutes: 10,
-        outcome: { text: "Com a bateria, o receptor capta a voz: “sete… quatro… zero”. O sinal é fortíssimo — não vem de longe. Vem de um ponto do próprio vale, a sudeste.", effects: [{ op: "clue", key: "frequencia" }, { op: "reveal", location: "rochedo" }, { op: "revealLink", from: "penhasco", to: "rochedo" }, { op: "status", field: "stress", delta: 8 }] },
-      }),
-      c("vs_radio", "depois", { label: "Deixar para depois", durationMinutes: 1, safe: true, outcome: { text: "Você se afasta do rádio." } }),
+      c("vs_radio_final", "depois", { label: "Deixar para depois", durationMinutes: 1, safe: true, outcome: { text: "Você se afasta do rádio." } }),
     ],
   },
   {
@@ -464,24 +490,25 @@ const EVENTS: EventDef[] = [
     ],
   },
   {
-    id: "vs_rochedo", title: "A caixa no rochedo", locationId: "rochedo", priority: 40, repeatable: false,
-    trigger: {},
+    id: "vs_rochedo", title: "A caixa no rochedo", locationId: "rochedo", priority: 40, repeatable: true,
+    // Volta até alguém abrir a caixa: deixar para depois (ou errar) não pode sumir com os sinalizadores.
+    trigger: { flagsNone: ["caixa_rochedo_aberta"], cooldownMinutes: 120 },
     body: "No topo, junto ao marco geodésico, uma caixa metálica com cadeado de combinação de três dígitos. Daqui se vê o vale inteiro — e qualquer coisa no céu veria você.",
     choices: [
       c("vs_rochedo", "740", {
         label: "Tentar a combinação 7-4-0", durationMinutes: 5, requirements: { cluesAny: ["frequencia", "diario_iara", "mapa_alfinetes", "pedido_caixa", "rumo_074", "bolsa_iara"] },
-        outcome: { text: "Clique. Dentro: dois sinalizadores, embalados em plástico, e uma foto antiga de uma mulher de capa de chuva segurando uma prancheta.", effects: [{ op: "addItem", item: "sinalizador", qty: 2 }, { op: "clue", key: "caixa_aberta" }] },
+        outcome: { text: "Clique. Dentro: dois sinalizadores, embalados em plástico, e uma foto antiga de uma mulher de capa de chuva segurando uma prancheta.", effects: [{ op: "addItem", item: "sinalizador", qty: 2 }, { op: "clue", key: "caixa_aberta" }, { op: "flag", key: "caixa_rochedo_aberta" }] },
       }),
       c("vs_rochedo", "forcar", {
         label: "Forçar o cadeado", durationMinutes: 20,
         outcome: {
           text: "Você bate no cadeado com uma pedra.",
           check: { attr: "forca", base: 30, itemBonus: { canivete: 15 } },
-          success: { text: "A haste cede. Dentro: um sinalizador.", effects: [{ op: "addItem", item: "sinalizador" }] },
+          success: { text: "A haste cede. Dentro: um sinalizador.", effects: [{ op: "addItem", item: "sinalizador" }, { op: "flag", key: "caixa_rochedo_aberta" }] },
           failure: { text: "A pedra escorrega e esmaga seus dedos.", effects: [{ op: "wound", part: "braco_esq", type: "contusao", severity: 1 }] },
         },
       }),
-      c("vs_rochedo", "deixar", { label: "Deixar a caixa", durationMinutes: 1, safe: true, outcome: { text: "Você deixa a caixa onde está." } }),
+      c("vs_rochedo", "deixar", { label: "Deixar a caixa por enquanto", durationMinutes: 1, safe: true, outcome: { text: "Você deixa a caixa onde está. Ela não vai a lugar nenhum." } }),
     ],
   },
   {
@@ -495,7 +522,8 @@ const EVENTS: EventDef[] = [
   },
   {
     id: "vs_resgate", title: "Céu aberto", locationId: null, priority: 80, repeatable: true,
-    trigger: { day: true, openSky: true, flagsAll: ["busca_ativa"], cooldownMinutes: 60 },
+    // Só abre quando o resgate é possível: antes disso a cena voltava de hora em hora só com "Esperar".
+    trigger: { day: true, openSky: true, flagsAll: ["busca_ativa", "tavares_resolvido", "sinal_final_alinhado"], flagsAny: ["iara_em_paz", "iara_furia"], cooldownMinutes: 60 },
     body: "Daqui você tem visão limpa do céu. [urgent] Se o helicóptero voltar, é agora ou nunca.",
     choices: [
       c("vs_resgate", "sinalizador", {
@@ -600,8 +628,10 @@ const EVENTS: EventDef[] = [
     ],
   },
   {
-    id: "vs_celular", title: "23h40", locationId: null, priority: 58, repeatable: false,
-    trigger: { anyLocation: true, night: true, minMinute: 1440, hasItem: "celular" },
+    id: "vs_celular", title: "23h40", locationId: null, priority: 58, repeatable: true,
+    // Volta na noite seguinte até a gravação ser ouvida: é a pista de Iara que quase todos têm à mão,
+    // e sem pista de Iara o chamado final (ch_iara_sinal) nunca acontece.
+    trigger: { anyLocation: true, night: true, minMinute: 1440, hasItem: "celular", flagsNone: ["voz_ouvida"], cooldownMinutes: 1200 },
     body: "No seu bolso, o celular acende sozinho. Sem sinal, sem rede, sem chamada. [pause] Do alto-falante, abafada, vem a voz de mulher: [whispers] “sete… quatro… zero…” [long pause] E depois, pela primeira vez, uma palavra a mais. O seu nome.",
     choices: [
       c("vs_celular", "ouvir", {
@@ -609,7 +639,7 @@ const EVENTS: EventDef[] = [
         outcome: {
           text: "Você segura o aparelho com as duas mãos.",
           check: { attr: "controle_emocional", base: 45 },
-          success: { text: "Na terceira repetição, você percebe: o mesmo chiado, na mesma sílaba, a mesma respiração antes do zero. [pause] Não é alguém falando. É uma gravação. Mas o seu nome não estava nela da primeira vez.", effects: [{ op: "clue", key: "voz_gravada" }, { op: "status", field: "stress", delta: 10 }] },
+          success: { text: "Na terceira repetição, você percebe: o mesmo chiado, na mesma sílaba, a mesma respiração antes do zero. [pause] Não é alguém falando. É uma gravação. Mas o seu nome não estava nela da primeira vez.", effects: [{ op: "clue", key: "voz_gravada" }, { op: "flag", key: "voz_ouvida" }, { op: "status", field: "stress", delta: 10 }] },
           failure: { text: "A voz fica mais perto do microfone. Você larga o celular no chão e ele se apaga. Suas mãos não param de tremer.", effects: [{ op: "status", field: "stress", delta: 25 }] },
         },
       }),
@@ -664,7 +694,7 @@ const EVENTS: EventDef[] = [
           text: "Você desce pela margem e se encolhe entre as pedras, com água até a cintura.",
           check: { attr: "furtividade", base: 50 },
           success: { text: "Passos nas tábuas, bem em cima de você. “O Brandão não pousou onde devia.” “Então a gente pega a carga na ravina e acha ele depois. E quem mais tiver no avião.” [pause] O motor se afasta rumo ao penhasco.", effects: [{ op: "wet", amount: 45 }, { op: "clue", key: "donos_carga" }, { op: "status", field: "stress", delta: 10 }] },
-          failure: { text: "Uma pedra rola sob seu pé. Os passos param. Um facho de lanterna varre a margem por um minuto inteiro — e então, sem pressa, eles vão embora.", effects: [{ op: "wet", amount: 45 }, { op: "flag", key: "donos_alerta" }, { op: "status", field: "stress", delta: 22 }] },
+          failure: { text: "Uma pedra rola sob seu pé. Os passos param. Um facho de lanterna varre a margem por um minuto inteiro — e então, sem pressa, eles vão embora.", effects: [{ op: "wet", amount: 45 }, { op: "flag", key: "donos_alerta" }, { op: "clue", key: "donos_carga" }, { op: "status", field: "stress", delta: 22 }] },
         },
       }),
       c("vs_donos_carga", "pedir", {
@@ -673,10 +703,10 @@ const EVENTS: EventDef[] = [
           text: "Você levanta os braços e atravessa a clareira.",
           check: { attr: "comunicacao", base: 40 },
           success: { text: "Um deles sorri demais. “Claro, vem com a gente.” O outro olha para o seu rosto como quem decora. [pause] Você diz que vai buscar alguém ferido — e some na mata antes que respondam.", effects: [{ op: "clue", key: "donos_carga" }, { op: "flag", key: "donos_alerta" }, { op: "status", field: "stress", delta: 15 }] },
-          failure: { text: "“Cadê a carga?” A coronha da espingarda acerta suas costelas antes de você entender a pergunta. Você foge pela mata, sem ar.", effects: [{ op: "wound", part: "torso", type: "contusao", severity: 2 }, { op: "flag", key: "donos_alerta" }, { op: "status", field: "stress", delta: 20 }] },
+          failure: { text: "“Cadê a carga?” A coronha da espingarda acerta suas costelas antes de você entender a pergunta. Você foge pela mata, sem ar.", effects: [{ op: "wound", part: "torso", type: "contusao", severity: 2 }, { op: "flag", key: "donos_alerta" }, { op: "clue", key: "donos_carga" }, { op: "status", field: "stress", delta: 20 }] },
         },
       }),
-      c("vs_donos_carga", "imovel", { label: "Ficar imóvel entre as árvores até passarem", durationMinutes: 20, safe: true, outcome: { text: "Você não respira direito até o som do motor sumir para os lados do penhasco. Eles não estavam procurando ajuda. Estavam procurando alguém.", effects: [{ op: "status", field: "stress", delta: 12 }] } }),
+      c("vs_donos_carga", "imovel", { label: "Ficar imóvel entre as árvores até passarem", durationMinutes: 20, safe: true, outcome: { text: "Você não respira direito até o som do motor sumir para os lados do penhasco. Eles não estavam procurando ajuda. Estavam procurando alguém.", effects: [{ op: "clue", key: "donos_carga" }, { op: "status", field: "stress", delta: 12 }] } }),
     ],
   },
   {
@@ -910,28 +940,30 @@ export const VALE_SILENTE: GameContent = {
     { itemId: "celular", container: "pockets", state: { battery: 23 } },
     { itemId: "garrafa_agua", container: "backpack_side" },
     { itemId: "barra_cereal", container: "backpack_side", qty: 2 },
-    // Kit do bolso da poltrona: garante que o tutorial de sangramento seja jogável.
+    // Kit do bolso da poltrona: garante que o tutorial de sangramento seja jogável —
+    // e que a primeira noite tenha como virar fogueira (sem fogo, o frio mata antes da história).
     { itemId: "atadura", container: "pockets" },
+    { itemId: "fosforos", container: "pockets" },
   ],
   objectives: [
     {
       id: "radio", title: "Chamar pelo rádio",
       steps: [
-        { id: "bateria", label: "Recuperar a bateria de emergência", hint: "Está no compartimento de carga do avião, emperrado. Força ou uma alavanca resolvem.", locations: ["destrocos"], done: [{ hasAnyItem: ["bateria_emergencia"] }] },
+        { id: "bateria", label: "Recuperar a bateria de emergência", hint: "Está no compartimento de carga do avião, emperrado. Força ou uma alavanca resolvem.", locations: ["destrocos"], done: [{ hasAnyItem: ["bateria_emergencia"] }, { flagsAll: ["bagageiro_aberto"] }] },
         { id: "estacao", label: "Entrar na estação de rádio", hint: "A antena a leste. O portão tem cadeado — procure outro jeito de entrar.", locations: ["estacao"], done: [{ flagsAll: ["estacao_aberta"] }] },
         { id: "tavares", label: "Impedir que Tavares feche a saída", hint: "Siga a carga até a ponte. Ele só aparece quando sabe que você descobriu demais.", locations: ["ponte", "penhasco"], done: [{ flagsAll: ["tavares_resolvido"] }] },
         { id: "iara", label: "Responder à voz de Iara", hint: "Às 23h40, volte à estação e escute até o fim.", locations: ["estacao"], done: [{ flagsAny: ["iara_em_paz", "iara_furia"] }] },
         { id: "observatorio", label: "Alinhar o Observatório 740", hint: "Suba ao cume e alinhe os três relés. Sem isso, a tempestade engole qualquer transmissão.", locations: ["observatorio"], done: [{ flagsAll: ["sinal_final_alinhado"] }] },
-        { id: "ligar", label: "Fazer a transmissão final", hint: "Volte ao rádio da estação. Agora o mundo conseguirá ouvir.", locations: ["estacao"] },
+        { id: "ligar", label: "Fazer a transmissão final", hint: "Quem carrega a bateria de emergência volta ao rádio da estação e liga os fios. Agora o mundo conseguirá ouvir.", locations: ["estacao"] },
       ],
     },
     {
       id: "sinal", title: "Sinalizar para o resgate",
       steps: [
         { id: "busca", label: "Descobrir se alguém está procurando", hint: "Sobreviva à noite. De dia, escute o céu.", done: [{ flagsAll: ["busca_ativa"] }] },
-        { id: "sinal", label: "Conseguir um jeito de sinalizar", hint: "Um sinalizador — ou lenha seca e algo para acender fogo.", locations: ["rochedo", "estacao"], done: [{ hasAnyItem: ["sinalizador"] }, { hasAllItems: ["galhos_secos"], hasAnyItem: ["isqueiro", "fosforos"] }] },
         { id: "verdade", label: "Resolver o que prende o vale", hint: "Tavares e Iara precisam de uma resposta antes de qualquer resgate ser seguro.", locations: ["ponte", "estacao"], done: [{ flagsAll: ["tavares_resolvido"], flagsAny: ["iara_em_paz", "iara_furia"] }] },
         { id: "ceu", label: "Abrir o sinal no Observatório 740", hint: "Alinhe a frequência no cume antes de chamar o helicóptero.", locations: ["observatorio"], done: [{ flagsAll: ["sinal_final_alinhado"] }] },
+        { id: "sinal", label: "Conseguir um jeito de sinalizar", hint: "Um sinalizador (a caixa no rochedo, ou o piloto) — ou lenha seca e algo para acender fogo.", locations: ["rochedo", "estacao"], done: [{ hasAnyItem: ["sinalizador"] }, { hasAllItems: ["galhos_secos"], hasAnyItem: ["isqueiro", "fosforos"] }] },
         { id: "resgate", label: "Ir a um lugar de céu aberto, de dia", hint: "Do rochedo, do mirante ou do observatório o helicóptero consegue ver você.", locations: ["observatorio", "rochedo", "penhasco"] },
       ],
     },

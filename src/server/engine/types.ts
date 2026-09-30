@@ -242,7 +242,10 @@ export interface LocationDef {
     naturalShelter?: boolean;
     canBuildShelter?: boolean;
     woodSource?: boolean;
-    water?: "stream" | "lake";
+    /** "rain": tambor de água da chuva (limpa); córrego e lago precisam de tratamento. */
+    water?: "stream" | "lake" | "rain";
+    /** Chance base (%) de achar frutos/raízes a cada busca — não se esgota. */
+    forage?: number;
     openSky?: boolean;
     loot?: LootEntry[];
     examineText?: string;
@@ -583,6 +586,9 @@ export const ACTION_TYPES = [
   "esperar",
   "usar_poder",
   "alimentar_se",
+  "beber_fonte",
+  "dar_item",
+  "usar_em_amigo",
 ] as const;
 export type ActionType = (typeof ACTION_TYPES)[number];
 

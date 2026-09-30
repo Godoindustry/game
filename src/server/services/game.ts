@@ -18,7 +18,7 @@ import { addLog, loadActiveEvent, loadCampaignCharacters, loadWorld, saveCharact
 import { unlockAchievement } from "./achievements";
 import { getScenario } from "../content/valeSilente";
 import { ACTION_TYPES, type ActionInput, type ActionReport, type CharacterState, type GameContent, type WorldState } from "../engine/types";
-import { validateAction, neighbors, travelMinutes } from "../engine/actions";
+import { friendUseOf, validateAction, neighbors, travelMinutes, treatNeeds } from "../engine/actions";
 import { defaultActionFor, resolveRound, type RoundAction } from "../engine/round";
 import { eventById } from "../engine/events";
 import { checkPreview, meetsRequirements } from "../engine/effects";
@@ -27,7 +27,7 @@ import { inventorySummary, itemDef, loadRatio } from "../engine/inventory";
 import { clockLabel, dayNumber, fireActive, isNight, isSheltered, locationTemp } from "../engine/physiology";
 import { aiClassifyIntent, aiCreatureAttitude, aiNarrative, aiNpcReply } from "../ai/service";
 import { bodyCondition, conditionLine, conditionWords } from "../engine/condition";
-import { currentObjective, urgentNeed } from "../engine/objective";
+import { currentObjective, locationResources, urgentNeed } from "../engine/objective";
 import { stripVoiceTags, toVoiceText } from "@/shared/voiceTags";
 import { CREATURE_ATTITUDES, encounterBlocked, fallbackAttitude, nightEncounter, type CreatureAttitude } from "../engine/vampire";
 import { clientDice, rngFor } from "../engine/rng";
@@ -105,7 +105,7 @@ export async function submitAction(user: SessionUser, campaignId: string, input:
   const chars = await loadCampaignCharacters(campaignId);
   const char = chars.find((c) => c.id === charId)!;
   const activeEvent = await loadActiveEvent(campaignId);
-  const v = validateAction({ char, world, content, activeEvent }, { type: data.type, params: data.params });
+  const v = validateAction({ char, world, content, activeEvent, party: chars }, { type: data.type, params: data.params });
   if (!v.ok) throw badRequest(v.error, "acao_invalida");
 
   const now = new Date();
@@ -333,7 +333,7 @@ export async function tryResolveRound(campaignId: string, now = new Date()): Pro
     if (!char?.alive) continue;
     const input: ActionInput = { type: a.type as ActionInput["type"], params: json(a.params, {}) };
     // Revalida: outra ação da mesma rodada pode ter mudado o mundo (ex.: item já pego).
-    const v = validateAction({ char, world, content, activeEvent }, input);
+    const v = validateAction({ char, world, content, activeEvent, party: chars }, input);
     if (!v.ok) {
       reports[a.id] = { characterId: char.id, actionType: input.type, success: false, summary: `Não foi possível: ${v.error}`, lines: [v.error], effects: [], minutes: 0, tags: [] };
       continue;
@@ -600,7 +600,7 @@ export async function getState(user: SessionUser, campaignId: string) {
   const loc = me ? me.status.locationId : content.startLocation;
   const story = campaignStory(world, content, activeEvent?.eventId ?? null);
   const canAct = !!me && me.alive && camp.status === "active" && !myPending;
-  const vctx = me ? { char: me, world, content, activeEvent } : null;
+  const vctx = me ? { char: me, world, content, activeEvent, party: chars } : null;
   const check = (input: ActionInput) => {
     if (!vctx || !canAct) return { available: false, reason: myPending ? "Aguarde a ação atual." : "Indisponível.", minutes: 0 };
     const v = validateAction(vctx, input);
@@ -637,7 +637,7 @@ export async function getState(user: SessionUser, campaignId: string) {
     },
     me: me
       ? {
-          ...characterView(me, content, world, inEvent, check),
+          ...characterView(me, content, world, inEvent, check, camp.mode === "coop" ? chars.filter((c) => c.id !== me.id && c.alive) : []),
           // Classe, disciplinas e recurso (Fome/Fúria/Eco/Obsessão), com as ações prontas para enviar.
           power: {
             ...powerView(me, world.minute),
@@ -696,6 +696,7 @@ export async function getState(user: SessionUser, campaignId: string) {
           shelter: world.locations[l.id].shelterBuilt || !!l.properties.naturalShelter || !!l.properties.indoor,
           danger: l.dangerLevel,
           regionId: content.regions?.find((region) => region.locationIds.includes(l.id))?.id ?? null,
+          resources: locationResources(world, content, l.id),
         })),
       links: content.links
         .filter((k) => world.locations[k.from]?.discovered && world.locations[k.to]?.discovered)
@@ -729,7 +730,21 @@ export async function getState(user: SessionUser, campaignId: string) {
           volumeMl: content.items[g.itemId].volumeMl,
           ...check({ type: "pegar_item", params: { groundItemId: g.id } }),
         })),
-      actions: inEvent ? [] : CANDIDATES.map((c) => ({ type: c.type, label: c.label, params: c.params ?? {}, ...check({ type: c.type, params: c.params ?? {} }) })),
+      actions: inEvent
+        ? []
+        : [
+            ...(content.locations[loc].properties.water
+              ? [{
+                  type: "beber_fonte",
+                  label: content.locations[loc].properties.water === "rain" ? "Beber do tambor de chuva" : "Beber direto da fonte (não tratada)",
+                  params: {},
+                  ...check({ type: "beber_fonte", params: {} }),
+                }]
+              : []),
+            ...CANDIDATES.map((c) => ({ type: c.type, label: candidateLabel(c.type, c.label, me, content), params: c.params ?? {}, ...check({ type: c.type, params: c.params ?? {} }) })),
+          ],
+      // O que dá para conseguir aqui (água, frutos, lenha, abrigo, itens ainda escondidos).
+      resources: locationResources(world, content, loc),
       npc: (() => {
         const npc = Object.values(content.npcs).find((n) => n.locationId === loc && world.flags[n.presentFlag] && !world.flags[n.goneFlag]);
         return npc ? { id: npc.id, name: npc.name, trust: Number(world.flags.confianca_piloto ?? 0) } : null;
@@ -786,7 +801,7 @@ export async function getState(user: SessionUser, campaignId: string) {
         : null,
     objective: me && me.alive && camp.status === "active" ? currentObjective(me, world, content) : null,
     story,
-    urgent: me && camp.status === "active" ? urgentNeed(me) : null,
+    urgent: me && camp.status === "active" ? urgentNeed(me, world, content) : null,
     lastRoll: lastResolution && rollMatch
       ? {
           id: lastResolution.action_id,
@@ -844,6 +859,7 @@ function characterView(
   world: WorldState,
   inEvent: boolean,
   check: (i: ActionInput) => { available: boolean; reason: string | null; minutes: number },
+  friends: CharacterState[] = [],
 ) {
   const lineageKey = lineageOf(c);
   const lineageInfo = LINEAGES[lineageKey];
@@ -856,8 +872,8 @@ function characterView(
     progress: awakening?.progress ?? (lineageKey === "human" ? 0 : 1),
     max: awakening?.max ?? 1,
   };
+  const openWounds = c.wounds.filter((w) => !w.healed);
   const itemActions = (invId: string) => {
-    if (inEvent) return [];
     const out: { type: string; label: string; params: Record<string, unknown>; available: boolean; reason: string | null; minutes: number }[] = [];
     const inv = c.inventory.find((i) => i.id === invId)!;
     const def = itemDef(content, inv.itemId);
@@ -865,6 +881,17 @@ function characterView(
       const r = check({ type, params });
       if (r.available || ["comer", "beber", "equipar", "desequipar"].includes(type)) out.push({ type, label, params, ...r });
     };
+    // Cuidados direto do item (valem até no meio de um evento): o jogador vê para que cada um serve.
+    if (inv.itemId === "atadura") {
+      const w = openWounds.find((x) => x.bleedingRate > 0) ?? openWounds.find((x) => treatNeeds(x).bandage);
+      if (w) push("tratar_ferimento", w.bleedingRate > 0 ? "Enfaixar e estancar o sangue" : "Enfaixar ferimento", { woundId: w.id, material: "atadura" });
+    }
+    if (inv.itemId === "antisseptico") {
+      const w = openWounds.find((x) => treatNeeds(x).clean);
+      if (w) push("tratar_ferimento", "Limpar ferimento (evita infecção)", { woundId: w.id, material: "antisseptico" });
+    }
+    if (inv.itemId === "analgesico") push("tomar_analgesico", "Tomar (alivia a dor, não para sangue)", {});
+    if (inEvent) return out;
     if (def.properties.food) push("comer", "Comer", { inventoryItemId: invId });
     if (def.properties.water) push("beber", inv.contaminated ? "Beber (não tratada!)" : "Beber", { inventoryItemId: invId });
     if (def.properties.fillsTo) push("coletar_agua", "Encher com água daqui", { inventoryItemId: invId });
@@ -903,7 +930,32 @@ function characterView(
     },
     wounds: c.wounds
       .filter((w) => !w.healed)
-      .map((w) => ({ ...w, treat: check({ type: "tratar_ferimento", params: { woundId: w.id } }) })),
+      .map((w) => {
+        const need = treatNeeds(w);
+        return {
+          ...w,
+          treat: check({ type: "tratar_ferimento", params: { woundId: w.id } }),
+          // Um botão por material: atadura estanca/imobiliza, antisséptico limpa. Nada de "Tratar" misterioso.
+          care: [
+            ...(need.bandage
+              ? [{
+                  material: "atadura" as const,
+                  label: w.bleedingRate > 0 ? "Enfaixar e estancar" : ["fratura", "entorse"].includes(w.type) ? "Imobilizar" : "Enfaixar",
+                  hint: "Gasta 1 atadura. Teste de Medicina: se falhar, o sangue só diminui.",
+                  ...check({ type: "tratar_ferimento", params: { woundId: w.id, material: "atadura" } }),
+                }]
+              : []),
+            ...(need.clean
+              ? [{
+                  material: "antisseptico" as const,
+                  label: "Limpar",
+                  hint: "Gasta antisséptico. Evita infecção, mas não para o sangue.",
+                  ...check({ type: "tratar_ferimento", params: { woundId: w.id, material: "antisseptico" } }),
+                }]
+              : []),
+          ],
+        };
+      }),
     inventory: c.inventory.map((i) => {
       const def = itemDef(content, i.itemId);
       return {
@@ -919,11 +971,43 @@ function characterView(
         readable: def.properties.readable ?? null,
         essential: !!def.properties.essential,
         actions: itemActions(i.id),
+        // Coop: passar para quem está junto, ou usar o item nele (comida, água, curativo, remédio).
+        friends: friends.map((f) => {
+          const use = friendUseOf(content, i.itemId);
+          return {
+            characterId: f.id,
+            name: f.name,
+            nearby: f.status.locationId === c.status.locationId,
+            give: i.container === "equipped" ? null : check({ type: "dar_item", params: { inventoryItemId: i.id, targetCharacterId: f.id } }),
+            useOn: use
+              ? {
+                  label: FRIEND_USE_LABEL[use],
+                  ...check({ type: "usar_em_amigo", params: { inventoryItemId: i.id, targetCharacterId: f.id } }),
+                }
+              : null,
+          };
+        }),
       };
     }),
     load: { ...inventorySummary(c, content), ratio: Math.round(loadRatio(c, content) * 100) / 100 },
   };
 }
+
+/** Rótulo que já avisa o que vai pesar (lenha molhada deixa a fogueira bem mais difícil). */
+function candidateLabel(type: ActionInput["type"], label: string, me: CharacterState | null, content: GameContent): string {
+  if (type !== "acender_fogueira" || !me) return label;
+  const wood = me.inventory.filter((i) => i.itemId === "galhos_secos");
+  if (wood.length && wood.every((i) => i.wetness > 50)) return `${label} (lenha molhada: difícil)`;
+  return label;
+}
+
+const FRIEND_USE_LABEL = {
+  comida: "Dar de comer",
+  agua: "Dar de beber",
+  atadura: "Enfaixar a ferida",
+  antisseptico: "Limpar a ferida",
+  analgesico: "Dar o analgésico",
+} as const;
 
 const CONTAINER_LABEL = {
   pockets: "bolsos",

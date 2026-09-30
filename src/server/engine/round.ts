@@ -82,8 +82,9 @@ export function resolveRound(input: RoundInput): RoundResult {
         if (votes.length > 1 && v.choiceId !== choice.id) {
           ctx.lines.push(`O grupo decidiu: “${choice.label}”.`);
         }
-        // O dado do aparelho só vale para a escolha que o próprio jogador votou.
-        const dice = v.choiceId === choice.id ? clientDice(v.action.params.d20) : null;
+        // O dado rolado no aparelho vale mesmo se o grupo decidiu outra coisa: a face que o
+        // jogador viu é a que conta (senão o servidor rolava outro dado escondido).
+        const dice = clientDice(v.action.params.d20);
         const res = applyChoiceOutcome(char, choice, ctx, dice);
         const rep = passTime(char, world, content, ctx.minute, choice.durationMinutes, "light");
         ctx.lines.push(...rep.notes);
@@ -104,11 +105,17 @@ export function resolveRound(input: RoundInput): RoundResult {
   }
 
   // 2. Demais ações
+  const notes: RoundResult["notes"] = [];
   for (const a of [...actions].sort((x, y) => x.characterId.localeCompare(y.characterId))) {
     if (a.type === "escolha_evento") continue;
     const char = byChar.get(a.characterId);
     if (!char || !char.alive) continue;
-    const ctx = { ...makeCtx(char.id, `action:${a.type}`), npcIntent: input.npcIntents?.[a.id] };
+    const ctx = {
+      ...makeCtx(char.id, `action:${a.type}`),
+      npcIntent: input.npcIntents?.[a.id],
+      party: chars,
+      notify: (characterId: string, text: string) => notes.push({ characterId, text }),
+    };
     const rep = resolveAction(char, a, a.minutes, a.activity, ctx);
     rep.minutes = a.minutes + ctx.extraMinutes;
     spent.set(char.id, rep.minutes);
@@ -124,7 +131,6 @@ export function resolveRound(input: RoundInput): RoundResult {
   }
 
   // 3b. Poderes: recurso (Fome/Fúria/Eco/Obsessão), compulsões e a virada para o Ato II.
-  const notes: RoundResult["notes"] = [];
   for (const c of chars) {
     if (!c.alive) continue;
     const mine = actions.find((a) => a.characterId === c.id);
@@ -157,7 +163,8 @@ export function resolveRound(input: RoundInput): RoundResult {
 
   // 5. Próximo evento
   let newEvent: RoundResult["newEvent"] = null;
-  if (!ended) {
+  // Evento ainda aberto (alguém foi estancar o sangue antes de decidir): nada novo por cima dele.
+  if (!ended && !(activeEvent && !resolvedEvent)) {
     newEvent = findTriggeredEvent(world, chars, content, (id) => rngFor(world.seed, world.round, id, "trigger"));
     if (newEvent) world.eventHistory[newEvent.event.id] = world.minute;
   }

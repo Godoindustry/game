@@ -31,17 +31,23 @@ const SCENE_OBSERVATIONS: Partial<Record<SceneTheme, SceneObservation[]>> = {
   ],
 };
 
+/** Só o evento em que EU participo vira a minha cena; o de outro jogador aparece apenas como aviso. */
+function myEvent(state: GameState) {
+  return state.event?.participating ? state.event : null;
+}
+
 function narrativeLine(state: GameState) {
+  const event = myEvent(state);
   const latest = [...state.log]
     .reverse()
     .find((entry) => ["event", "narrative", "npc", "ending", "death"].includes(entry.kind));
-  const raw = state.event?.body ?? latest?.text ?? state.here.description;
+  const raw = event?.body ?? latest?.text ?? state.here.description;
   const match = /^【([^】]+)】\s*([\s\S]*)$/.exec(raw);
   return {
-    title: state.event?.title ?? match?.[1] ?? state.here.name,
+    title: event?.title ?? match?.[1] ?? state.here.name,
     text: match?.[2] ?? raw,
     // `speaker` vem preenchido com o nome do destinatário em linhas privadas; só NPC fala de fato.
-    speaker: latest?.speakerKey?.startsWith("npc:") && latest.speaker ? latest.speaker : state.event ? "Narrador" : "O vale",
+    speaker: latest?.speakerKey?.startsWith("npc:") && latest.speaker ? latest.speaker : event ? "Narrador" : "O vale",
   };
 }
 
@@ -52,7 +58,7 @@ function narrativeLine(state: GameState) {
 function lastOutcome(state: GameState, shownText: string) {
   const log = state.log;
   let end = log.length;
-  if (state.event) {
+  if (myEvent(state)) {
     for (let i = log.length - 1; i >= 0; i--) if (log[i].kind === "event") { end = i; break; }
   }
   let start = -1;
@@ -192,7 +198,7 @@ export function StoryMode({
   const theme = sceneTheme(state);
   // No confronto, a arte enquadra o chefe e os pontos do cenário deixariam de coincidir.
   const observations = state.story.boss?.active ? [] : SCENE_OBSERVATIONS[theme] ?? [];
-  const sceneKey = `${state.here.locationId}:${state.event?.instanceId ?? state.event?.id ?? "livre"}`;
+  const sceneKey = `${state.here.locationId}:${myEvent(state)?.instanceId ?? "livre"}`;
   const [inspected, setInspected] = useState<{ sceneKey: string; id: string } | null>(null);
   const activeObservation = inspected?.sceneKey === sceneKey
     ? observations.find((item) => item.id === inspected.id) ?? null

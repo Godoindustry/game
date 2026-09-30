@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { GameState } from "./useGame";
 import { SurvivorPortrait } from "./Portrait";
 import { D20_REVEAL_MS } from "./Immersion";
+import { LOCAL_ROLL_EVENT } from "./localDice";
 
 type LogLine = GameState["log"][number];
 type SpeakerKind = "narrator" | "player" | "npc" | "creature" | "spirit";
@@ -31,7 +32,7 @@ const SCENE_POSITION = {
 } as const;
 
 function eventId(state: GameState): string {
-  return state.event?.id ?? "";
+  return state.event?.participating ? state.event.id : "";
 }
 
 function speakerFor(state: GameState, line: LogLine): SpeakerView {
@@ -100,21 +101,33 @@ export function SpokenScene({ state }: { state: GameState }) {
 
   // Declarado antes do efeito da cena: roda primeiro quando o D20 e a fala chegam juntos.
   useEffect(() => {
-    if (seenRoll.current !== undefined && rollId !== null && rollId !== seenRoll.current) rolledAt.current = Date.now();
+    if (
+      seenRoll.current !== undefined
+      && rollId !== null
+      && rollId !== seenRoll.current
+      && Date.now() - rolledAt.current > D20_REVEAL_MS
+    ) rolledAt.current = Date.now();
     seenRoll.current = rollId;
   }, [rollId]);
+
+  // No dado local, a animação começa antes de o servidor devolver a nova linha da história.
+  useEffect(() => {
+    const markRollStart = () => { rolledAt.current = Date.now(); };
+    window.addEventListener(LOCAL_ROLL_EVENT, markRollStart);
+    return () => window.removeEventListener(LOCAL_ROLL_EVENT, markRollStart);
+  }, []);
 
   useEffect(() => {
     const latestLine = latestRef.current;
     if (!latestLine) return;
     const storageKey = `vale-spoken:${campaignId}:${latestLine.id}`;
     if (window.sessionStorage.getItem(storageKey)) return;
-    window.sessionStorage.setItem(storageKey, "shown");
     const duration = Math.min(11_000, Math.max(5_800, latestLine.text.length * 42));
-    // A revelação do chefe ocupa 5,2 s e a do D20, D20_REVEAL_MS; a fala entra depois, sem cobrir o resultado.
+    // Chefe e D20 têm sua própria revelação; a fala entra depois, sem empilhar cenas.
     const afterRoll = D20_REVEAL_MS + 100 - (Date.now() - rolledAt.current);
     const delay = Math.max(bossActive ? 5_400 : 80, afterRoll);
     const showTimer = window.setTimeout(() => {
+      window.sessionStorage.setItem(storageKey, "shown");
       setActive(latestLine);
       hideTimer.current = window.setTimeout(() => setActive(null), duration);
     }, delay);

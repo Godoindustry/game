@@ -225,7 +225,7 @@ export const BOSS_EVENTS: EventDef[] = [
           text: "Você fala devagar, sem olhar para a espingarda.",
           effects: [{ op: "flag", key: "tavares_presente" }],
           check: { attr: "comunicacao", base: 45 },
-          success: { text: "[sarcastic] Ele ri. “Gente da cidade negocia bonito.” Mas escuta. E, distraído, fala demais: “A moça do rádio também quis negociar, em 98.” [pause] Ele percebe o que disse. O sorriso fica. Os olhos, não.", effects: [{ op: "clue", key: "tavares_confessa" }, { op: "status", field: "stress", delta: 8 }] },
+          success: { text: "[sarcastic] Ele ri. “Gente da cidade negocia bonito.” Mas escuta. E, distraído, fala demais: “A moça do rádio também quis negociar, em 98.” [pause] Ele percebe o que disse. O sorriso fica. Os olhos, não. [slowly] “A carga fica comigo. Vocês ficam vivos. E ninguém nunca esteve nesta ponte.” Ele se levanta e some na estrada.", effects: [{ op: "clue", key: "tavares_confessa" }, { op: "flag", key: "tavares_resolvido" }, { op: "flag", key: "tavares_acordo" }, { op: "status", field: "stress", delta: 8 }] },
           failure: { text: "“Chega de conversa.” A coronha acerta seu estômago. Você cai de joelhos na ponte. [dark laugh] “Pensa melhor. Eu espero aqui.”", effects: [{ op: "wound", part: "torso", type: "contusao", severity: 2 }] },
         },
       }),

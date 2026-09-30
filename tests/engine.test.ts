@@ -54,7 +54,7 @@ describe("Mochila: peso e volume", () => {
   it("calcula o peso total do inventário inicial", () => {
     const { char } = setup();
     // camiseta 150 + moletom 550 + jeans 700 + tênis 800 + mochila 900 + celular 190 + água 530 + 2 barras 50 + 2 ataduras 60
-    expect(totalWeightG(char, content)).toBe(3930);
+    expect(totalWeightG(char, content)).toBe(3950); // + caixa de fósforos (20 g) do bolso da poltrona
   });
   it("recusa item quando o volume do compartimento não comporta", () => {
     const { char } = setup();

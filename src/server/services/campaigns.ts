@@ -13,7 +13,7 @@ import { isPremium } from "./premium";
 import { adminLog } from "./audit";
 import { getScenario } from "../content/valeSilente";
 import { validateCharacterSheet } from "../engine/character";
-import { initCharacter, initWorld } from "../engine/setup";
+import { initCharacter, initWorld, scaleLootForParty } from "../engine/setup";
 import { startEvent } from "../engine/events";
 import { revealLocation } from "../engine/effects";
 import { neighbors } from "../engine/actions";
@@ -259,6 +259,7 @@ export async function startCampaign(user: SessionUser, campaignId: string) {
         WHERE c.campaign_id = ? ORDER BY (c.user_id = ?) DESC, m.joined_at, c.id`,
       campaignId, camp.owner_user_id,
     );
+    scaleLootForParty(world, content, charRows.length);
     const starts = content.startLocations?.length ? content.startLocations : [content.startLocation];
     const placed = charRows.map((r, i) => ({ id: r.id, loc: starts[i % starts.length] }));
     for (const p of placed) {

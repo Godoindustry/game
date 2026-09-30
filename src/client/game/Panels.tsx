@@ -60,28 +60,54 @@ export function EventCard({
       ) : (
         <div>
           {armedChoice?.roll ? (
-            <div className="d20-challenge" role="group" aria-label={`Teste de ${armedChoice.roll.attribute}`}>
-              <span className="d20-challenge-kicker">
-                TESTE DE {(ATTR_LABEL[armedChoice.roll.attribute]?.label ?? armedChoice.roll.attribute).toUpperCase()} · CD {armedChoice.roll.target} ({dcLabel(armedChoice.roll.target)})
-              </span>
-              <button
-                className={`d20-throw ${busy ? "is-rolling" : ""}`}
-                disabled={busy || !armedChoice.available}
-                onClick={() => {
-                  playCue(DICE.rolling);
-                  // Modo client: o aparelho rola e mostra na hora; as faces vão junto com a escolha.
-                  const roll = armedChoice.roll!;
-                  const d20 = roll.client ? rollOnDevice(roll) : undefined;
-                  onAct("escolha_evento", d20 ? { choiceId: armedChoice.id, d20 } : { choiceId: armedChoice.id });
-                }}
-              >
-                <span className="d20-throw-die" aria-hidden="true"><b>{busy ? "?" : "20"}</b></span>
-                <strong>{busy ? "ROLANDO..." : "ROLAR D20"}</strong>
-              </button>
-              <p>
-                Tire <b>{faceNeeded(armedChoice.roll)} ou mais</b> no d20 · seu bônus {armedChoice.roll.modifier >= 0 ? "+" : ""}{armedChoice.roll.modifier}
-                {armedChoice.roll.disadvantage && <> · <b>desvantagem</b> (rola 2, vale o menor)</>} · {armedChoice.roll.chance}% de chance
-              </p>
+            <div className={`d20-challenge ${busy ? "is-rolling" : ""}`} role="group" aria-label={`Teste de ${armedChoice.roll.attribute}`}>
+              <div className="d20-challenge-head">
+                <span className="d20-challenge-kicker">
+                  TESTE DE {(ATTR_LABEL[armedChoice.roll.attribute]?.label ?? armedChoice.roll.attribute).toUpperCase()}
+                </span>
+                <span className="d20-challenge-dc">CD <b>{armedChoice.roll.target}</b> · {dcLabel(armedChoice.roll.target)}</span>
+              </div>
+
+              <div className="d20-altar">
+                <i className="d20-orbit d20-orbit-outer" aria-hidden="true" />
+                <i className="d20-orbit d20-orbit-inner" aria-hidden="true" />
+                <button
+                  className="d20-throw"
+                  disabled={busy || !armedChoice.available}
+                  aria-label={busy ? "Dado rolando" : `Rolar d20: precisa tirar ${faceNeeded(armedChoice.roll)} ou mais`}
+                  onClick={() => {
+                    playCue(DICE.rolling);
+                    // Modo client: o aparelho rola; as faces finais seguem junto com a escolha.
+                    const roll = armedChoice.roll!;
+                    const d20 = roll.client ? rollOnDevice(roll) : undefined;
+                    onAct("escolha_evento", d20 ? { choiceId: armedChoice.id, d20 } : { choiceId: armedChoice.id });
+                  }}
+                >
+                  <span className="d20-throw-die" aria-hidden="true">
+                    <i className="d20-facet d20-facet-a" />
+                    <i className="d20-facet d20-facet-b" />
+                    <i className="d20-facet d20-facet-c" />
+                    <b>{busy ? "?" : "20"}</b>
+                  </span>
+                  <span className="d20-throw-copy">
+                    <small>{busy ? "O destino está em movimento" : "Toque para lançar"}</small>
+                    <strong>{busy ? "ROLANDO..." : "ROLAR D20"}</strong>
+                  </span>
+                </button>
+              </div>
+
+              <div className="d20-odds" aria-label={`${armedChoice.roll.chance}% de chance de sucesso`}>
+                <span><b>{faceNeeded(armedChoice.roll)}+</b> NO DADO</span>
+                <span className="d20-odds-track" role="progressbar" aria-valuenow={armedChoice.roll.chance} aria-valuemin={0} aria-valuemax={100}>
+                  <i style={{ width: `${armedChoice.roll.chance}%` }} />
+                </span>
+                <span><b>{armedChoice.roll.chance}%</b> DE CHANCE</span>
+              </div>
+
+              <div className="d20-test-tags">
+                <span>SEU BÔNUS <b>{armedChoice.roll.modifier >= 0 ? "+" : ""}{armedChoice.roll.modifier}</b></span>
+                {armedChoice.roll.disadvantage && <span className="is-danger">DESVANTAGEM · VALE O MENOR</span>}
+              </div>
               <button className="d20-choice-back" disabled={busy} onClick={() => setArmedRoll(null)}>
                 ← Escolher outra ação
               </button>
@@ -100,8 +126,8 @@ export function EventCard({
                 title={c.reason ?? undefined}
               >
                 <span className="choice-key" aria-hidden="true">{String.fromCharCode(65 + i)}</span>
-                <span style={{ flex: 1, textAlign: "left" }}>
-                  <span style={{ display: "block", fontWeight: 500, fontSize: 14 }}>{c.label}</span>
+                <span className="choice-copy">
+                  <span className="choice-label">{c.label}</span>
                   {c.roll && (
                     <span className="choice-roll">
                       D20 · {ATTR_LABEL[c.roll.attribute]?.label ?? c.roll.attribute} · CD {c.roll.target} ({dcLabel(c.roll.target)}) · {c.roll.chance}%
@@ -113,6 +139,7 @@ export function EventCard({
                     </span>
                   )}
                 </span>
+                <span className="choice-arrow" aria-hidden="true">↗</span>
               </button>
             ))}
           {event.participants.length > 1 && (
@@ -189,6 +216,31 @@ export function PendingCard({
 }
 
 // ── Local atual e ações ────────────────────────────────────────────────────
+type Resource = GameState["here"]["resources"][number];
+
+const RESOURCE_ICON: Record<Resource["key"], string> = {
+  agua: "💧",
+  agua_limpa: "💧",
+  frutos: "🍃",
+  lenha: "🪵",
+  abrigo: "⛺",
+  itens: "📦",
+};
+
+/** Etiquetas do que dá para conseguir num lugar: água, frutos, lenha, abrigo, itens. */
+export function ResourceTags({ resources, compact = false }: { resources: Resource[]; compact?: boolean }) {
+  if (!resources.length) return null;
+  return (
+    <span className="resource-tags" aria-label="O que tem aqui">
+      {resources.map((r) => (
+        <span key={r.key} className={`chip resource-${r.key}`} title={r.label}>
+          {RESOURCE_ICON[r.key]}{compact ? "" : ` ${r.label}`}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export function HereCard({
   state, onAct, busy, selected, storyMode = false,
 }: {
@@ -241,11 +293,10 @@ export function HereCard({
           </div>
           <div className="row" style={{ gap: 5 }}>
             {here.fire  && <span className="chip chip-amber">🔥 Fogo</span>}
-            {here.water && <span className="chip chip-blue">💧 Água</span>}
-            {here.sheltered && <span className="chip chip-green">⛺ Abrigo</span>}
           </div>
         </div>
         <span className="small muted">{here.description}</span>
+        <ResourceTags resources={here.resources} />
       </section>
 
       {/* Grade de ações */}
@@ -286,6 +337,7 @@ export function HereCard({
               onClick={() => onAct("mover", { to: t.to })}
             >
               <span>→ Seguir para {t.name}</span>
+              <ResourceTags resources={map.locations.find((l) => l.id === t.to)?.resources ?? []} compact />
               {!t.available && t.reason && <span className="mono tiny muted">{t.reason}</span>}
             </button>
           ))}

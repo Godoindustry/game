@@ -112,7 +112,7 @@ export async function seedContent(db: Db, force = false): Promise<void> {
         for (const [i, ch] of ev.choices.entries()) {
           await db.run(
             `INSERT INTO event_choices(id,event_id,label,duration_minutes,requirements,outcome,safe,sort_order) VALUES(?,?,?,?,?,?,?,?)
-             ON CONFLICT(id) DO UPDATE SET label=excluded.label, duration_minutes=excluded.duration_minutes,
+             ON CONFLICT(id) DO UPDATE SET event_id=excluded.event_id, label=excluded.label, duration_minutes=excluded.duration_minutes,
                requirements=excluded.requirements, outcome=excluded.outcome, safe=excluded.safe, sort_order=excluded.sort_order`,
             ch.id, ev.id, ch.label, ch.durationMinutes, JSON.stringify(ch.requirements ?? {}), JSON.stringify(ch.outcome), ch.safe ? 1 : 0, i,
           );

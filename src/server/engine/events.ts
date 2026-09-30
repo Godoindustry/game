@@ -63,17 +63,22 @@ export function findTriggeredEvent(
 ): { event: EventDef; participants: string[] } | null {
   const alive = chars.filter((c) => c.alive).sort((a, b) => a.id.localeCompare(b.id));
   const events = [...content.events].sort((a, b) => b.priority - a.priority);
-  for (const char of alive) {
+  // Um evento por vez para o grupo: vence o de maior prioridade entre TODOS os personagens.
+  // Empate gira a cada rodada. Antes o primeiro id levava tudo e os outros perdiam a noite
+  // do Despertar (com 3-4 jogadores, alguém só despertava no dia seguinte).
+  const offset = alive.length ? world.round % alive.length : 0;
+  const order = [...alive.slice(offset), ...alive.slice(0, offset)];
+  let best: { event: EventDef; char: CharacterState } | null = null;
+  for (const char of order) {
     const rng = rngForChar(char.id);
-    for (const ev of events) {
-      if (!eventEligibleFor(ev, char, world, content, rng, alive)) continue;
-      const participants = ev.locationId
-        ? alive.filter((c) => c.status.locationId === char.status.locationId).map((c) => c.id)
-        : [char.id];
-      return { event: ev, participants };
-    }
+    const ev = events.find((e) => eventEligibleFor(e, char, world, content, rng, alive));
+    if (ev && (!best || ev.priority > best.event.priority)) best = { event: ev, char };
   }
-  return null;
+  if (!best) return null;
+  const participants = best.event.locationId
+    ? alive.filter((c) => c.status.locationId === best.char.status.locationId).map((c) => c.id)
+    : [best.char.id];
+  return { event: best.event, participants };
 }
 
 export function startEvent(content: GameContent): EventDef | undefined {

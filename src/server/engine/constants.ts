@@ -8,7 +8,8 @@ export const MAX_EXPERIENCES = 2;
 
 /** Duração base (minutos de jogo) das ações. */
 export const ACTION_MINUTES = {
-  quick: 2, // comer, beber, analgésico, pegar/largar
+  quick: 2, // comer, beber, analgésico, pegar/largar, passar item
+  beber_fonte: 5,
   examinar: 5,
   coletar_agua: 5,
   procurar: 10,

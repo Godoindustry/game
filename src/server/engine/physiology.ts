@@ -121,13 +121,16 @@ export interface TimeReport {
   notes: string[];
 }
 
+// Por hora de jogo, na dificuldade Média (as outras multiplicam por `drain`).
+// Fome ~35% e sede ~20% mais lentas que na primeira versão: a simulação mostrou grupos
+// morrendo de fome em 2-3 dias, antes de a história terminar.
 const RATES: Record<Activity, { energy: number; hunger: number; thirst: number; heat: number }> = {
-  idle: { energy: -2, hunger: 3, thirst: 4, heat: 0 },
-  light: { energy: -5, hunger: 4, thirst: 5, heat: 1 },
-  walk: { energy: -10, hunger: 6, thirst: 8, heat: 3 },
-  heavy: { energy: -15, hunger: 7, thirst: 9, heat: 4 },
-  rest: { energy: 12, hunger: 3, thirst: 3.5, heat: 0 },
-  sleep: { energy: 9, hunger: 2.5, thirst: 3, heat: -1 },
+  idle: { energy: -2, hunger: 2, thirst: 3.2, heat: 0 },
+  light: { energy: -5, hunger: 2.6, thirst: 4, heat: 1 },
+  walk: { energy: -10, hunger: 4, thirst: 6.4, heat: 3 },
+  heavy: { energy: -15, hunger: 4.6, thirst: 7.2, heat: 4 },
+  rest: { energy: 12, hunger: 2, thirst: 2.8, heat: 0 },
+  sleep: { energy: 9, hunger: 1.6, thirst: 2.4, heat: -1 },
 };
 
 /**
@@ -207,8 +210,9 @@ export function passTime(
     for (const w of char.wounds) {
       if (w.healed || w.bleedingRate <= 0) continue;
       hit("Hemorragia", w.bleedingRate * hr);
-      if (!w.bandaged && w.severity <= 2) w.bleedingRate = Math.max(0, w.bleedingRate * (1 - 0.1 * hr));
-      if (w.bleedingRate < 0.05) w.bleedingRate = 0;
+      // Ferida leve coagula sozinha (meia-vida ~1 h; moderada ~2 h). Grave só para com atadura.
+      if (!w.bandaged && w.severity <= 2) w.bleedingRate *= Math.exp(-(w.severity <= 1 ? 0.7 : 0.35) * hr);
+      if (w.bleedingRate < 0.3) w.bleedingRate = 0;
     }
     if (s.thirst >= 100) hit("Desidratação", 5 * hr);
     else if (s.thirst >= 85) hit("Desidratação", 1 * hr);
@@ -230,7 +234,8 @@ export function passTime(
     // Dormir junto ao fogo acelera a cura da mordida (o calor espanta o frio que ela deixa).
     // (Não vale para quem já virou vampiro: a linhagem é permanente.)
     if (bite && bite.until !== Number.MAX_SAFE_INTEGER && activity === "sleep" && fireActive(world, s.locationId)) bite.until -= dt * 3;
-    if (bite) note("mordida", "As marcas no pescoço latejam. A sede não passa com água.");
+    // Aviso só enquanto a mordida ainda é doença; no vampiro já desperto repetia em toda ação.
+    if (bite && bite.until !== Number.MAX_SAFE_INTEGER) note("mordida", "As marcas no pescoço latejam. A sede não passa com água.");
     h.diseases = h.diseases.filter((d) => d.until > now && !(d.key === "febre" && h.infection < 40));
 
     for (const k of Object.keys(damage)) damage[k] *= diff.damage;

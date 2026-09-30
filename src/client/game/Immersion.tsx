@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameState } from "./useGame";
 import { narrateSequence, stopNarration, VOICE_STATUS_EVENT, type VoiceStatus } from "./narrator";
 import { narrationQueue } from "./narrationQueue";
@@ -9,8 +9,10 @@ import { LOCAL_ROLL_EVENT, isEchoOfLocalRoll } from "./localDice";
 import { HAPTIC, vibrate } from "./mobile";
 import { ATTR_LABEL } from "../labels";
 
-/** Quanto tempo o resultado do D20 fica no topo; a cena falada espera isso. */
-export const D20_REVEAL_MS = 3_400;
+/** Uma única régua de tempo mantém dado, som e próxima fala em sincronia. */
+export const D20_ROLL_MS = 1_250;
+export const D20_RESULT_MS = 3_000;
+export const D20_REVEAL_MS = D20_ROLL_MS + D20_RESULT_MS;
 
 type Roll = GameState["lastRoll"];
 
@@ -33,7 +35,8 @@ export function sceneTheme(state: GameState): SceneTheme {
     if (boss.id === "iara") return "radio";
     return "tracks";
   }
-  const source = `${state.here.locationId} ${state.event?.id ?? ""} ${state.event?.title ?? ""} ${state.event?.body ?? ""}`.toLocaleLowerCase("pt-BR");
+  const mine = state.event?.participating ? state.event : null;
+  const source = `${state.here.locationId} ${mine?.id ?? ""} ${mine?.title ?? ""} ${mine?.body ?? ""}`.toLocaleLowerCase("pt-BR");
   if (/lago|poço|poco|água parada|agua parada|mãe das asas|mae das asas|turbina/.test(source)) return "well";
   if (/ponte|córrego|corrego|tavares|quadriciclo|espingarda/.test(source)) return "bridge";
   if (/estacao|estação|observatorio|observatório|rádio|radio|frequência|frequencia|iara|23h40|sinal|antena|relé|rele/.test(source)) return "radio";
@@ -94,7 +97,7 @@ export function sceneArtwork(state: GameState) {
       backgroundSize: "200% 200%",
     };
   }
-  if (!state.event) {
+  if (!state.event?.participating) {
     return {
       backgroundImage: 'url("/art/vale-silente/story-chapel.webp")',
       backgroundPosition: "center center",
@@ -113,7 +116,8 @@ export function sceneArtwork(state: GameState) {
 
 export function SceneCard({ state }: { state: GameState }) {
   const last = [...state.log].reverse().find((entry) => ["event", "narrative", "npc", "ending"].includes(entry.kind));
-  const text = state.event?.body ?? last?.text ?? state.here.description;
+  const mine = state.event?.participating ? state.event : null;
+  const text = mine?.body ?? last?.text ?? state.here.description;
   const bossActive = !!state.story.boss?.active;
   return (
     <section className={`scene-card ${bossActive ? "scene-card-boss" : ""}`} style={sceneArtwork(state)} aria-label="Cena atual">
@@ -121,7 +125,7 @@ export function SceneCard({ state }: { state: GameState }) {
       <div className="scene-card-shade" />
       <div className="scene-card-content">
         <div className="scene-kicker"><span /> {bossActive ? "AMEAÇA PRESENTE" : "NARRADOR"} · {state.campaign.night ? "NOITE" : "DIA"} {state.campaign.day}</div>
-        <strong>{state.event?.title ?? state.here.name}</strong>
+        <strong>{mine?.title ?? state.here.name}</strong>
         <p>{text}</p>
       </div>
     </section>
@@ -349,35 +353,65 @@ export function NarratorVoice({ state }: { state: GameState }) {
   );
 }
 
-/** Cartão curto no topo: mostra o resultado sem cobrir as opções; um toque fecha. */
+/** Lançamento cinematográfico: suspense curto, revelação e espaço para ler o resultado. */
 export function D20Overlay({ roll: serverRoll }: { roll: Roll }) {
   const initial = useRef<string | null | undefined>(undefined);
   const [roll, setRoll] = useState<NonNullable<Roll> | null>(null);
+  const [phase, setPhase] = useState<"rolling" | "result">("rolling");
+  const [previewFace, setPreviewFace] = useState(20);
   const hideTimer = useRef<number | undefined>(undefined);
-  const soundTimer = useRef<number | undefined>(undefined);
+  const resultTimer = useRef<number | undefined>(undefined);
+  const faceTimer = useRef<number | undefined>(undefined);
 
-  const show = (next: NonNullable<Roll>, soundDelayMs: number) => {
+  const clearTimers = useCallback(() => {
     window.clearTimeout(hideTimer.current);
-    window.clearTimeout(soundTimer.current);
-    // O som do resultado entra depois do dado rolando (um efeito corta o outro).
-    soundTimer.current = window.setTimeout(() => {
+    window.clearTimeout(resultTimer.current);
+    window.clearInterval(faceTimer.current);
+  }, []);
+
+  const dismiss = useCallback(() => {
+    clearTimers();
+    setRoll(null);
+  }, [clearTimers]);
+
+  const show = useCallback((next: NonNullable<Roll>, replayRolling: boolean) => {
+    clearTimers();
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const rollTime = reduceMotion ? 0 : D20_ROLL_MS;
+
+    setRoll(next);
+    setPreviewFace(rollTime ? Math.max(1, ((next.value + 6) % 20) + 1) : next.value);
+    setPhase(rollTime ? "rolling" : "result");
+
+    // No modo servidor o retorno pode chegar depois de o primeiro som acabar; reinicia a rolagem.
+    if (replayRolling && rollTime) playCue(DICE.rolling);
+    if (rollTime) {
+      faceTimer.current = window.setInterval(() => {
+        setPreviewFace((face) => ((face * 7 + 3) % 20) + 1);
+      }, 86);
+    }
+
+    // O impacto entra somente quando a face trava; assim não corta o som do dado no meio.
+    resultTimer.current = window.setTimeout(() => {
+      window.clearInterval(faceTimer.current);
+      setPreviewFace(next.value);
+      setPhase("result");
       playCue(next.success ? DICE.success : DICE.failure);
       if (next.crit) vibrate(next.crit === "critical_success" ? HAPTIC.criticalSuccess : HAPTIC.criticalFailure);
-    }, soundDelayMs);
-    setRoll(next);
-    hideTimer.current = window.setTimeout(() => setRoll(null), D20_REVEAL_MS);
-  };
+    }, rollTime);
+    hideTimer.current = window.setTimeout(() => setRoll(null), rollTime + D20_RESULT_MS);
+  }, [clearTimers]);
 
   // Dado rolado no aparelho: aparece no toque, sem esperar a rede.
   useEffect(() => {
-    const onLocal = (event: Event) => show((event as CustomEvent<NonNullable<Roll>>).detail, 650);
+    const onLocal = (event: Event) => show((event as CustomEvent<NonNullable<Roll>>).detail, false);
     window.addEventListener(LOCAL_ROLL_EVENT, onLocal);
-    return () => {
-      window.removeEventListener(LOCAL_ROLL_EVENT, onLocal);
-      window.clearTimeout(hideTimer.current);
-      window.clearTimeout(soundTimer.current);
-    };
-  }, []);
+    return () => window.removeEventListener(LOCAL_ROLL_EVENT, onLocal);
+  }, [show]);
+
+  useEffect(() => {
+    return () => clearTimers();
+  }, [clearTimers]);
 
   // Dado do servidor (modo server, ou outro aparelho): mostra, salvo se for o eco do local.
   useEffect(() => {
@@ -388,39 +422,52 @@ export function D20Overlay({ roll: serverRoll }: { roll: Roll }) {
     if (!serverRoll || initial.current === serverRoll.id) return;
     initial.current = serverRoll.id;
     if (isEchoOfLocalRoll(serverRoll)) return;
-    const timer = window.setTimeout(() => show(serverRoll, 0), 0);
+    const timer = window.setTimeout(() => show(serverRoll, true), 0);
     return () => window.clearTimeout(timer);
-  }, [serverRoll]);
+  }, [serverRoll, show]);
 
   if (!roll) return null;
 
+  const rolling = phase === "rolling";
   const advLabel = roll.advantage ? "VANTAGEM" : roll.disadvantage ? "DESVANTAGEM" : "";
   const sign = (roll.modifier ?? 0) >= 0 ? "+" : "";
 
   return (
-    <button
-      type="button"
-      className={`dice-reveal ${roll.success ? "dice-success" : "dice-failure"} ${roll.crit ? "dice-critical" : ""}`}
+    <section
+      className={`dice-reveal is-${phase} ${!rolling && roll.success ? "dice-success" : ""} ${!rolling && !roll.success ? "dice-failure" : ""} ${!rolling && roll.crit ? "dice-critical" : ""}`}
       role="status"
-      aria-live="polite"
-      onClick={() => setRoll(null)}
+      aria-live="assertive"
+      aria-atomic="true"
     >
-      <div className="d20-stage">
-        <div className="d20-die"><span>{roll.value}</span></div>
+      <div className="dice-sigil" aria-hidden="true" />
+      <div className="d20-stage" aria-hidden="true">
+        <i className="d20-cast-shadow" />
+        <div className="d20-die">
+          <i className="d20-facet d20-facet-a" />
+          <i className="d20-facet d20-facet-b" />
+          <i className="d20-facet d20-facet-c" />
+          <span>{previewFace}</span>
+        </div>
       </div>
       <div className="dice-copy">
-        <small>TESTE DE {(ATTR_LABEL[roll.attribute]?.label ?? roll.attribute).toUpperCase()}{advLabel && ` · ${advLabel}`}</small>
+        <small><i /> TESTE DE {(ATTR_LABEL[roll.attribute]?.label ?? roll.attribute).toUpperCase()}{advLabel && ` · ${advLabel}`}</small>
         <strong>
-          {roll.crit === "critical_success" ? "SUCESSO CRÍTICO!" : roll.crit === "critical_failure" ? "FALHA CRÍTICA" : roll.success ? "SUCESSO" : "FALHA"}
+          {rolling ? "O DESTINO ROLA" : roll.crit === "critical_success" ? "SUCESSO CRÍTICO!" : roll.crit === "critical_failure" ? "FALHA CRÍTICA" : roll.success ? "SUCESSO" : "FALHA"}
         </strong>
-        <span>
-          {roll.modifier !== undefined ? (
+        {rolling ? (
+          <span className="dice-wait">A face final será revelada em um instante…</span>
+        ) : (
+          <span className="dice-equation">
+            {roll.modifier !== undefined ? (
             <>D20 <b>{roll.value}</b> {sign}{roll.modifier} = <b>{roll.finalTotal}</b> · precisava de {roll.target}</>
-          ) : (
-            <>D20 {roll.value} · precisava de {roll.target}</>
-          )}
-        </span>
+            ) : (
+              <>D20 {roll.value} · precisava de {roll.target}</>
+            )}
+          </span>
+        )}
       </div>
-    </button>
+      {!rolling && <button type="button" className="dice-dismiss" onClick={dismiss} aria-label="Fechar resultado do dado">FECHAR ×</button>}
+      <div className="dice-progress" aria-hidden="true"><i /></div>
+    </section>
   );
 }

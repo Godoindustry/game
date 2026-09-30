@@ -6,7 +6,7 @@ import { EcgLine, Logo, Spinner, useRequireUser } from "@/client/ui";
 import { useGame } from "@/client/game/useGame";
 import { CharacterPanel } from "@/client/game/CharacterPanel";
 import { Inventory } from "@/client/game/Inventory";
-import { EndScreen, Feed, PartyList } from "@/client/game/Panels";
+import { EndScreen, Feed, PartyList, ResourceTags } from "@/client/game/Panels";
 import { ObjectiveCompass } from "@/client/game/Compass";
 import { ScreenFx } from "@/client/game/ScreenFx";
 import { useAudio, useHealthAudio } from "@/client/game/useAudio";
@@ -138,6 +138,8 @@ export default function PlayPage() {
         </div>
 
         <div className="spacer" />
+
+        <ObjectiveCompass state={state} onShow={() => setPanel("map")} />
 
         {/* Relógio principal - destaque */}
         <div className="hud-block" style={{ alignItems: "center" }} data-tut-id="clock">
@@ -316,6 +318,7 @@ export default function PlayPage() {
                     <span className="story-route-copy">
                       <b>{route.name}</b>
                       <small>{location?.description ?? route.reason ?? "O caminho desaparece na névoa."}</small>
+                      {location && <ResourceTags resources={location.resources} />}
                     </span>
                     <span className="story-route-meta">
                       {location && location.danger >= 3 && <em>PERIGO</em>}

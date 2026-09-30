@@ -451,37 +451,37 @@
         "texto": "O rádio é antigo, mas os fios parecem inteiros. A bateria de emergência do avião tem terminais compatíveis, talvez."
       }
     ],
-    "vs_radio_ligar_texto": [
+    "vs_radio_final_ligar_texto": [
       {
         "arquivo": "vs_radio_ligar_texto_01.mp3",
         "texto": "Você descasca os fios e conecta os terminais."
       }
     ],
-    "vs_radio_ligar_sucesso": [
+    "vs_radio_final_ligar_sucesso": [
       {
         "arquivo": "vs_radio_ligar_sucesso_01.mp3",
         "texto": "O painel acende. Estática, e então uma voz real, cansada, de uma torre de controle regional. Você repete as coordenadas do mapa. Recebido. Aguentem firme."
       }
     ],
-    "vs_radio_ligar_falha": [
+    "vs_radio_final_ligar_falha": [
       {
         "arquivo": "vs_radio_ligar_falha_01.mp3",
         "texto": "Faísca. Cheiro de plástico queimado. O rádio chia e morre de novo. A bateria esquentou."
       }
     ],
-    "vs_radio_denunciar_texto": [
+    "vs_radio_final_denunciar_texto": [
       {
         "arquivo": "vs_radio_denunciar_texto_01.mp3",
         "texto": "Brandão segura a lanterna enquanto você emenda os fios. Ele sabe qual fio é qual."
       }
     ],
-    "vs_radio_denunciar_sucesso": [
+    "vs_radio_final_denunciar_sucesso": [
       {
         "arquivo": "vs_radio_denunciar_sucesso_01.mp3",
         "texto": "O painel acende. Brandão pega o microfone, respira fundo e fala tudo: o rumo zero sete quatro, a pista de terra, os nomes, os voos de 1998. Do outro lado, depois de um longo silêncio: Gravando. Continue, comandante."
       }
     ],
-    "vs_radio_denunciar_falha": [
+    "vs_radio_final_denunciar_falha": [
       {
         "arquivo": "vs_radio_denunciar_falha_01.mp3",
         "texto": "Faísca. O rádio morre de novo. Brandão xinga baixinho e começa a desencapar outro fio."

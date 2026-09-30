@@ -57,7 +57,7 @@ describe("Bússola de objetivo", () => {
     world.flags.tavares_resolvido = true;
     world.flags.iara_em_paz = true;
     const o = currentObjective(char, world, content)!;
-    expect(o.stepIndex).toBe(3);
+    expect(o.stepIndex).toBe(2); // busca → verdade → céu (observatório) → sinal → resgate
     expect(world.locations.observatorio.discovered).toBe(false);
     expect(o.targetLocationId).toBeNull();
     world.locations.observatorio.discovered = true;

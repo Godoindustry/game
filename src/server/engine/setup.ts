@@ -37,6 +37,25 @@ export function initWorld(content: GameContent, campaignId: string, seed: string
   return world;
 }
 
+/** Consumíveis que o grupo divide: o estoque de cada local cresce com o número de jogadores. */
+const PARTY_SCALED = new Set(["comida", "agua", "medico"]);
+/** Fogo é sobrevivência: cada um precisa de como acender. */
+const PARTY_SCALED_ITEMS = new Set(["fosforos"]);
+
+/**
+ * O saque de cada local foi pensado para 1 sobrevivente. Em grupo, comida, água e curativos
+ * são multiplicados pelo número de jogadores (ferramentas e itens de história não).
+ */
+export function scaleLootForParty(world: WorldState, content: GameContent, players: number): void {
+  if (players <= 1) return;
+  for (const loc of Object.values(content.locations)) {
+    const state = world.locations[loc.id];
+    (loc.properties.loot ?? []).forEach((entry, idx) => {
+      if (PARTY_SCALED.has(content.items[entry.itemId]?.category ?? "") || PARTY_SCALED_ITEMS.has(entry.itemId)) state.loot[idx] = entry.qty * players;
+    });
+  }
+}
+
 export function initCharacter(
   content: GameContent,
   genId: () => string,
